@@ -52,7 +52,7 @@ async function fetchFromTelegram(messageId, fromChatId) {
 }
 
 app.get("/", (req, res) => {
-  res.sendFile("index.html", { root: "src/ui" });
+  res.sendFile("index.html", { root: "ui" });
 });
 
 // Projects
@@ -105,7 +105,7 @@ app.get("/get-project/:id", async (req, res) => {
 });
 
 app.get("/upload-project", (req, res) => {
-  res.sendFile("upload-project.html", { root: "src/ui" });
+  res.sendFile("upload-project.html", { root: "ui" });
 });
 
 // Auth
@@ -147,7 +147,7 @@ app.post("/auth/login", async (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-  res.sendFile("login.html", { root: "src/ui" });
+  res.sendFile("login.html", { root: "ui" });
 });
 
 app.listen(3000, () => {

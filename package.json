@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "start": "node src/server/index.js"
+    "start": "node src/index.js"
   },
   "type": "module",
   "keywords": [],
