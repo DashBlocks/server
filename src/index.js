@@ -1,17 +1,23 @@
 import express from "express";
 import dotenv from "dotenv";
-import { Readable } from "stream";
-import bcrypt from "bcrypt";
 import multer from "multer";
-const upload = multer();
-
-dotenv.config();
+import path from "path";
+import bcrypt from "bcrypt";
+import { fileURLToPath } from "url";
+import { Readable } from "stream";
 
 const app = express();
 app.use(express.json({ limit: "50mb" }));
 
+dotenv.config();
+const upload = multer();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
+const UI_PATH = path.join(__dirname, "ui");
 const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
 const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;
 const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
@@ -52,7 +58,7 @@ async function fetchFromTelegram(messageId, fromChatId) {
 }
 
 app.get("/", (req, res) => {
-  res.sendFile("index.html", { root: "ui" });
+  res.sendFile("index.html", { root: UI_PATH });
 });
 
 // Projects
@@ -105,7 +111,7 @@ app.get("/get-project/:id", async (req, res) => {
 });
 
 app.get("/upload-project", (req, res) => {
-  res.sendFile("upload-project.html", { root: "ui" });
+  res.sendFile("upload-project.html", { root: UI_PATH });
 });
 
 // Auth
@@ -147,7 +153,7 @@ app.post("/auth/login", async (req, res) => {
 });
 
 app.get("/login", (req, res) => {
-  res.sendFile("login.html", { root: "ui" });
+  res.sendFile("login.html", { root: UI_PATH });
 });
 
 app.listen(3000, () => {
