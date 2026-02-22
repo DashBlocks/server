@@ -63,7 +63,7 @@ app.get("/", (req, res) => {
 
 // Projects
 
-app.post("/save-project", upload.single("projectFile"), async (req, res) => {
+app.post("/save-project", upload.single("file"), async (req, res) => {
   try {
     const { name, userId, password } = req.body;
     const file = req.file;

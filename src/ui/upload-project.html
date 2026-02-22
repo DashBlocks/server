@@ -22,7 +22,7 @@
     status.innerText = "Uploading...";
 
     const formData = new FormData();
-    formData.append("projectFile", fileInput.files[0]);
+    formData.append("file", fileInput.files[0]);
     formData.append("name", nameInput.value);
     formData.append("userId", session.userId);
     formData.append("password", session.password);
