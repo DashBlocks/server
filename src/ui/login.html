@@ -1,0 +1,36 @@
+<h1>Login</h1>
+<div id="status"></div>
+<form id="loginForm">
+  <input type="number" id="userId" placeholder="User ID" required /><br/>
+  <input type="password" id="password" placeholder="Password" required /><br/>
+  <button type="submit">Login</button>
+</form>
+
+<script>
+  document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const status = document.getElementById("status");
+    const userId = document.getElementById("userId").value;
+    const password = document.getElementById("password").value;
+
+    status.innerText = "Authenticating...";
+
+    const res = await fetch(`${window.location.origin}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, password })
+    });
+
+    const result = await res.json();
+    if (result.ok) {
+      localStorage.setItem("session", JSON.stringify({
+        userId: userId,
+        password: password,
+        username: result.username
+      }));
+      status.innerText = "Success!!";
+    } else {
+      status.innerText = "Failed: " + result.error;
+    }
+  });
+</script>

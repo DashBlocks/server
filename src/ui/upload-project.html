@@ -1,0 +1,46 @@
+<h1>Upload Project</h1>
+<div id="status"></div>
+<form id="uploadForm">
+  <input type="file" id="projectFile" accept=".dbp" required />
+  <input type="text" id="projectName" placeholder="Project name" required />
+  <button type="submit">Upload</button>
+</form>
+
+<script>
+  const sessionData = localStorage.getItem("session");
+  const session = sessionData ? JSON.parse(sessionData) : null;
+
+  if (!session || !session.userId || !session.password || !session.username)
+    document.body.innerHTML = "<a href='/login'>Log in first</a>";
+
+  document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const status = document.getElementById("status");
+    const fileInput = document.getElementById("projectFile");
+    const nameInput = document.getElementById("projectName");
+
+    status.innerText = "Uploading...";
+
+    const formData = new FormData();
+    formData.append("projectFile", fileInput.files[0]);
+    formData.append("name", nameInput.value);
+    formData.append("userId", session.userId);
+    formData.append("password", session.password);
+
+    try {
+      const response = await fetch("/save-project", {
+        method: "POST",
+        body: formData, 
+      });
+
+      const result = await response.json();
+      if (result.ok) {
+        status.innerHTML = "Project uploaded!!!! ID: " + result.projectId;
+      } else {
+        status.innerHTML = "Error while uploading: " + result.error;
+      }
+    } catch (error) {
+      status.innerHTML = "Error: " + error.message;
+    }
+  });
+</script>
