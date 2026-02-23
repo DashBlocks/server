@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import jwt from "jsonwebtoken";
 import multer from "multer";
 import path from "path";
 import bcrypt from "bcrypt";
@@ -8,11 +10,6 @@ import { fileURLToPath } from "url";
 import { Readable } from "stream";
 
 const app = express();
-app.use(
-  express.json({ limit: "50mb" }),
-  cors({ origin: ["https://dashblocks.github.io", "http://localhost:3000"] }),
-);
-
 dotenv.config();
 const upload = multer();
 
@@ -20,12 +17,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const APP_URL = process.env.APP_URL || "http://localhost:3000";
+const JWT_SECRET = process.env.JWT_SECRET;
 const UI_PATH = path.join(__dirname, "ui");
 const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
 const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;
 const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
+
+app.use(
+  express.json({ limit: "50mb" }),
+  cors({
+    origin: ["https://dashblocks.github.io", "http://localhost:3000"],
+    credentials: true,
+  }),
+  cookieParser(),
+);
 
 async function uploadToTelegram(chatId, buffer, filename) {
   const formData = new FormData();
@@ -67,34 +73,25 @@ app.get("/", (req, res) => {
 
 // Projects
 
-app.post("/save-project", upload.single("file"), async (req, res) => {
-  try {
-    const { name, userId, password } = req.body;
+app.post(
+  "/save-project",
+  verifyAuth,
+  upload.single("file"),
+  async (req, res) => {
+    const { name } = req.body;
     const file = req.file;
-
     if (!file)
       return res.status(400).json({ ok: false, error: "No file uploaded" });
-
-    const loginRes = await fetch(`${APP_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, password }),
-    });
-    const auth = await loginRes.json();
-    if (!auth.ok)
-      return res.status(401).json({ ok: false, error: "Unauthorized" });
 
     const projectId = await uploadToTelegram(
       PROJECTS_GROUP_ID,
       file.buffer,
-      `${name || "project"}_${auth.username}.dbp.zip`,
+      `${name || "Project"}_${req.user.username}.dbp.zip`,
     );
 
     res.json({ ok: true, projectId });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
+  },
+);
 
 app.get("/get-project/:id", async (req, res) => {
   try {
@@ -142,21 +139,62 @@ app.get("/upload-project", (req, res) => {
 app.post("/auth/login", async (req, res) => {
   try {
     const { userId, password } = req.body;
-
     const downloadUrl = await fetchFromTelegram(userId, USERS_GROUP_ID);
     const userFileRes = await fetch(downloadUrl);
     const storedUser = await userFileRes.json();
 
     const isMatch = await bcrypt.compare(password, storedUser.password);
+
     if (isMatch) {
-      res.json({ ok: true, username: storedUser.username });
+      const token = jwt.sign(
+        { userId, username: storedUser.username },
+        JWT_SECRET,
+        { expiresIn: "7d" },
+      );
+
+      res.cookie("auth_token", token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "strict",
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.json({ ok: true, username: storedUser.username, userId });
     } else {
-      res.status(401).json({ ok: false, error: "Invalid password" });
+      res
+        .status(401)
+        .json({ ok: false, error: "Invalid username or password" });
     }
   } catch (error) {
     res.status(404).json({ ok: false, error: error.message });
   }
 });
+
+app.post("/auth/logout", verifyAuth, (req, res) => {
+  res.clearCookie("auth_token");
+  res.json({ ok: true, message: "Logged out" });
+});
+
+app.get("/session", verifyAuth, (req, res) => {
+  res.json({
+    ok: true,
+    userId: req.user.userId,
+    username: req.user.username,
+  });
+});
+
+const verifyAuth = (req, res, next) => {
+  const token = req.cookies.auth_token;
+  if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ ok: false, error: "Invalid session" });
+  }
+};
 
 app.get("/login", (req, res) => {
   res.sendFile("login.html", { root: UI_PATH });

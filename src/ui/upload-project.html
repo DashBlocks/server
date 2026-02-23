@@ -7,10 +7,12 @@
 </form>
 
 <script>
-  const sessionData = localStorage.getItem("session");
-  const session = sessionData ? JSON.parse(sessionData) : null;
+  const sessionData = await fetch(`${window.location.origin}/session`, {
+    headers: { "Content-Type": "application/json" },
+  }).then(res => res.json()).catch(() => null);
+  const session = sessionData ? sessionData : null;
 
-  if (!session || !session.userId || !session.password || !session.username)
+  if (!session || !session.userId || !session.username)
     document.body.innerHTML = "<a href='/login'>Log in first</a>";
 
   document.getElementById("uploadForm").addEventListener("submit", async (e) => {
@@ -24,13 +26,11 @@
     const formData = new FormData();
     formData.append("file", fileInput.files[0]);
     formData.append("name", nameInput.value);
-    formData.append("userId", session.userId);
-    formData.append("password", session.password);
 
     try {
-      const response = await fetch("/save-project", {
+      const response = await fetch(`${window.location.origin}/save-project`, {
         method: "POST",
-        body: formData, 
+        body: formData,
       });
 
       const result = await response.json();
