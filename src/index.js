@@ -33,6 +33,8 @@ app.use(
   cookieParser(),
 );
 
+app.options("*", cors());
+
 async function uploadToTelegram(chatId, buffer, filename) {
   const formData = new FormData();
   formData.append("chat_id", chatId);
@@ -66,6 +68,19 @@ async function fetchFromTelegram(messageId, fromChatId) {
   const filePathData = await filePathRes.json();
   return `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePathData.result.file_path}`;
 }
+
+const verifyAuth = (req, res, next) => {
+  const token = req.cookies.auth_token;
+  if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ ok: false, error: "Invalid session" });
+  }
+};
 
 app.get("/", (req, res) => {
   res.sendFile("index.html", { root: UI_PATH });
@@ -155,8 +170,9 @@ app.post("/auth/login", async (req, res) => {
       res.cookie("auth_token", token, {
         httpOnly: true,
         secure: true,
-        sameSite: "strict",
+        sameSite: "none",
         maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: "/",
       });
 
       res.json({ ok: true, username: storedUser.username, userId });
@@ -182,19 +198,6 @@ app.get("/session", verifyAuth, (req, res) => {
     username: req.user.username,
   });
 });
-
-const verifyAuth = (req, res, next) => {
-  const token = req.cookies.auth_token;
-  if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ ok: false, error: "Invalid session" });
-  }
-};
 
 app.get("/login", (req, res) => {
   res.sendFile("login.html", { root: UI_PATH });
