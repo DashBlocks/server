@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import dotenv from "dotenv";
 import multer from "multer";
 import path from "path";
@@ -7,7 +8,10 @@ import { fileURLToPath } from "url";
 import { Readable } from "stream";
 
 const app = express();
-app.use(express.json({ limit: "50mb" }));
+app.use(
+  express.json({ limit: "50mb" }),
+  cors({ origin: ["https://dashblocks.github.io", "http://localhost:3000"] }),
+);
 
 dotenv.config();
 const upload = multer();
@@ -68,20 +72,22 @@ app.post("/save-project", upload.single("file"), async (req, res) => {
     const { name, userId, password } = req.body;
     const file = req.file;
 
-    if (!file) return res.status(400).json({ ok: false, error: "No file uploaded" });
+    if (!file)
+      return res.status(400).json({ ok: false, error: "No file uploaded" });
 
     const loginRes = await fetch(`${APP_URL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, password })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, password }),
     });
     const auth = await loginRes.json();
-    if (!auth.ok) return res.status(401).json({ ok: false, error: "Unauthorized" });
+    if (!auth.ok)
+      return res.status(401).json({ ok: false, error: "Unauthorized" });
 
     const projectId = await uploadToTelegram(
       PROJECTS_GROUP_ID,
-      file.buffer, 
-      `${name || "project"}_${auth.username}.dbp.zip`
+      file.buffer,
+      `${name || "project"}_${auth.username}.dbp.zip`,
     );
 
     res.json({ ok: true, projectId });
