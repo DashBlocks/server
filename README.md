@@ -3,13 +3,13 @@ https://dashblocks-server.vercel.app
 
 ## Available methods:
 - `/session` - session with user info
-- `/auth/login` - login via ID and password
+- `/auth/login` - login via user ID and password
 - `/auth/logout` - logout (clear session)
-- `/get-project/:id` - get project ZIP by ID
+- `/get-project/:id` - get project ZIP by project ID
 - `/save-project` - save binary data of project to server as ZIP (must have an active session)
 
 ## User Interface:
-- `/login` - login via UI
+- `/login` - login
 - `/upload-project` - upload project (.dbp format only)
 
 ## Learn more:
