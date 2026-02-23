@@ -23,6 +23,7 @@ const UI_PATH = path.join(__dirname, "ui");
 const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
 const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;
 const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
+const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 app.use(
@@ -38,9 +39,9 @@ app.options("*", cors());
 app.set("trust proxy", 1);
 
 const authLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000,
+  windowMs: 60 * 60 * 1000,
   max: 10,
-  message: { ok: false, error: "Too many attempts, please try again later" },
+  message: { ok: false, error: "Too many attempts, try again later" },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -48,7 +49,7 @@ const authLimiter = rateLimit({
 const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
-  message: { ok: false, error: "Upload limit reached. Try again later" },
+  message: { ok: false, error: "Upload limit reached, try again later" },
 });
 
 // Helpers
@@ -92,35 +93,35 @@ async function fetchFromTelegram(messageId, fromChatId) {
   return `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePathData.result.file_path}`;
 }
 
-async function getLatestIndex() {
+async function getLatestUsersIndex() {
   const chatRes = await fetch(
-    `${TELEGRAM_API}/getChat?chat_id=${USERS_GROUP_ID}`,
+    `${TELEGRAM_API}/getChat?chat_id=${USERS_INDEX_GROUP_ID}`,
   );
   const chatData = await chatRes.json();
   const pinnedId = chatData.result?.pinned_message?.message_id;
 
   if (!pinnedId) return { usernames: [] };
 
-  const downloadUrl = await fetchFromTelegram(pinnedId, USERS_GROUP_ID);
+  const downloadUrl = await fetchFromTelegram(pinnedId, USERS_INDEX_GROUP_ID);
   const fileRes = await fetch(downloadUrl);
   return await fileRes.json();
 }
 
-async function updateIndex(username) {
-  const data = await getLatestIndex();
+async function updateUsersIndex(username) {
+  const data = await getLatestUsersIndex();
   data.usernames.push(username.toLowerCase());
 
   const msgId = await uploadToTelegram(
-    USERS_GROUP_ID,
+    USERS_INDEX_GROUP_ID,
     Buffer.from(JSON.stringify(data)),
-    "user_index.json",
+    "users_index.json",
   );
 
   await fetch(`${TELEGRAM_API}/pinChatMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      chat_id: USERS_GROUP_ID,
+      chat_id: USERS_INDEX_GROUP_ID,
       message_id: msgId,
       disable_notification: true,
     }),
@@ -263,37 +264,23 @@ app.post("/auth/register", authLimiter, async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !isValidUsername(username)) {
-      return res.status(400).json({
-        ok: false,
-        error:
-          "Username must contain only english letters, numbers, dashes, or underscores",
-      });
-    }
-
-    if (username.length < 3 || username.length > 20) {
       return res
         .status(400)
-        .json({ ok: false, error: "Username must be 3-20 characters long" });
+        .json({ ok: false, error: "Invalid username symbols" });
     }
 
-    const index = await getLatestIndex();
+    const index = await getLatestUsersIndex();
     if (index.usernames.includes(username.toLowerCase())) {
       return res
         .status(400)
-        .json({ ok: false, error: "Username is already taken" });
-    }
-
-    if (!password || password.length < 8 || password.length > 100) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Password must be 8-100 characters long" });
+        .json({ ok: false, error: "Username already taken" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userData = JSON.stringify({
       username,
       password: hashedPassword,
-      joinedAt: Math.floor(Date.now() / 1000),
+      joinedAt: new Date().toISOString(),
     });
 
     const userId = await uploadToTelegram(
@@ -301,8 +288,9 @@ app.post("/auth/register", authLimiter, async (req, res) => {
       Buffer.from(userData),
       `${username}.json`,
     );
+    if (!userId) throw new Error("Failed to store user");
 
-    await updateIndex(username);
+    await updateUsersIndex(username);
 
     const token = jwt.sign({ userId, username }, JWT_SECRET, {
       expiresIn: "7d",
