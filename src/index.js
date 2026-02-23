@@ -181,8 +181,8 @@ app.post("/auth/login", async (req, res) => {
         .status(401)
         .json({ ok: false, error: "Invalid username or password" });
     }
-  } catch (error) {
-    res.status(404).json({ ok: false, error: error.message });
+  } catch (_) {
+    res.status(401).json({ ok: false, error: "Invalid username or password" });
   }
 });
 
