@@ -4,7 +4,8 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import multer from "multer";
-import path, { join } from "path";
+import path from "path";
+import rateLimit from "express-rate-limit";
 import bcrypt from "bcrypt";
 import { fileURLToPath } from "url";
 import { Readable } from "stream";
@@ -34,6 +35,28 @@ app.use(
 );
 
 app.options("*", cors());
+app.set("trust proxy", 1);
+
+const authLimiter = rateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 10,
+  message: { ok: false, error: "Too many attempts, please try again later" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: { ok: false, error: "Upload limit reached. Try again later" },
+});
+
+// Helpers
+
+const isValidUsername = (username) => {
+  const regex = /^[a-zA-Z0-9-_]+$/;
+  return regex.test(username);
+};
 
 async function uploadToTelegram(chatId, buffer, filename) {
   const formData = new FormData();
@@ -69,6 +92,41 @@ async function fetchFromTelegram(messageId, fromChatId) {
   return `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePathData.result.file_path}`;
 }
 
+async function getLatestIndex() {
+  const chatRes = await fetch(
+    `${TELEGRAM_API}/getChat?chat_id=${USERS_GROUP_ID}`,
+  );
+  const chatData = await chatRes.json();
+  const pinnedId = chatData.result?.pinned_message?.message_id;
+
+  if (!pinnedId) return { usernames: [] };
+
+  const downloadUrl = await fetchFromTelegram(pinnedId, USERS_GROUP_ID);
+  const fileRes = await fetch(downloadUrl);
+  return await fileRes.json();
+}
+
+async function updateIndex(username) {
+  const data = await getLatestIndex();
+  data.usernames.push(username.toLowerCase());
+
+  const msgId = await uploadToTelegram(
+    USERS_GROUP_ID,
+    Buffer.from(JSON.stringify(data)),
+    "user_index.json",
+  );
+
+  await fetch(`${TELEGRAM_API}/pinChatMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: USERS_GROUP_ID,
+      message_id: msgId,
+      disable_notification: true,
+    }),
+  });
+}
+
 const verifyAuth = (req, res, next) => {
   const token = req.cookies.auth_token;
   if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
@@ -91,13 +149,15 @@ app.get("/", (req, res) => {
 app.post(
   "/save-project",
   verifyAuth,
+  uploadLimiter,
   upload.single("file"),
   async (req, res) => {
     const { name } = req.body;
-    if (name ? name.contains("_") : false)
+    if (name && name.includes("_"))
       return res
         .status(400)
         .json({ ok: false, error: "Project name cannot contain underscores" });
+
     const file = req.file;
     if (!file)
       return res.status(400).json({ ok: false, error: "No file uploaded" });
@@ -135,7 +195,6 @@ app.get("/get-project/:id", async (req, res) => {
 app.get("/projects/:id", async (req, res) => {
   try {
     const projectId = req.params.id;
-
     const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -151,7 +210,6 @@ app.get("/projects/:id", async (req, res) => {
       return res.status(404).json({ ok: false, error: "Project not found" });
 
     const doc = data.result.document;
-
     res.json({
       ok: true,
       project: {
@@ -160,7 +218,7 @@ app.get("/projects/:id", async (req, res) => {
         author: {
           username: doc.file_name.split("_")[1].replace(".dbp.zip", ""),
         },
-        size: doc.file_size, // in bytes
+        size: doc.file_size,
         uploadedAt: data.result.date,
       },
     });
@@ -181,7 +239,6 @@ app.get("/users/:id", async (req, res) => {
   try {
     const userId = req.params.id;
     const downloadUrl = await fetchFromTelegram(userId, USERS_GROUP_ID);
-
     if (!downloadUrl)
       return res.status(404).json({ ok: false, error: "User not found" });
 
@@ -201,22 +258,68 @@ app.get("/users/:id", async (req, res) => {
   }
 });
 
-/* app.post("/auth/register", async (req, res) => {
+app.post("/auth/register", authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password) throw new Error("Missing param(s)");
 
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    if (!username || !isValidUsername(username)) {
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Username must contain only english letters, numbers, dashes, or underscores",
+      });
+    }
 
-    const userData = JSON.stringify({ username, password: hashedPassword });
-    const userId = await uploadToTelegram(USERS_GROUP_ID, Buffer.from(userData), `${username}.json`);
+    if (username.length < 3 || username.length > 20) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Username must be 3-20 characters long" });
+    }
 
-    res.json({ ok: true, userId });
+    const index = await getLatestIndex();
+    if (index.usernames.includes(username.toLowerCase())) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Username is already taken" });
+    }
+
+    if (!password || password.length < 8 || password.length > 100) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Password must be 8-100 characters long" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userData = JSON.stringify({
+      username,
+      password: hashedPassword,
+      joinedAt: Math.floor(Date.now() / 1000),
+    });
+
+    const userId = await uploadToTelegram(
+      USERS_GROUP_ID,
+      Buffer.from(userData),
+      `${username}.json`,
+    );
+
+    await updateIndex(username);
+
+    const token = jwt.sign({ userId, username }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
+    res.cookie("auth_token", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+
+    res.json({ ok: true, userId, username });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }
-}); */
+});
 
 app.post("/auth/login", async (req, res) => {
   try {
@@ -233,7 +336,6 @@ app.post("/auth/login", async (req, res) => {
         JWT_SECRET,
         { expiresIn: "7d" },
       );
-
       res.cookie("auth_token", token, {
         httpOnly: true,
         secure: true,
@@ -241,7 +343,6 @@ app.post("/auth/login", async (req, res) => {
         maxAge: 7 * 24 * 60 * 60 * 1000,
         path: "/",
       });
-
       res.json({ ok: true, username: storedUser.username, userId });
     } else {
       res
@@ -254,7 +355,12 @@ app.post("/auth/login", async (req, res) => {
 });
 
 app.get("/auth/logout", verifyAuth, (req, res) => {
-  res.clearCookie("auth_token");
+  res.clearCookie("auth_token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+  });
   res.json({ ok: true, message: "Logged out" });
 });
 
