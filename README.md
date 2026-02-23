@@ -15,7 +15,7 @@ https://dashblocks-server.vercel.app
 ## Learn more:
 
 ### Every request:
-Server will return `ok` boolean key, this key reports wether your request was completed successfully or not
+Server will return `ok` boolean key, this key reports whether your request was completed successfully or not
 
 ### `/session`
 Session of current user
