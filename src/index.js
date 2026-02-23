@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import multer from "multer";
-import path from "path";
+import path, { join } from "path";
 import bcrypt from "bcrypt";
 import { fileURLToPath } from "url";
 import { Readable } from "stream";
@@ -94,6 +94,10 @@ app.post(
   upload.single("file"),
   async (req, res) => {
     const { name } = req.body;
+    if (name ? name.contains("_") : false)
+      return res
+        .status(400)
+        .json({ ok: false, error: "Project name cannot contain underscores" });
     const file = req.file;
     if (!file)
       return res.status(400).json({ ok: false, error: "No file uploaded" });
@@ -128,11 +132,74 @@ app.get("/get-project/:id", async (req, res) => {
   }
 });
 
+app.get("/projects/:id", async (req, res) => {
+  try {
+    const projectId = req.params.id;
+
+    const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: GETTERS_GROUP_ID,
+        from_chat_id: PROJECTS_GROUP_ID,
+        message_id: projectId,
+      }),
+    });
+
+    const data = await forwardRes.json();
+    if (!data.ok)
+      return res.status(404).json({ ok: false, error: "Project not found" });
+
+    const doc = data.result.document;
+
+    res.json({
+      ok: true,
+      project: {
+        id: projectId,
+        name: doc.file_name.split("_")[0],
+        author: {
+          username: doc.file_name.split("_")[1].replace(".dbp.zip", ""),
+        },
+        size: doc.file_size, // in bytes
+        uploadedAt: data.result.date,
+      },
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ ok: false, error: "Failed to fetch project metadata" });
+  }
+});
+
 app.get("/upload-project", (req, res) => {
   res.sendFile("upload-project.html", { root: UI_PATH });
 });
 
-// Auth
+// Users & Auth
+
+app.get("/users/:id", async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const downloadUrl = await fetchFromTelegram(userId, USERS_GROUP_ID);
+
+    if (!downloadUrl)
+      return res.status(404).json({ ok: false, error: "User not found" });
+
+    const userFileRes = await fetch(downloadUrl);
+    const storedUser = await userFileRes.json();
+
+    res.json({
+      ok: true,
+      user: {
+        id: userId,
+        username: storedUser.username,
+        joinedAt: storedUser.joinedAt || null,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Failed to fetch user metadata" });
+  }
+});
 
 /* app.post("/auth/register", async (req, res) => {
   try {
