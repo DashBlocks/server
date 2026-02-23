@@ -186,7 +186,7 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-app.post("/auth/logout", verifyAuth, (req, res) => {
+app.get("/auth/logout", verifyAuth, (req, res) => {
   res.clearCookie("auth_token");
   res.json({ ok: true, message: "Logged out" });
 });
