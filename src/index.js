@@ -74,10 +74,11 @@ const validateId = (req, res, next) => {
   next();
 };
 
-async function uploadToTelegram(chatId, buffer, filename) {
+async function uploadToTelegram(chatId, buffer, filename, caption = "") {
   const formData = new FormData();
   formData.append("chat_id", chatId);
   formData.append("document", new Blob([buffer]), filename);
+  if (caption) formData.append("caption", caption);
 
   const response = await fetch(`${TELEGRAM_API}/sendDocument`, {
     method: "POST",
@@ -168,11 +169,16 @@ app.post(
   uploadLimiter,
   upload.single("file"),
   async (req, res) => {
-    const { name } = req.body;
-    if (name && name.includes("_"))
-      return res
-        .status(400)
-        .json({ ok: false, error: "Project name cannot contain underscores" });
+    const { name, description } = req.body;
+    const metadata = JSON.stringify({
+      name: name || "Untitled",
+      description: description || "",
+      author: {
+        id: req.user.userId,
+        username: req.user.username,
+      },
+      // uploadedAt will be determined by Telegram's forward date, so no need to store it here
+    });
 
     const file = req.file;
     if (!file)
@@ -181,7 +187,8 @@ app.post(
     const projectId = await uploadToTelegram(
       PROJECTS_GROUP_ID,
       file.buffer,
-      `${name || "Project"}_${req.user.username}.dbp.zip`,
+      `${name || "Untitled"}.dbp.zip`,
+      metadata,
     );
 
     res.json({ ok: true, projectId });
@@ -227,21 +234,31 @@ app.get("/projects/:id", validateId, async (req, res) => {
 
     const doc = data.result.document;
     const fileName = doc.file_name || "";
-
-    const lastUnderscoreIndex = fileName.lastIndexOf("_");
-
-    let projectName = "Untitled";
-    let authorPart = "Unknown";
-    if (lastUnderscoreIndex !== -1) {
-      projectName = fileName.substring(0, lastUnderscoreIndex);
-      authorPart = fileName
-        .substring(lastUnderscoreIndex + 1)
-        .replace(".dbp.zip", "");
-    } else if (fileName.endsWith(".dbp.zip")) {
-      projectName =
-        fileName.replace(".dbp.zip", "") !== ""
-          ? fileName.replace(".dbp.zip", "")
-          : "Untitled";
+    let metadata = {
+      name: "Untitled",
+      description: "",
+      author: {
+        id: null,
+        username: "Unknown"
+      },
+      // uploadedAt will be determined by Telegram's forward date, so no need to store it here
+    };
+    try {
+      metadata = JSON.parse(data.result.caption || JSON.stringify(metadata));
+    } catch (_) {
+      // It might be old project
+      const lastUnderscoreIndex = fileName.lastIndexOf("_");
+      if (lastUnderscoreIndex !== -1) {
+        metadata.name = fileName.substring(0, lastUnderscoreIndex);
+        metadata.author.username = fileName
+          .substring(lastUnderscoreIndex + 1)
+          .replace(".dbp.zip", "");
+      } else if (fileName.endsWith(".dbp.zip")) {
+        metadata.name =
+          fileName.replace(".dbp.zip", "") !== ""
+            ? fileName.replace(".dbp.zip", "")
+            : "Untitled";
+      }
     }
 
     const unixTimestamp = data.result.forward_date;
@@ -253,11 +270,13 @@ app.get("/projects/:id", validateId, async (req, res) => {
       ok: true,
       project: {
         id: data.result.forward_from_message_id,
-        name: projectName,
+        name: metadata.name,
+        description: metadata.description,
         author: {
-          username: authorPart,
+          id: metadata.author.id,
+          username: metadata.author.username,
         },
-        size: doc.file_size,
+        projectFileSize: doc.file_size,
         uploadedAt: isoDate,
       },
     });
@@ -352,7 +371,7 @@ app.post("/auth/register", authLimiter, async (req, res) => {
     const userData = JSON.stringify({
       username,
       password: hashedPassword,
-      joinedAt: new Date().toISOString(),
+      // joinedAt will be determined by Telegram's forward date, so no need to store it here
     });
 
     const userId = await uploadToTelegram(
