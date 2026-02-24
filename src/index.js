@@ -276,7 +276,7 @@ app.get("/projects/:id", validateId, async (req, res) => {
           id: metadata.author.id,
           username: metadata.author.username,
         },
-        projectFileSize: doc.file_size,
+        fileSize: doc.file_size,
         uploadedAt: isoDate,
       },
     });
