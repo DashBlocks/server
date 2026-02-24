@@ -61,6 +61,18 @@ const isValidUsername = (username) => {
   return regex.test(username);
 };
 
+const validateId = (req, res, next) => {
+  const id = req.params.id;
+  if (!id || id !== Number(id).toString()) {
+    return res.status(400).json({
+      ok: false,
+      error: "Invalid ID",
+    });
+  }
+
+  next();
+};
+
 async function uploadToTelegram(chatId, buffer, filename) {
   const formData = new FormData();
   formData.append("chat_id", chatId);
@@ -175,7 +187,7 @@ app.post(
   },
 );
 
-app.get("/get-project/:id", async (req, res) => {
+app.get("/get-project/:id", validateId, async (req, res) => {
   try {
     const downloadUrl = await fetchFromTelegram(
       req.params.id,
@@ -195,7 +207,7 @@ app.get("/get-project/:id", async (req, res) => {
   }
 });
 
-app.get("/projects/:id", async (req, res) => {
+app.get("/projects/:id", validateId, async (req, res) => {
   try {
     const projectId = req.params.id;
     const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
@@ -261,7 +273,7 @@ app.get("/upload-project", (req, res) => {
 
 // Users & Auth
 
-app.get("/users/:id", async (req, res) => {
+app.get("/users/:id", validateId, async (req, res) => {
   try {
     const userId = req.params.id;
     const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
@@ -279,9 +291,11 @@ app.get("/users/:id", async (req, res) => {
       return res.status(404).json({ ok: false, error: "User not found" });
 
     const fileId = data.result.document.file_id;
-    const filePathRes = await fetch(`${TELEGRAM_API}/getFile?file_id=${fileId}`);
+    const filePathRes = await fetch(
+      `${TELEGRAM_API}/getFile?file_id=${fileId}`,
+    );
     const filePathData = await filePathRes.json();
-    
+
     if (!filePathData.ok)
       return res.status(404).json({ ok: false, error: "User not found" });
 
