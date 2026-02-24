@@ -234,7 +234,7 @@ app.get("/projects/:id", async (req, res) => {
           username: authorPart,
         },
         size: doc.file_size,
-        uploadedAt: data.result.date,
+        uploadedAt: data.result.date.toISOString(),
       },
     });
   } catch (error) {
