@@ -114,17 +114,22 @@ async function getLatestUsersIndex() {
     `${TELEGRAM_API}/getChat?chat_id=${USERS_INDEX_GROUP_ID}`,
   );
   const chatData = await chatRes.json();
-  const pinnedId = chatData.result?.pinned_message?.message_id;
 
+  if (!chatData.ok) return null;
+
+  const pinnedId = chatData.result?.pinned_message?.message_id;
   if (!pinnedId) return { usernames: [] };
 
   const downloadUrl = await fetchFromTelegram(pinnedId, USERS_INDEX_GROUP_ID);
+  if (!downloadUrl) return null;
+
   const fileRes = await fetch(downloadUrl);
   return await fileRes.json();
 }
 
 async function updateUsersIndex(username) {
   const data = await getLatestUsersIndex();
+  if (!data || typeof data !== "object") return;
   data.usernames.push(username.toLowerCase());
 
   const msgId = await uploadToTelegram(
@@ -132,8 +137,9 @@ async function updateUsersIndex(username) {
     Buffer.from(JSON.stringify(data)),
     "users_index.json",
   );
+  if (!msgId) return;
 
-  await fetch(`${TELEGRAM_API}/pinChatMessage`, {
+  const pinReq = await fetch(`${TELEGRAM_API}/pinChatMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -142,6 +148,9 @@ async function updateUsersIndex(username) {
       disable_notification: true,
     }),
   });
+  const pinData = await pinReq.json();
+  if (!pinData.ok) return;
+  return true;
 }
 
 const verifyAuth = (req, res, next) => {
@@ -369,6 +378,11 @@ app.post("/auth/register", authLimiter, async (req, res) => {
     }
 
     const index = await getLatestUsersIndex();
+    if (!index || typeof index !== "object") {
+      return res
+        .status(500)
+        .json({ ok: false, error: "Failed to access users index" });
+    }
     if (index.usernames.includes(username.toLowerCase())) {
       return res
         .status(400)
@@ -389,7 +403,12 @@ app.post("/auth/register", authLimiter, async (req, res) => {
     );
     if (!userId) throw new Error("Failed to store user");
 
-    await updateUsersIndex(username);
+    const indexUpdated = await updateUsersIndex(username);
+    if (!indexUpdated) {
+      return res
+        .status(500)
+        .json({ ok: false, error: "Failed to update users index" });
+    }
 
     const token = jwt.sign({ userId, username }, JWT_SECRET, {
       expiresIn: "7d",
