@@ -58,7 +58,7 @@ const uploadLimiter = rateLimit({
 
 const isValidUsername = (username) => {
   const regex = /^[a-zA-Z0-9-_]+$/;
-  return regex.test(username);
+  return regex.test(username) && username.length <= 20 && username.length >= 3;
 };
 
 const validateId = (req, res, next) => {
@@ -239,7 +239,7 @@ app.get("/projects/:id", validateId, async (req, res) => {
       description: "",
       author: {
         id: null,
-        username: "Unknown"
+        username: "Unknown",
       },
       // uploadedAt will be determined by Telegram's forward date, so no need to store it here
     };
@@ -349,15 +349,23 @@ app.post("/auth/register", authLimiter, async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !isValidUsername(username)) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Invalid username symbols" });
+      return res.status(400).json({
+        ok: false,
+        error:
+          "Username must be 3-20 characters long and contain only letters, numbers, and underscores",
+      });
     }
 
     if (forbiddenUsernames.includes(username.toLowerCase())) {
       return res
         .status(400)
         .json({ ok: false, error: "You cannot use this username" });
+    }
+
+    if (!password || password.length < 8 || password.length > 100) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "Password must be 8-100 characters long" });
     }
 
     const index = await getLatestUsersIndex();
@@ -449,6 +457,10 @@ app.get("/session", verifyAuth, (req, res) => {
     userId: req.user.userId,
     username: req.user.username,
   });
+});
+
+app.get("/register", (req, res) => {
+  res.sendFile("register.html", { root: UI_PATH });
 });
 
 app.get("/login", (req, res) => {

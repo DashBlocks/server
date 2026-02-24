@@ -3,29 +3,38 @@
 <form id="loginForm">
   <input type="number" id="userId" placeholder="User ID" required /><br />
   <input type="password" id="password" placeholder="Password" required /><br />
-  <button type="submit">Login</button>
+  <button id="login" type="submit">Login</button>
 </form>
 
 <script>
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
+    status.innerText = "Authenticating...";
+    submitBtn.disabled = true;
+
     const status = document.getElementById("status");
     const userId = document.getElementById("userId").value;
     const password = document.getElementById("password").value;
+    const submitBtn = document.getElementById("login");
 
-    status.innerText = "Authenticating...";
+    try {
+      const res = await fetch(`${window.location.origin}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, password }),
+        credentials: "include",
+      });
 
-    const res = await fetch(`${window.location.origin}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, password }),
-    });
-
-    const result = await res.json();
-    if (result.ok) {
-      status.innerText = "Success!!";
-    } else {
-      status.innerText = "Failed: " + result.error;
+      const result = await res.json();
+      if (result.ok) {
+        status.innerText = "Success!!";
+      } else {
+        status.innerText = "Failed: " + result.error;
+      }
+    } catch (error) {
+      status.innerText = "Error: " + error.message;
+    } finally {
+      submitBtn.disabled = false;
     }
   });
 </script>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Register</title>
+  </head>
+  <body>
+    <div>
+      <h2>Join</h2>
+      <div id="infoBox"></div>
+      <form id="registerForm">
+        <input
+          type="text"
+          id="username"
+          placeholder="Username"
+          required
+          minlength="3"
+          maxlength="20"
+        />
+        <input
+          type="password"
+          id="password"
+          placeholder="Password"
+          required
+          minlength="8"
+          maxlength="100"
+        />
+        <button type="submit" id="submitBtn">Create Account</button>
+      </form>
+      <div>Already have an account? <a href="/login">Log in</a></div>
+    </div>
+
+    <script>
+      const form = document.getElementById("registerForm");
+      const infoBox = document.getElementById("infoBox");
+      const submitBtn = document.getElementById("submitBtn");
+
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        infoBox.innerText = "Creating...";
+
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        try {
+          const res = await fetch("/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+            credentials: "include",
+          });
+
+          const data = await res.json();
+
+          if (data.ok) {
+            alert(`Success!!! Your ID: ${data.userId}`);
+          } else {
+            infoBox.innerText = "Failed: " + data.error;
+            infoBox.style.display = "block";
+          }
+        } catch (error) {
+          infoBox.innerText = "Failed: " + error.message;
+          infoBox.style.display = "block";
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerText = "Create Account";
+        }
+      };
+    </script>
+  </body>
+</html>
