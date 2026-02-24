@@ -230,14 +230,16 @@ app.get("/projects/:id", async (req, res) => {
           ? fileName.replace(".dbp.zip", "")
           : "Untitled";
     }
+
     const unixTimestamp = data.result.forward_date;
     const isoDate = unixTimestamp
       ? new Date(unixTimestamp * 1000).toISOString()
       : null;
+
     res.json({
       ok: true,
       project: {
-        id: projectId,
+        id: Number(projectId),
         name: projectName,
         author: {
           username: authorPart,
@@ -262,19 +264,38 @@ app.get("/upload-project", (req, res) => {
 app.get("/users/:id", async (req, res) => {
   try {
     const userId = req.params.id;
-    const downloadUrl = await fetchFromTelegram(userId, USERS_GROUP_ID);
+    const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: GETTERS_GROUP_ID,
+        from_chat_id: USERS_GROUP_ID,
+        message_id: userId,
+      }),
+    });
+
+    const data = await forwardRes.json();
+    if (!data.ok || !data.result.document)
+      return res.status(404).json({ ok: false, error: "User not found" });
+
+    const downloadUrl = `${TELEGRAM_API}/getFile?file_id=${data.result.document.file_id}`;
     if (!downloadUrl)
       return res.status(404).json({ ok: false, error: "User not found" });
 
     const userFileRes = await fetch(downloadUrl);
     const storedUser = await userFileRes.json();
 
+    const unixTimestamp = data.result.forward_date;
+    const isoDate = unixTimestamp
+      ? new Date(unixTimestamp * 1000).toISOString()
+      : null;
+
     res.json({
       ok: true,
       user: {
-        id: userId,
+        id: storedUser.userId,
         username: storedUser.username,
-        joinedAt: storedUser.joinedAt || null,
+        joinedAt: isoDate,
       },
     });
   } catch (error) {
