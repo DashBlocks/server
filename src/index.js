@@ -239,7 +239,7 @@ app.get("/projects/:id", async (req, res) => {
     res.json({
       ok: true,
       project: {
-        id: Number(projectId),
+        id: data.forwarded_message.message_id,
         name: projectName,
         author: {
           username: authorPart,
@@ -278,7 +278,14 @@ app.get("/users/:id", async (req, res) => {
     if (!data.ok || !data.result.document)
       return res.status(404).json({ ok: false, error: "User not found" });
 
-    const downloadUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${data.result.file_path}`;
+    const fileId = data.result.document.file_id;
+    const filePathRes = await fetch(`${TELEGRAM_API}/getFile?file_id=${fileId}`);
+    const filePathData = await filePathRes.json();
+    
+    if (!filePathData.ok)
+      return res.status(404).json({ ok: false, error: "User not found" });
+
+    const downloadUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePathData.result.file_path}`;
     if (!downloadUrl)
       return res.status(404).json({ ok: false, error: "User not found" });
 
@@ -293,7 +300,7 @@ app.get("/users/:id", async (req, res) => {
     res.json({
       ok: true,
       user: {
-        id: storedUser.id,
+        id: storedUser.userId,
         username: storedUser.username,
         joinedAt: isoDate,
       },
