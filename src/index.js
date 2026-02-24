@@ -343,7 +343,7 @@ app.get("/users/:id", validateId, async (req, res) => {
     res.json({
       ok: true,
       user: {
-        id: storedUser.userId,
+        id: Number(userId),
         username: storedUser.username,
         joinedAt: isoDate,
       },
