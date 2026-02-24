@@ -221,13 +221,18 @@ app.get("/projects/:id", async (req, res) => {
     let authorPart = "Unknown";
     if (lastUnderscoreIndex !== -1) {
       projectName = fileName.substring(0, lastUnderscoreIndex);
-      authorPart = fileName.substring(lastUnderscoreIndex + 1).replace(".dbp.zip", "");
+      authorPart = fileName
+        .substring(lastUnderscoreIndex + 1)
+        .replace(".dbp.zip", "");
     } else if (fileName.endsWith(".dbp.zip")) {
-      projectName = fileName.replace(".dbp.zip", "") !== "" ? fileName.replace(".dbp.zip", "") : "Untitled";
+      projectName =
+        fileName.replace(".dbp.zip", "") !== ""
+          ? fileName.replace(".dbp.zip", "")
+          : "Untitled";
     }
-    const unixTimestamp = data.result.date; 
-    const isoDate = unixTimestamp 
-      ? new Date(unixTimestamp * 1000).toISOString() 
+    const unixTimestamp = data.result.forward_date;
+    const isoDate = unixTimestamp
+      ? new Date(unixTimestamp * 1000).toISOString()
       : null;
     res.json({
       ok: true,
