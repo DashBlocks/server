@@ -239,7 +239,7 @@ app.get("/projects/:id", async (req, res) => {
     res.json({
       ok: true,
       project: {
-        id: data.forwarded_message.message_id,
+        id: data.result.forward_from_message_id,
         name: projectName,
         author: {
           username: authorPart,
