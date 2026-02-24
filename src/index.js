@@ -244,7 +244,7 @@ app.get("/projects/:id", validateId, async (req, res) => {
       // uploadedAt will be determined by Telegram's forward date, so no need to store it here
     };
     try {
-      metadata = JSON.parse(data.result.caption || JSON.stringify(metadata));
+      metadata = JSON.parse(data.result.caption);
     } catch (_) {
       // It might be old project
       const lastUnderscoreIndex = fileName.lastIndexOf("_");
