@@ -26,6 +26,8 @@ const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
 const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
+const forbiddenUsernames = ["unknown"];
+
 app.use(
   express.json({ limit: "50mb" }),
   cors({
@@ -207,17 +209,29 @@ app.get("/projects/:id", async (req, res) => {
     });
 
     const data = await forwardRes.json();
-    if (!data.ok)
+    if (!data.ok || !data.result.document)
       return res.status(404).json({ ok: false, error: "Project not found" });
 
     const doc = data.result.document;
+    const fileName = doc.file_name || "";
+
+    const lastUnderscoreIndex = fileName.lastIndexOf("_");
+
+    let projectName = "Untitled";
+    let authorPart = "Unknown";
+    if (lastUnderscoreIndex !== -1) {
+      projectName = fileName.substring(0, lastUnderscoreIndex);
+      authorPart = fileName.substring(lastUnderscoreIndex + 1).replace(".dbp.zip", "");
+    } else if (fileName.endsWith(".dbp.zip")) {
+      projectName = fileName.replace(".dbp.zip", "") !== "" ? fileName.replace(".dbp.zip", "") : "Untitled";
+    }
     res.json({
       ok: true,
       project: {
         id: projectId,
-        name: doc.file_name.split("_")[0],
+        name: projectName,
         author: {
-          username: doc.file_name.split("_")[1].replace(".dbp.zip", ""),
+          username: authorPart,
         },
         size: doc.file_size,
         uploadedAt: data.result.date,
@@ -267,6 +281,12 @@ app.post("/auth/register", authLimiter, async (req, res) => {
       return res
         .status(400)
         .json({ ok: false, error: "Invalid username symbols" });
+    }
+
+    if (forbiddenUsernames.includes(username.toLowerCase())) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "You cannot use this username" });
     }
 
     const index = await getLatestUsersIndex();
