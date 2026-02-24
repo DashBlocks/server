@@ -183,7 +183,7 @@ app.post(
       name: name || "Untitled",
       description: description || "",
       author: {
-        id: req.user.userId,
+        id: Number(req.user.userId),
         username: req.user.username,
       },
       // uploadedAt will be determined by Telegram's forward date, so no need to store it here
@@ -254,6 +254,8 @@ app.get("/projects/:id", validateId, async (req, res) => {
     };
     try {
       metadata = JSON.parse(data.result.caption);
+      const authorId = metadata.author.id;
+      metadata.author.id = authorId ? Number(authorId) : null;
     } catch (_) {
       // It might be old project
       const lastUnderscoreIndex = fileName.lastIndexOf("_");
