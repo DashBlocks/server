@@ -63,7 +63,8 @@ const isValidUsername = (username) => {
 
 const validateId = (req, res, next) => {
   const id = req.params.id;
-  if (!id || id !== Number(id).toString()) {
+
+  if (!id || !/^\d+$/.test(id) || id.startsWith("0")) {
     return res.status(400).json({
       ok: false,
       error: "Invalid ID",
