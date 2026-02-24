@@ -9,13 +9,14 @@
 <script>
   document.getElementById("loginForm").addEventListener("submit", async (e) => {
     e.preventDefault();
-    status.innerText = "Authenticating...";
-    submitBtn.disabled = true;
 
     const status = document.getElementById("status");
     const userId = document.getElementById("userId").value;
     const password = document.getElementById("password").value;
     const submitBtn = document.getElementById("login");
+
+    status.innerText = "Authenticating...";
+    submitBtn.disabled = true;
 
     try {
       const res = await fetch(`${window.location.origin}/auth/login`, {
