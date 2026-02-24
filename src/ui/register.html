@@ -55,7 +55,7 @@
           const data = await res.json();
 
           if (data.ok) {
-            alert(`Success!!! Your ID: ${data.userId}`);
+            infoBox.innerText = `Success!!! Your ID: ${data.userId}`;
           } else {
             infoBox.innerText = "Failed: " + data.error;
             infoBox.style.display = "block";
