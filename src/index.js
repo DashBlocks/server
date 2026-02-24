@@ -225,6 +225,10 @@ app.get("/projects/:id", async (req, res) => {
     } else if (fileName.endsWith(".dbp.zip")) {
       projectName = fileName.replace(".dbp.zip", "") !== "" ? fileName.replace(".dbp.zip", "") : "Untitled";
     }
+    const unixTimestamp = data.result.date; 
+    const isoDate = unixTimestamp 
+      ? new Date(unixTimestamp * 1000).toISOString() 
+      : null;
     res.json({
       ok: true,
       project: {
@@ -234,7 +238,7 @@ app.get("/projects/:id", async (req, res) => {
           username: authorPart,
         },
         size: doc.file_size,
-        uploadedAt: new Date(data.result.date * 1000).toISOString(),
+        uploadedAt: isoDate,
       },
     });
   } catch (error) {
