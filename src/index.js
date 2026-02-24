@@ -361,7 +361,7 @@ app.post("/auth/register", authLimiter, async (req, res) => {
       return res.status(400).json({
         ok: false,
         error:
-          "Username must be 3-20 characters long and contain only letters, numbers, and underscores",
+          "Username must be 3-20 characters long and contain only letters, numbers, underscores, and dashes",
       });
     }
 
