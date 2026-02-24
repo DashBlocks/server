@@ -473,7 +473,7 @@ app.get("/auth/logout", verifyAuth, (req, res) => {
 app.get("/session", verifyAuth, (req, res) => {
   res.json({
     ok: true,
-    userId: req.user.userId,
+    userId: Number(req.user.userId),
     username: req.user.username,
   });
 });
