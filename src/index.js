@@ -564,8 +564,9 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
   } else if (action === "ban-ip") {
     if (target.ip && !index.bannedIps.includes(target.ip))
       index.bannedIps.push(target.ip);
-  } else if (action === "unban") {
+  } else if (action === "unban-user") {
     target.banned = false;
+  } else if (action === "unban-ip") {
     index.bannedIps = index.bannedIps.filter((ip) => ip !== target.ip);
   } else if (action === "promote" && role) {
     target.role = role;
