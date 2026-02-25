@@ -393,7 +393,6 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
     const userData = JSON.stringify({
       username,
       password: hashedPassword,
-      role: "dasher",
       ip: userIp,
       banned: false,
     });
@@ -493,6 +492,8 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
     const userFileRes = await fetch(downloadUrl);
     const storedUser = await userFileRes.json();
 
+    const metadata = req.usersIndex.users[storedUser.username.toLowerCase()];
+
     const unixTimestamp = data.result.forward_date;
     const isoDate = unixTimestamp
       ? new Date(unixTimestamp * 1000).toISOString()
@@ -503,7 +504,7 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
       user: {
         id: Number(userId),
         username: storedUser.username,
-        role: storedUser.role,
+        role: metadata?.role || "dasher",
         joinedAt: isoDate,
       },
     });
@@ -513,11 +514,12 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
 });
 
 app.get("/session", verifyAuth, securityCheck, (req, res) => {
+  const metadata = req.usersIndex.users[req.user.username.toLowerCase()];
   res.json({
     ok: true,
     userId: Number(req.user.userId),
     username: req.user.username,
-    role: req.userRole,
+    role: metadata?.role || "dasher",
   });
 });
 
