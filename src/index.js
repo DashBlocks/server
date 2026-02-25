@@ -236,6 +236,10 @@ app.get("/register", (req, res) =>
 );
 app.get("/login", (req, res) => res.sendFile("login.html", { root: UI_PATH }));
 
+app.get("/upload-project", (req, res) =>
+  res.sendFile("upload-project.html", { root: UI_PATH }),
+);
+
 // --- Projects ---
 app.post(
   "/save-project",
@@ -425,7 +429,7 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
   }
 });
 
-app.post("/auth/login", async (req, res) => {
+app.post("/auth/login", securityCheck, async (req, res) => {
   try {
     const { userId, password } = req.body;
     const downloadUrl = await fetchFromTelegram(userId, USERS_GROUP_ID);
@@ -456,6 +460,58 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
+app.get("/users/:id", validateId, securityCheck, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: GETTERS_GROUP_ID,
+        from_chat_id: USERS_GROUP_ID,
+        message_id: userId,
+      }),
+    });
+
+    const data = await forwardRes.json();
+    if (!data.ok || !data.result.document)
+      return res.status(404).json({ ok: false, error: "User not found" });
+
+    const fileId = data.result.document.file_id;
+    const filePathRes = await fetch(
+      `${TELEGRAM_API}/getFile?file_id=${fileId}`,
+    );
+    const filePathData = await filePathRes.json();
+
+    if (!filePathData.ok)
+      return res.status(404).json({ ok: false, error: "User not found" });
+
+    const downloadUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePathData.result.file_path}`;
+    if (!downloadUrl)
+      return res.status(404).json({ ok: false, error: "User not found" });
+
+    const userFileRes = await fetch(downloadUrl);
+    const storedUser = await userFileRes.json();
+
+    const unixTimestamp = data.result.forward_date;
+    const isoDate = unixTimestamp
+      ? new Date(unixTimestamp * 1000).toISOString()
+      : null;
+
+    res.json({
+      ok: true,
+      user: {
+        id: Number(userId),
+        username: storedUser.username,
+        role: storedUser.role,
+        joinedAt: isoDate,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Failed to fetch user metadata" });
+  }
+});
+
 app.get("/session", verifyAuth, securityCheck, (req, res) => {
   res.json({
     ok: true,
@@ -463,6 +519,16 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
     username: req.user.username,
     role: req.userRole,
   });
+});
+
+app.get("/auth/logout", verifyAuth, securityCheck, (req, res) => {
+  res.clearCookie("auth_token", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    path: "/",
+  });
+  res.json({ ok: true, message: "Logged out" });
 });
 
 // --- Admin ---
