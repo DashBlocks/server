@@ -25,6 +25,7 @@ const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
 const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;
 const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
 const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
+const AVATARS_GROUP_ID = process.env.AVATARS_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 const forbiddenUsernames = [
@@ -511,6 +512,9 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
       user: {
         username: storedUser.username,
         role: indexData?.role || "dasher",
+        profile: {
+          avatarId: indexData?.avatarId || null,
+        },
         joinedAt: indexData?.joinedAt || null,
         lastActive: indexData?.lastActive || null,
         projects: indexData?.projects || [],
@@ -518,6 +522,50 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
     });
   } catch (e) {
     res.status(404).json({ ok: false, error: "User not found" });
+  }
+});
+
+app.post(
+  "/users/upload-avatar",
+  verifyAuth,
+  securityCheck,
+  upload.single("avatar"),
+  async (req, res) => {
+    if (!req.file)
+      return res.status(400).json({ ok: false, error: "No image provided" });
+
+    const avatarId = await uploadToTelegram(
+      AVATARS_GROUP_ID,
+      req.file.buffer,
+      `avatar_${req.user.username}.png`,
+    );
+    if (!avatarId)
+      return res.status(500).json({ ok: false, error: "Upload failed" });
+
+    const index = req.usersIndex;
+    index.users[req.user.username.toLowerCase()].avatarId = avatarId;
+    await updateUsersIndex(index);
+
+    res.json({ ok: true, avatarId });
+  },
+);
+
+app.get("/users/avatars/:id", async (req, res) => {
+  try {
+    const downloadUrl = await fetchFromTelegram(
+      req.params.id,
+      AVATARS_GROUP_ID,
+    );
+    const fileRes = await fetch(downloadUrl);
+
+    res.setHeader("Content-Type", "image/png");
+    Readable.fromWeb(fileRes.body).pipe(res);
+  } catch (_) {
+    res.setHeader("Content-Type", "image/png");
+    const placeholder = await fetch(
+      "https://placehold.co/60?text=No+Avatar",
+    ).then((r) => r.arrayBuffer());
+    Readable.from(new Uint8Array(placeholder)).pipe(res);
   }
 });
 
@@ -595,7 +643,7 @@ app.get(
 
     const projectData = await fetch(
       `https://dashblocks-server.vercel.app/projects/${projectId}`,
-    ).then(async (r) => (r.ok ? await(r.json()).project : null));
+    ).then(async (r) => (r.ok ? await r.json().project : null));
     if (!projectData)
       return res.status(404).json({ ok: false, error: "Project not found" });
 
@@ -611,6 +659,31 @@ app.get(
       ok: true,
       project: index.featuredProjects.find((p) => p.id === projectId),
     });
+  },
+);
+
+app.get(
+  "/admin/unfeature-project",
+  verifyAuth,
+  securityCheck,
+  async (req, res) => {
+    if (req.userRole !== "dashteam")
+      return res.status(403).json({
+        ok: false,
+        error: "Only Dash Team can do this, what did you expect?",
+      });
+
+    const { projectId } = req.query;
+    const index = req.usersIndex;
+
+    if (index.featuredProjects) {
+      index.featuredProjects = index.featuredProjects.filter(
+        (p) => p.id !== projectId,
+      );
+      await updateUsersIndex(index);
+    }
+
+    res.json({ ok: true, projects: index.featuredProjects || [] });
   },
 );
 
