@@ -106,7 +106,8 @@ async function uploadToTelegram(chatId, buffer, filename, caption = "") {
     const result = await response.json();
     if (!result.ok) return null;
     return result.result.message_id;
-  } catch (_) {
+  } catch (error) {
+    console.log(error);
     return null;
   }
 }
