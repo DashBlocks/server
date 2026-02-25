@@ -511,7 +511,8 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
       user: {
         username: storedUser.username,
         role: indexData?.role || "dasher",
-        joinedAt: indexData?.joinedAt,
+        joinedAt: indexData?.joinedAt || null,
+        lastActive: indexData?.lastActive || null,
         projects: indexData?.projects || [],
       },
     });
@@ -528,8 +529,8 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
     username: req.user.username,
     role: metadata?.role || "dasher",
     projects: metadata?.projects || [],
-    joinedAt: metadata?.joinedAt,
-    lastActive: metadata?.lastActive,
+    joinedAt: metadata?.joinedAt || null,
+    lastActive: metadata?.lastActive || null,
   });
 });
 
