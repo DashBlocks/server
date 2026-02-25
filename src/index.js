@@ -607,9 +607,16 @@ app.get(
       await updateUsersIndex(index);
     }
 
-    res.json({ ok: true, project: index.featuredProjects.find((p) => p.id === projectId) });
+    res.json({
+      ok: true,
+      project: index.featuredProjects.find((p) => p.id === projectId),
+    });
   },
 );
+
+app.get("/featured-projects", securityCheck, (req, res) => {
+  res.json({ ok: true, projects: req.usersIndex.featuredProjects || [] });
+});
 
 // eslint-disable-next-line no-console
 app.listen(3000, () => console.log("Port 3000"));
