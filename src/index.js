@@ -577,6 +577,40 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
   res.json({ ok: success });
 });
 
+app.get(
+  "/admin/feature-project",
+  verifyAuth,
+  securityCheck,
+  async (req, res) => {
+    if (req.userRole !== "dashteam")
+      return res.status(403).json({
+        ok: false,
+        error: "Only Dash Team can do this, what did you expect?",
+      });
+
+    const { projectId } = req.query;
+    const index = req.usersIndex;
+
+    if (!index.featuredProjects) index.featuredProjects = [];
+
+    const projectData = await fetch(
+      `https://dashblocks-server.vercel.app/projects/${projectId}`,
+    ).then((r) => (r.ok ? await(r.json()).project : null));
+    if (!projectData)
+      return res.status(404).json({ ok: false, error: "Project not found" });
+
+    if (!index.featuredProjects.find((p) => p.id === projectId)) {
+      index.featuredProjects.push({
+        ...projectData,
+        featuredAt: new Date().toISOString(),
+      });
+      await updateUsersIndex(index);
+    }
+
+    res.json({ ok: true, project: index.featuredProjects.find((p) => p.id === projectId) });
+  },
+);
+
 // eslint-disable-next-line no-console
 app.listen(3000, () => console.log("Port 3000"));
 
