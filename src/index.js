@@ -514,7 +514,7 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
         username: storedUser.username,
         role: indexData?.role || "dasher",
         profile: {
-          avatarId: indexData?.avatarId || null,
+          avatarId: indexData?.avatarId || 1,
         },
         joinedAt: indexData?.joinedAt || null,
         lastActive: indexData?.lastActive || null,
