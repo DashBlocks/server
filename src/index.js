@@ -595,7 +595,7 @@ app.get(
 
     const projectData = await fetch(
       `https://dashblocks-server.vercel.app/projects/${projectId}`,
-    ).then((r) => (r.ok ? await(r.json()).project : null));
+    ).then(async (r) => (r.ok ? await(r.json()).project : null));
     if (!projectData)
       return res.status(404).json({ ok: false, error: "Project not found" });
 
