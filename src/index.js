@@ -27,7 +27,14 @@ const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
 const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-const forbiddenUsernames = ["unknown", "admin", "system", "dashblocks", "dash", "dashteam"];
+const forbiddenUsernames = [
+  "unknown",
+  "admin",
+  "system",
+  "dashblocks",
+  "dash",
+  "dashteam",
+];
 
 app.use(
   express.json({ limit: "50mb" }),
@@ -203,17 +210,13 @@ const securityCheck = async (req, res, next) => {
     const username = req.user?.username?.toLowerCase();
 
     if (index.bannedIps.includes(userIp)) {
-      return res
-        .status(403)
-        .json({ ok: false, error: "IP address banned" });
+      return res.status(403).json({ ok: false, error: "IP address banned" });
     }
 
     if (username) {
       const profile = index.users[username];
       if (profile?.banned) {
-        return res
-          .status(403)
-          .json({ ok: false, error: "Account banned" });
+        return res.status(403).json({ ok: false, error: "Account banned" });
       }
       req.userRole = profile?.role || "dasher";
     }
