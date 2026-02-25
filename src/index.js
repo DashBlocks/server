@@ -21,6 +21,7 @@ const __dirname = path.dirname(__filename);
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const JWT_SECRET = process.env.JWT_SECRET;
 const UI_PATH = path.join(__dirname, "ui");
+const ASSETS_PATH = path.join(__dirname, "assets");
 const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
 const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;
 const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
@@ -562,10 +563,7 @@ app.get("/users/avatars/:id", async (req, res) => {
     Readable.fromWeb(fileRes.body).pipe(res);
   } catch (_) {
     res.setHeader("Content-Type", "image/png");
-    const placeholder = await fetch(
-      "https://placehold.co/60?text=No+Avatar",
-    ).then((r) => r.arrayBuffer());
-    Readable.from(new Uint8Array(placeholder)).pipe(res);
+    res.sendFile(path.join(ASSETS_PATH, "dasher-icon.png"));
   }
 });
 
@@ -650,7 +648,7 @@ app.get(
 
     if (!index.featuredProjects.find((p) => p.id === projectId)) {
       index.featuredProjects.push({
-        ...projectData,
+        ...projectData.project,
         featuredAt: new Date().toISOString(),
       });
       await updateUsersIndex(index);
@@ -658,7 +656,7 @@ app.get(
 
     res.json({
       ok: true,
-      project: index.featuredProjects.find((p) => p.id === projectId),
+      projects: index.featuredProjects || [],
     });
   },
 );
