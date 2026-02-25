@@ -85,7 +85,6 @@ const isTrustedUrl = (url) =>
   url.toLowerCase().startsWith("https://penguinmod.com") ||
   url.toLowerCase().startsWith("https://studio.penguinmod.com") ||
   url.toLowerCase().startsWith("https://extensions.penguinmod.com") ||
-  extensions.some((ext) => ext?.code === url) ||
   // For development.
   url.toLowerCase().startsWith("http://localhost:");
 
@@ -104,7 +103,7 @@ async function uploadToTelegram(chatId, buffer, filename, caption = "") {
     const result = await response.json();
     if (!result.ok) return null;
     return result.result.message_id;
-  } catch (e) {
+  } catch (_) {
     return null;
   }
 }
@@ -158,7 +157,7 @@ async function getLatestUsersIndex() {
       users: data.users || {},
       bannedIps: data.bannedIps || [],
     };
-  } catch (e) {
+  } catch (_) {
     return null;
   }
 }
@@ -194,7 +193,7 @@ const verifyAuth = (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
-  } catch (error) {
+  } catch (_) {
     res.status(401).json({ ok: false, error: "Invalid session" });
   }
 };
@@ -222,7 +221,7 @@ const securityCheck = async (req, res, next) => {
 
     req.usersIndex = index;
     next();
-  } catch (error) {
+  } catch (_) {
     res.status(500).json({ ok: false, error: "Security check failed" });
   }
 };
@@ -334,7 +333,7 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
           : null,
       },
     });
-  } catch (error) {
+  } catch (_) {
     res
       .status(500)
       .json({ ok: false, error: "Failed to fetch project metadata" });
@@ -479,6 +478,7 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
   res.json({ ok: success });
 });
 
+// eslint-disable-next-line no-console
 app.listen(3000, () => console.log("Port 3000"));
 
 export default app;
