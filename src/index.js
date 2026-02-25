@@ -263,7 +263,7 @@ app.post(
     const projectData = await zip.file("project.json").async("string");
     const projectJson = JSON.parse(projectData);
     const hasCustomExtensions = Object.values(projectJson.extensionURLs || {}).some(
-      (ext) => ext.startsWith("http") && !isTrustedUrl(ext),
+      (ext) => (ext.startsWith("http") || ext.startsWith("data")) && !isTrustedUrl(ext),
     );
     if (hasCustomExtensions && req.userRole === "dasher") {
       return res
