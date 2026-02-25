@@ -9,6 +9,7 @@ import rateLimit from "express-rate-limit";
 import bcrypt from "bcrypt";
 import { fileURLToPath } from "url";
 import JSZip from "jszip";
+import { Readable } from "stream";
 
 const app = express();
 dotenv.config();
@@ -275,6 +276,24 @@ app.post(
     res.json({ ok: true, projectId });
   },
 );
+
+app.get("/get-project/:id", validateId, securityCheck, async (req, res) => {
+  try {
+    const downloadUrl = await fetchFromTelegram(
+      req.params.id,
+      PROJECTS_GROUP_ID,
+    );
+    const fileRes = await fetch(downloadUrl);
+    res.setHeader("Content-Type", "application/zip");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${req.params.id}.dbp.zip"`,
+    );
+    Readable.fromWeb(fileRes.body).pipe(res);
+  } catch (_) {
+    res.status(404).json({ ok: false, error: "Project not found" });
+  }
+});
 
 app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
   try {
