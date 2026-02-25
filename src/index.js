@@ -9,6 +9,7 @@ import rateLimit from "express-rate-limit";
 import bcrypt from "bcrypt";
 import { fileURLToPath } from "url";
 import { Readable } from "stream";
+import JSZip from "jszip";
 
 const app = express();
 dotenv.config();
@@ -26,7 +27,7 @@ const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
 const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-const forbiddenUsernames = ["unknown"];
+const forbiddenUsernames = ["unknown", "admin", "system", "dashblocks", "dash", "dashteam"];
 
 app.use(
   express.json({ limit: "50mb" }),
@@ -42,10 +43,8 @@ app.set("trust proxy", 1);
 
 const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 10,
+  max: 15,
   message: { ok: false, error: "Too many attempts, try again later" },
-  standardHeaders: true,
-  legacyHeaders: false,
 });
 
 const uploadLimiter = rateLimit({
@@ -54,7 +53,7 @@ const uploadLimiter = rateLimit({
   message: { ok: false, error: "Upload limit reached, try again later" },
 });
 
-// Helpers
+// --- Helpers ---
 
 const isValidUsername = (username) => {
   const regex = /^[a-zA-Z0-9-_]+$/;
@@ -63,31 +62,45 @@ const isValidUsername = (username) => {
 
 const validateId = (req, res, next) => {
   const id = req.params.id;
-
   if (!id || !/^\d+$/.test(id) || id.startsWith("0")) {
-    return res.status(400).json({
-      ok: false,
-      error: "Invalid ID",
-    });
+    return res.status(400).json({ ok: false, error: "Invalid ID" });
   }
-
   next();
 };
 
+// https://github.com/DashBlocks/scratch-gui/blob/develop/src/containers/tw-security-manager.jsx#L27
+const isTrustedUrl = (url) =>
+  url.toLowerCase().startsWith("https://dashblocks.github.io") ||
+  url.toLowerCase().startsWith("https://github.com/dashblocks") ||
+  url.toLowerCase().startsWith("https://scratch.org") ||
+  url.toLowerCase().startsWith("https://scratch.mit.edu") ||
+  url.toLowerCase().startsWith("https://turbowarp.org") ||
+  url.toLowerCase().startsWith("https://extensions.turbowarp.org") ||
+  url.toLowerCase().startsWith("https://penguinmod.com") ||
+  url.toLowerCase().startsWith("https://studio.penguinmod.com") ||
+  url.toLowerCase().startsWith("https://extensions.penguinmod.com") ||
+  extensions.some((ext) => ext?.code === url) ||
+  // For development.
+  url.toLowerCase().startsWith("http://localhost:");
+
 async function uploadToTelegram(chatId, buffer, filename, caption = "") {
-  const formData = new FormData();
-  formData.append("chat_id", chatId);
-  formData.append("document", new Blob([buffer]), filename);
-  if (caption) formData.append("caption", caption);
+  try {
+    const formData = new FormData();
+    formData.append("chat_id", chatId);
+    formData.append("document", new Blob([buffer]), filename);
+    if (caption) formData.append("caption", caption);
 
-  const response = await fetch(`${TELEGRAM_API}/sendDocument`, {
-    method: "POST",
-    body: formData,
-  });
+    const response = await fetch(`${TELEGRAM_API}/sendDocument`, {
+      method: "POST",
+      body: formData,
+    });
 
-  const result = await response.json();
-  if (!result.ok) return null;
-  return result.result.message_id;
+    const result = await response.json();
+    if (!result.ok) return null;
+    return result.result.message_id;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function fetchFromTelegram(messageId, fromChatId) {
@@ -110,34 +123,47 @@ async function fetchFromTelegram(messageId, fromChatId) {
 }
 
 async function getLatestUsersIndex() {
-  const chatRes = await fetch(
-    `${TELEGRAM_API}/getChat?chat_id=${USERS_INDEX_GROUP_ID}`,
-  );
-  const chatData = await chatRes.json();
+  try {
+    const chatRes = await fetch(
+      `${TELEGRAM_API}/getChat?chat_id=${USERS_INDEX_GROUP_ID}`,
+    );
+    const chatData = await chatRes.json();
+    if (!chatData.ok) return null;
 
-  if (!chatData.ok) return null;
+    const pinnedId = chatData.result?.pinned_message?.message_id;
+    if (!pinnedId) return { users: {}, bannedIps: [] };
 
-  const pinnedId = chatData.result?.pinned_message?.message_id;
-  if (!pinnedId) return { usernames: [] };
+    const downloadUrl = await fetchFromTelegram(pinnedId, USERS_INDEX_GROUP_ID);
+    if (!downloadUrl) return { users: {}, bannedIps: [] };
 
-  const downloadUrl = await fetchFromTelegram(pinnedId, USERS_INDEX_GROUP_ID);
-  if (!downloadUrl) return null;
+    const fileRes = await fetch(downloadUrl);
+    const data = await fileRes.json();
 
-  const fileRes = await fetch(downloadUrl);
-  return await fileRes.json();
+    // "Migration" for old array index
+    if (Array.isArray(data.usernames)) {
+      const migrated = { users: {}, bannedIps: data.bannedIps || [] };
+      data.usernames.forEach((u) => {
+        migrated.users[u.toLowerCase()] = { role: "dasher", banned: false };
+      });
+      return migrated;
+    }
+
+    return {
+      users: data.users || {},
+      bannedIps: data.bannedIps || [],
+    };
+  } catch (e) {
+    return null;
+  }
 }
 
-async function updateUsersIndex(username) {
-  const data = await getLatestUsersIndex();
-  if (!data || typeof data !== "object") return;
-  data.usernames.push(username.toLowerCase());
-
+async function updateUsersIndex(indexData) {
   const msgId = await uploadToTelegram(
     USERS_INDEX_GROUP_ID,
-    Buffer.from(JSON.stringify(data)),
+    Buffer.from(JSON.stringify(indexData)),
     "users_index.json",
   );
-  if (!msgId) return;
+  if (!msgId) return false;
 
   const pinReq = await fetch(`${TELEGRAM_API}/pinChatMessage`, {
     method: "POST",
@@ -149,9 +175,10 @@ async function updateUsersIndex(username) {
     }),
   });
   const pinData = await pinReq.json();
-  if (!pinData.ok) return;
-  return true;
+  return pinData.ok;
 }
+
+// --- Middlewares ---
 
 const verifyAuth = (req, res, next) => {
   const token = req.cookies.auth_token;
@@ -166,15 +193,52 @@ const verifyAuth = (req, res, next) => {
   }
 };
 
-app.get("/", (req, res) => {
-  res.sendFile("index.html", { root: UI_PATH });
-});
+const securityCheck = async (req, res, next) => {
+  try {
+    const index = await getLatestUsersIndex();
+    if (!index)
+      return res.status(500).json({ ok: false, error: "Database unreachable" });
 
-// Projects
+    const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    const username = req.user?.username?.toLowerCase();
 
+    if (index.bannedIps.includes(userIp)) {
+      return res
+        .status(403)
+        .json({ ok: false, error: "IP address banned" });
+    }
+
+    if (username) {
+      const profile = index.users[username];
+      if (profile?.banned) {
+        return res
+          .status(403)
+          .json({ ok: false, error: "Account banned" });
+      }
+      req.userRole = profile?.role || "dasher";
+    }
+
+    req.usersIndex = index;
+    next();
+  } catch (error) {
+    res.status(500).json({ ok: false, error: "Security check failed" });
+  }
+};
+
+// --- Routes ---
+
+app.get("/", (req, res) => res.sendFile("index.html", { root: UI_PATH }));
+
+app.get("/register", (req, res) =>
+  res.sendFile("register.html", { root: UI_PATH }),
+);
+app.get("/login", (req, res) => res.sendFile("login.html", { root: UI_PATH }));
+
+// --- Projects ---
 app.post(
   "/save-project",
   verifyAuth,
+  securityCheck,
   uploadLimiter,
   upload.single("file"),
   async (req, res) => {
@@ -182,16 +246,24 @@ app.post(
     const metadata = JSON.stringify({
       name: name || "Untitled",
       description: description || "",
-      author: {
-        id: Number(req.user.userId),
-        username: req.user.username,
-      },
-      // uploadedAt will be determined by Telegram's forward date, so no need to store it here
+      author: { id: Number(req.user.userId), username: req.user.username },
     });
 
     const file = req.file;
     if (!file)
       return res.status(400).json({ ok: false, error: "No file uploaded" });
+
+    const zip = await JSZip.loadAsync(file.buffer);
+    const projectData = await zip.file("project.json").async("string");
+    const projectJson = JSON.parse(projectData);
+    const hasCustomExtensions = projectJson.extensions.some(
+      (ext) => ext.startsWith("http") && !isTrustedUrl(ext),
+    );
+    if (hasCustomExtensions && req.userRole === "dasher") {
+      return res
+        .status(403)
+        .json({ ok: false, error: "Custom extensions require Dasher+ role" });
+    }
 
     const projectId = await uploadToTelegram(
       PROJECTS_GROUP_ID,
@@ -199,41 +271,19 @@ app.post(
       `${name || "Untitled"}.dbp.zip`,
       metadata,
     );
-
     res.json({ ok: true, projectId });
   },
 );
 
-app.get("/get-project/:id", validateId, async (req, res) => {
+app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
   try {
-    const downloadUrl = await fetchFromTelegram(
-      req.params.id,
-      PROJECTS_GROUP_ID,
-    );
-    const fileRes = await fetch(downloadUrl);
-
-    res.setHeader("Content-Type", "application/zip");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${req.params.id}.dbp.zip"`,
-    );
-
-    Readable.fromWeb(fileRes.body).pipe(res);
-  } catch (error) {
-    res.status(404).json({ ok: false, error: "Project not found" });
-  }
-});
-
-app.get("/projects/:id", validateId, async (req, res) => {
-  try {
-    const projectId = req.params.id;
     const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: GETTERS_GROUP_ID,
         from_chat_id: PROJECTS_GROUP_ID,
-        message_id: projectId,
+        message_id: req.params.id,
       }),
     });
 
@@ -242,40 +292,32 @@ app.get("/projects/:id", validateId, async (req, res) => {
       return res.status(404).json({ ok: false, error: "Project not found" });
 
     const doc = data.result.document;
-    const fileName = doc.file_name || "";
     let metadata = {
       name: "Untitled",
       description: "",
-      author: {
-        id: null,
-        username: "Unknown",
-      },
-      // uploadedAt will be determined by Telegram's forward date, so no need to store it here
+      author: { id: null, username: "Unknown" },
     };
+
     try {
       metadata = JSON.parse(data.result.caption);
-      const authorId = metadata.author.id;
-      metadata.author.id = authorId ? Number(authorId) : null;
+      metadata.author.id = metadata.author.id
+        ? Number(metadata.author.id)
+        : null;
     } catch (_) {
       // It might be old project
-      const lastUnderscoreIndex = fileName.lastIndexOf("_");
+      const lastUnderscoreIndex = doc.file_name.lastIndexOf("_");
       if (lastUnderscoreIndex !== -1) {
-        metadata.name = fileName.substring(0, lastUnderscoreIndex);
-        metadata.author.username = fileName
+        metadata.name = doc.file_name.substring(0, lastUnderscoreIndex);
+        metadata.author.username = doc.file_name
           .substring(lastUnderscoreIndex + 1)
           .replace(".dbp.zip", "");
-      } else if (fileName.endsWith(".dbp.zip")) {
+      } else if (doc.file_name.endsWith(".dbp.zip")) {
         metadata.name =
-          fileName.replace(".dbp.zip", "") !== ""
-            ? fileName.replace(".dbp.zip", "")
+          doc.file_name.replace(".dbp.zip", "") !== ""
+            ? doc.file_name.replace(".dbp.zip", "")
             : "Untitled";
       }
     }
-
-    const unixTimestamp = data.result.forward_date;
-    const isoDate = unixTimestamp
-      ? new Date(unixTimestamp * 1000).toISOString()
-      : null;
 
     res.json({
       ok: true,
@@ -283,12 +325,11 @@ app.get("/projects/:id", validateId, async (req, res) => {
         id: data.result.forward_from_message_id,
         name: metadata.name,
         description: metadata.description,
-        author: {
-          id: metadata.author.id,
-          username: metadata.author.username,
-        },
+        author: metadata.author,
         fileSize: doc.file_size,
-        uploadedAt: isoDate,
+        uploadedAt: data.result.forward_date
+          ? new Date(data.result.forward_date * 1000).toISOString()
+          : null,
       },
     });
   } catch (error) {
@@ -298,104 +339,39 @@ app.get("/projects/:id", validateId, async (req, res) => {
   }
 });
 
-app.get("/upload-project", (req, res) => {
-  res.sendFile("upload-project.html", { root: UI_PATH });
-});
+// --- Auth ---
 
-// Users & Auth
-
-app.get("/users/:id", validateId, async (req, res) => {
-  try {
-    const userId = req.params.id;
-    const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: GETTERS_GROUP_ID,
-        from_chat_id: USERS_GROUP_ID,
-        message_id: userId,
-      }),
-    });
-
-    const data = await forwardRes.json();
-    if (!data.ok || !data.result.document)
-      return res.status(404).json({ ok: false, error: "User not found" });
-
-    const fileId = data.result.document.file_id;
-    const filePathRes = await fetch(
-      `${TELEGRAM_API}/getFile?file_id=${fileId}`,
-    );
-    const filePathData = await filePathRes.json();
-
-    if (!filePathData.ok)
-      return res.status(404).json({ ok: false, error: "User not found" });
-
-    const downloadUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePathData.result.file_path}`;
-    if (!downloadUrl)
-      return res.status(404).json({ ok: false, error: "User not found" });
-
-    const userFileRes = await fetch(downloadUrl);
-    const storedUser = await userFileRes.json();
-
-    const unixTimestamp = data.result.forward_date;
-    const isoDate = unixTimestamp
-      ? new Date(unixTimestamp * 1000).toISOString()
-      : null;
-
-    res.json({
-      ok: true,
-      user: {
-        id: Number(userId),
-        username: storedUser.username,
-        joinedAt: isoDate,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: "Failed to fetch user metadata" });
-  }
-});
-
-app.post("/auth/register", authLimiter, async (req, res) => {
+app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
   try {
     const { username, password } = req.body;
+    const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 
-    if (!username || !isValidUsername(username)) {
+    if (!isValidUsername(username))
       return res.status(400).json({
         ok: false,
         error:
           "Username must be 3-20 characters long and contain only letters, numbers, underscores, and dashes",
       });
-    }
-
-    if (forbiddenUsernames.includes(username.toLowerCase())) {
+    if (forbiddenUsernames.includes(username.toLowerCase()))
       return res
         .status(400)
         .json({ ok: false, error: "You cannot use this username" });
-    }
-
-    if (!password || password.length < 8 || password.length > 100) {
+    if (!password || (password.length < 8 && password.length > 100))
       return res
         .status(400)
         .json({ ok: false, error: "Password must be 8-100 characters long" });
-    }
 
-    const index = await getLatestUsersIndex();
-    if (!index || typeof index !== "object") {
-      return res
-        .status(500)
-        .json({ ok: false, error: "Failed to access users index" });
-    }
-    if (index.usernames.includes(username.toLowerCase())) {
-      return res
-        .status(400)
-        .json({ ok: false, error: "Username already taken" });
-    }
+    const index = req.usersIndex;
+    if (index.users[username.toLowerCase()])
+      return res.status(400).json({ ok: false, error: "Username taken" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const userData = JSON.stringify({
       username,
       password: hashedPassword,
-      // joinedAt will be determined by Telegram's forward date, so no need to store it here
+      role: "dasher",
+      ip: userIp,
+      banned: false,
     });
 
     const userId = await uploadToTelegram(
@@ -403,14 +379,14 @@ app.post("/auth/register", authLimiter, async (req, res) => {
       Buffer.from(userData),
       `${username}.json`,
     );
-    if (!userId) throw new Error("Failed to store user");
+    if (!userId) throw new Error("Storage failed");
 
-    const indexUpdated = await updateUsersIndex(username);
-    if (!indexUpdated) {
-      return res
-        .status(500)
-        .json({ ok: false, error: "Failed to update users index" });
-    }
+    index.users[username.toLowerCase()] = {
+      role: "dasher",
+      banned: false,
+      ip: userIp,
+    };
+    await updateUsersIndex(index);
 
     const token = jwt.sign({ userId, username }, JWT_SECRET, {
       expiresIn: "7d",
@@ -436,9 +412,7 @@ app.post("/auth/login", async (req, res) => {
     const userFileRes = await fetch(downloadUrl);
     const storedUser = await userFileRes.json();
 
-    const isMatch = await bcrypt.compare(password, storedUser.password);
-
-    if (isMatch) {
+    if (await bcrypt.compare(password, storedUser.password)) {
       const token = jwt.sign(
         { userId, username: storedUser.username },
         JWT_SECRET,
@@ -462,34 +436,47 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-app.get("/auth/logout", verifyAuth, (req, res) => {
-  res.clearCookie("auth_token", {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    path: "/",
-  });
-  res.json({ ok: true, message: "Logged out" });
-});
-
-app.get("/session", verifyAuth, (req, res) => {
+app.get("/session", verifyAuth, securityCheck, (req, res) => {
   res.json({
     ok: true,
     userId: Number(req.user.userId),
     username: req.user.username,
+    role: req.userRole,
   });
 });
 
-app.get("/register", (req, res) => {
-  res.sendFile("register.html", { root: UI_PATH });
+// --- Admin ---
+
+app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
+  if (req.userRole !== "dashteam")
+    return res.status(403).json({
+      ok: false,
+      error: "Only Dash Team can do this, what did you expect?",
+    });
+
+  const { targetUsername, action, role } = req.body;
+  const index = req.usersIndex;
+  const target = index.users[targetUsername.toLowerCase()];
+
+  if (!target)
+    return res.status(404).json({ ok: false, error: "User not found" });
+
+  if (action === "ban-user") {
+    target.banned = true;
+  } else if (action === "ban-ip") {
+    if (target.ip && !index.bannedIps.includes(target.ip))
+      index.bannedIps.push(target.ip);
+  } else if (action === "unban") {
+    target.banned = false;
+    index.bannedIps = index.bannedIps.filter((ip) => ip !== target.ip);
+  } else if (action === "promote" && role) {
+    target.role = role;
+  }
+
+  const success = await updateUsersIndex(index);
+  res.json({ ok: success });
 });
 
-app.get("/login", (req, res) => {
-  res.sendFile("login.html", { root: UI_PATH });
-});
-
-app.listen(3000, () => {
-  console.log("Port 3000");
-});
+app.listen(3000, () => console.log("Port 3000"));
 
 export default app;
