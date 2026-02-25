@@ -262,7 +262,7 @@ app.post(
     const zip = await JSZip.loadAsync(file.buffer);
     const projectData = await zip.file("project.json").async("string");
     const projectJson = JSON.parse(projectData);
-    const hasCustomExtensions = projectJson.extensions.some(
+    const hasCustomExtensions = Object.values(projectJson.extensionURLs || {}).some(
       (ext) => ext.startsWith("http") && !isTrustedUrl(ext),
     );
     if (hasCustomExtensions && req.userRole === "dasher") {
