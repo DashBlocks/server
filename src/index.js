@@ -248,6 +248,7 @@ app.post(
   uploadLimiter,
   upload.single("file"),
   async (req, res) => {
+    // Save project
     const { name, description } = req.body;
     const metadata = JSON.stringify({
       name: name || "Untitled",
@@ -262,8 +263,12 @@ app.post(
     const zip = await JSZip.loadAsync(file.buffer);
     const projectData = await zip.file("project.json").async("string");
     const projectJson = JSON.parse(projectData);
-    const hasCustomExtensions = Object.values(projectJson.extensionURLs || {}).some(
-      (ext) => (ext.startsWith("http") || ext.startsWith("data")) && !isTrustedUrl(ext),
+    const hasCustomExtensions = Object.values(
+      projectJson.extensionURLs || {},
+    ).some(
+      (ext) =>
+        (ext.startsWith("http") || ext.startsWith("data")) &&
+        !isTrustedUrl(ext),
     );
     if (hasCustomExtensions && req.userRole === "dasher") {
       return res
@@ -278,6 +283,38 @@ app.post(
       metadata,
     );
     res.json({ ok: true, projectId });
+
+    // Update user profile
+    const index = req.usersIndex;
+    const userKey = req.user.username.toLowerCase();
+    const user = index.users[userKey];
+
+    user.projects.push({
+      id: projectId,
+      name: name || "Untitled",
+      description: description || "",
+    });
+
+    const accountAgeMs = Date.now() - new Date(user.joinedAt).getTime();
+
+    const hasEnoughProjects = user.projects.length >= 3;
+    const isOldEnough = accountAgeMs >= 14 * 24 * 60 * 60 * 1000;
+    const isActive =
+      new Date(user.lastActive).getTime() >
+      Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+    user.lastActive = new Date().toISOString();
+
+    if (
+      user.role === "dasher" &&
+      hasEnoughProjects &&
+      isOldEnough &&
+      isActive
+    ) {
+      user.role = "dasher+";
+    }
+
+    await updateUsersIndex(index);
   },
 );
 
@@ -408,6 +445,9 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
       role: "dasher",
       banned: false,
       ip: userIp,
+      projects: [],
+      joinedAt: new Date().toISOString(),
+      lastActive: new Date().toISOString(),
     };
     await updateUsersIndex(index);
 
@@ -461,55 +501,22 @@ app.post("/auth/login", securityCheck, async (req, res) => {
 
 app.get("/users/:id", validateId, securityCheck, async (req, res) => {
   try {
-    const userId = req.params.id;
-    const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: GETTERS_GROUP_ID,
-        from_chat_id: USERS_GROUP_ID,
-        message_id: userId,
-      }),
-    });
-
-    const data = await forwardRes.json();
-    if (!data.ok || !data.result.document)
-      return res.status(404).json({ ok: false, error: "User not found" });
-
-    const fileId = data.result.document.file_id;
-    const filePathRes = await fetch(
-      `${TELEGRAM_API}/getFile?file_id=${fileId}`,
-    );
-    const filePathData = await filePathRes.json();
-
-    if (!filePathData.ok)
-      return res.status(404).json({ ok: false, error: "User not found" });
-
-    const downloadUrl = `https://api.telegram.org/file/bot${BOT_TOKEN}/${filePathData.result.file_path}`;
-    if (!downloadUrl)
-      return res.status(404).json({ ok: false, error: "User not found" });
-
+    const downloadUrl = await fetchFromTelegram(req.params.id, USERS_GROUP_ID);
     const userFileRes = await fetch(downloadUrl);
     const storedUser = await userFileRes.json();
-
-    const metadata = req.usersIndex.users[storedUser.username.toLowerCase()];
-
-    const unixTimestamp = data.result.forward_date;
-    const isoDate = unixTimestamp
-      ? new Date(unixTimestamp * 1000).toISOString()
-      : null;
+    const indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
 
     res.json({
       ok: true,
       user: {
-        id: Number(userId),
         username: storedUser.username,
-        role: metadata?.role || "dasher",
-        joinedAt: isoDate,
+        role: indexData?.role || "dasher",
+        joinedAt: indexData?.joinedAt,
+        projects: indexData?.projects || [],
       },
     });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: "Failed to fetch user metadata" });
+  } catch (e) {
+    res.status(404).json({ ok: false, error: "User not found" });
   }
 });
 
@@ -520,6 +527,9 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
     userId: Number(req.user.userId),
     username: req.user.username,
     role: metadata?.role || "dasher",
+    projects: metadata?.projects || [],
+    joinedAt: metadata?.joinedAt,
+    lastActive: metadata?.lastActive,
   });
 });
 
