@@ -107,7 +107,6 @@ async function uploadToTelegram(chatId, buffer, filename, caption = "") {
     if (!result.ok) return null;
     return result.result.message_id;
   } catch (error) {
-    console.log(error);
     return null;
   }
 }
