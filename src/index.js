@@ -641,11 +641,12 @@ app.get(
 
     if (!index.featuredProjects) index.featuredProjects = [];
 
-    const projectData = await fetch(
+    const projectReq = await fetch(
       `https://dashblocks-server.vercel.app/projects/${projectId}`,
-    ).then(async (r) => (r.ok ? await r.json().project : null));
-    if (!projectData)
+    );
+    if (!projectReq.ok)
       return res.status(404).json({ ok: false, error: "Project not found" });
+    const projectData = await projectReq.json();
 
     if (!index.featuredProjects.find((p) => p.id === projectId)) {
       index.featuredProjects.push({
