@@ -4,12 +4,13 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import multer from "multer";
-import path from "path";
+import path, { join } from "path";
 import rateLimit from "express-rate-limit";
 import bcrypt from "bcrypt";
 import { fileURLToPath } from "url";
 import JSZip from "jszip";
 import { Readable } from "stream";
+import { profile } from "console";
 
 const app = express();
 dotenv.config();
@@ -359,7 +360,15 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
     let metadata = {
       name: "Untitled",
       description: "",
-      author: { id: null, username: "Unknown" },
+      author: {
+        id: null,
+        username: "Unknown",
+        role: "dasher",
+        profile: { avatarId: 1 },
+        joinedAt: null,
+        lastActive: null,
+        projects: [],
+      },
     };
 
     try {
@@ -367,6 +376,14 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
       metadata.author.id = metadata.author.id
         ? Number(metadata.author.id)
         : null;
+      const authorProfile = req.usersIndex.users[metadata.author.username.toLowerCase()];
+      if (authorProfile) {
+        metadata.author.role = authorProfile.role || "dasher";
+        metadata.author.profile.avatarId = authorProfile.avatarId || 1;
+        metadata.author.joinedAt = authorProfile.joinedAt || null;
+        metadata.author.lastActive = authorProfile.lastActive || null;
+        metadata.author.projects = authorProfile.projects || [];
+      }
     } catch (_) {
       // It might be old project
       const lastUnderscoreIndex = doc.file_name.lastIndexOf("_");
