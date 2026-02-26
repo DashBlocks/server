@@ -372,17 +372,24 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
     };
 
     try {
-      metadata = JSON.parse(data.result.caption);
-      metadata.author.id = metadata.author.id
-        ? Number(metadata.author.id)
-        : null;
-      const authorProfile = req.usersIndex.users[metadata.author.username.toLowerCase()];
+      const savedData = JSON.parse(data.result.caption);
+      metadata.name = savedData.name || "Untitled";
+      metadata.description = savedData.description || "";
+      if (savedData.author) {
+        metadata.author.id = Number(savedData.author.id) || null;
+        metadata.author.username = savedData.author.username || "Unknown";
+      }
+
+      const authorProfile =
+        req.usersIndex.users[metadata.author.username.toLowerCase()];
       if (authorProfile) {
         metadata.author.role = authorProfile.role || "dasher";
-        metadata.author.profile.avatarId = authorProfile.avatarId || 1;
         metadata.author.joinedAt = authorProfile.joinedAt || null;
         metadata.author.lastActive = authorProfile.lastActive || null;
         metadata.author.projects = authorProfile.projects || [];
+        metadata.author.profile = {
+          avatarId: authorProfile.avatarId || 1,
+        };
       }
     } catch (_) {
       // It might be old project
