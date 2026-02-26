@@ -106,7 +106,7 @@ async function uploadToTelegram(chatId, buffer, filename, caption = "") {
     const result = await response.json();
     if (!result.ok) return null;
     return result.result.message_id;
-  } catch (error) {
+  } catch (_) {
     return null;
   }
 }
@@ -522,7 +522,7 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
         projects: indexData?.projects || [],
       },
     });
-  } catch (e) {
+  } catch (_) {
     res.status(404).json({ ok: false, error: "User not found" });
   }
 });
@@ -624,10 +624,11 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
   res.json({ ok: success });
 });
 
-app.get(
-  "/admin/feature-project",
+app.post(
+  "/featured-projects/:id",
   verifyAuth,
   securityCheck,
+  validateId,
   async (req, res) => {
     if (req.userRole !== "dashteam")
       return res.status(403).json({
@@ -635,7 +636,7 @@ app.get(
         error: "Only Dash Team can do this, what did you expect?",
       });
 
-    const projectId = Number(req.query.projectId);
+    const projectId = Number(req.params.id);
     const index = req.usersIndex;
 
     if (!index.featuredProjects) index.featuredProjects = [];
@@ -649,6 +650,7 @@ app.get(
 
     if (!index.featuredProjects.find((p) => p.id === projectId)) {
       index.featuredProjects.push({
+        id: projectId,
         ...projectData.project,
         featuredAt: new Date().toISOString(),
       });
@@ -662,10 +664,11 @@ app.get(
   },
 );
 
-app.get(
-  "/admin/unfeature-project",
+app.delete(
+  "/featured-projects/:id",
   verifyAuth,
   securityCheck,
+  validateId,
   async (req, res) => {
     if (req.userRole !== "dashteam")
       return res.status(403).json({
@@ -673,7 +676,7 @@ app.get(
         error: "Only Dash Team can do this, what did you expect?",
       });
 
-    const projectId = Number(req.query.projectId);
+    const projectId = Number(req.params.id);
     const index = req.usersIndex;
 
     if (index.featuredProjects) {
