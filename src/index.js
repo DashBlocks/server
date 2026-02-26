@@ -10,7 +10,6 @@ import bcrypt from "bcrypt";
 import { fileURLToPath } from "url";
 import JSZip from "jszip";
 import { Readable } from "stream";
-import { profile } from "console";
 
 const app = express();
 dotenv.config();
@@ -28,6 +27,7 @@ const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;
 const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
 const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
 const AVATARS_GROUP_ID = process.env.AVATARS_GROUP_ID;
+const THUMBNAILS_GROUP_ID = process.env.THUMBNAILS_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 const forbiddenUsernames = [
@@ -407,12 +407,20 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
       }
     }
 
+    const projectInIndex = metadata.author.projects.find(
+      (p) => String(p.id) === String(req.params.id),
+    );
+    if (projectInIndex) {
+      metadata.thumbnailId = projectInIndex.thumbnailId || null;
+    }
+
     res.json({
       ok: true,
       project: {
         id: data.result.forward_from_message_id,
         name: metadata.name,
         description: metadata.description,
+        thumbnailId: metadata.thumbnailId || 1,
         author: metadata.author,
         fileSize: doc.file_size,
         uploadedAt: data.result.forward_date
@@ -424,6 +432,59 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
     res
       .status(500)
       .json({ ok: false, error: "Failed to fetch project metadata" });
+  }
+});
+
+app.post(
+  "/projects/:id/upload-thumbnail",
+  verifyAuth,
+  securityCheck,
+  upload.single("thumbnail"),
+  async (req, res) => {
+    const projectId = req.params.id;
+    if (!req.file)
+      return res.status(400).json({ ok: false, error: "No image provided" });
+
+    const index = req.usersIndex;
+    const userKey = req.user.username.toLowerCase();
+    const userProjects = index.users[userKey].projects;
+
+    const project = userProjects.find(
+      (p) => String(p.id) === String(projectId),
+    );
+    if (!project)
+      return res
+        .status(404)
+        .json({ ok: false, error: "Project not found in your profile" });
+
+    const thumbnailId = await uploadToTelegram(
+      THUMBNAILS_GROUP_ID,
+      req.file.buffer,
+      `thumb_${projectId}.png`,
+    );
+
+    if (!thumbnailId)
+      return res.status(500).json({ ok: false, error: "Upload failed" });
+
+    project.thumbnailId = thumbnailId;
+    await updateUsersIndex(index);
+    res.json({ ok: true, thumbnailId });
+  },
+);
+
+app.get("/projects/thumbnails/:id", async (req, res) => {
+  try {
+    const downloadUrl = await fetchFromTelegram(
+      req.params.id,
+      THUMBNAILS_GROUP_ID,
+    );
+    const fileRes = await fetch(downloadUrl);
+
+    res.setHeader("Content-Type", "image/png");
+    Readable.fromWeb(fileRes.body).pipe(res);
+  } catch (_) {
+    res.setHeader("Content-Type", "image/png");
+    res.sendFile(path.join(ASSETS_PATH, "dasher-icon.png"));
   }
 });
 
