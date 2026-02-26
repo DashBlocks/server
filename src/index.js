@@ -491,7 +491,7 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
 
 // --- Auth ---
 
-app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
+/* app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
   try {
     const { username, password } = req.body;
     const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
@@ -555,7 +555,7 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }
-});
+}); */
 
 app.post("/auth/login", securityCheck, async (req, res) => {
   try {
