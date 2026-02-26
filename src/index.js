@@ -286,7 +286,6 @@ app.post(
       `${name || "Untitled"}.dbp.zip`,
       metadata,
     );
-    res.json({ ok: true, projectId });
 
     // Update user profile
     const index = req.usersIndex;
@@ -319,6 +318,8 @@ app.post(
     }
 
     await updateUsersIndex(index);
+
+    res.json({ ok: true, projectId });
   },
 );
 
