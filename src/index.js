@@ -598,13 +598,13 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
     ok: true,
     userId: Number(req.user.userId),
     username: req.user.username,
-    role: indexData?.role || "dasher",
+    role: metadata?.role || "dasher",
     profile: {
-      avatarId: indexData?.avatarId || 1,
+      avatarId: metadata?.avatarId || 1,
     },
-    joinedAt: indexData?.joinedAt || null,
-    lastActive: indexData?.lastActive || null,
-    projects: indexData?.projects || [],
+    joinedAt: metadata?.joinedAt || null,
+    lastActive: metadata?.lastActive || null,
+    projects: metadata?.projects || [],
   });
 });
 
