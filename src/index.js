@@ -159,6 +159,7 @@ async function getLatestUsersIndex() {
     return {
       users: data.users || {},
       bannedIps: data.bannedIps || [],
+      featuredProjects: data.featuredProjects || [],
     };
   } catch (_) {
     return null;
@@ -634,7 +635,7 @@ app.get(
         error: "Only Dash Team can do this, what did you expect?",
       });
 
-    const { projectId } = req.query;
+    const projectId = Number(req.query.projectId);
     const index = req.usersIndex;
 
     if (!index.featuredProjects) index.featuredProjects = [];
@@ -672,7 +673,7 @@ app.get(
         error: "Only Dash Team can do this, what did you expect?",
       });
 
-    const { projectId } = req.query;
+    const projectId = Number(req.query.projectId);
     const index = req.usersIndex;
 
     if (index.featuredProjects) {
