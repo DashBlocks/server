@@ -619,6 +619,11 @@ app.post(
   securityCheck,
   upload.single("avatar"),
   async (req, res) => {
+    if (req.userRole === "dasher")
+      return res.status(403).json({
+        ok: false,
+        error: "Must have Dasher+ role",
+      });
     if (!req.file)
       return res.status(400).json({ ok: false, error: "No image provided" });
 
