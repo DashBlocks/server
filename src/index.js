@@ -684,6 +684,44 @@ app.get("/users/avatars/:id", async (req, res) => {
   }
 });
 
+app.post(
+  "/users/set-description",
+  verifyAuth,
+  securityCheck,
+  async (req, res) => {
+    if (req.userRole === "dasher")
+      return res.status(403).json({
+        ok: false,
+        error: "Must have Dasher+ role",
+      });
+    const description = req.body.description?.toString();
+    if (!description)
+      return res.status(400).json({
+        ok: false,
+        error: "No description provided",
+      });
+
+    const user = req.usersIndex.users[req.user.username.toLowerCase()];
+    user.description = req.body.description;
+    await updateUsersIndex(index);
+
+    res.json({
+      ok: true,
+      user: {
+        username: user.username,
+        role: user?.role || "dasher",
+        profile: {
+          avatarId: user?.avatarId || 1,
+          description: user?.description || "",
+        },
+        joinedAt: user?.joinedAt || null,
+        lastActive: user?.lastActive || null,
+        projects: user?.projects || [],
+      },
+    });
+  },
+);
+
 app.get("/session", verifyAuth, securityCheck, (req, res) => {
   const metadata = req.usersIndex.users[req.user.username.toLowerCase()];
   res.json({
