@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import jwt from "jsonwebtoken";
 import multer from "multer";
-import path, { join } from "path";
+import path from "path";
 import rateLimit from "express-rate-limit";
 import bcrypt from "bcrypt";
 import { fileURLToPath } from "url";
@@ -30,6 +30,7 @@ const AVATARS_GROUP_ID = process.env.AVATARS_GROUP_ID;
 const THUMBNAILS_GROUP_ID = process.env.THUMBNAILS_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
+// eslint-disable-next-line no-unused-vars
 const forbiddenUsernames = [
   "unknown",
   "admin",
@@ -63,8 +64,9 @@ const uploadLimiter = rateLimit({
   message: { ok: false, error: "Upload limit reached, try again later" },
 });
 
-// --- Helpers ---
+// ------ helpers ------
 
+// eslint-disable-next-line no-unused-vars
 const isValidUsername = (username) => {
   const regex = /^[a-zA-Z0-9-_]+$/;
   return regex.test(username) && username.length <= 20 && username.length >= 3;
@@ -148,15 +150,6 @@ async function getLatestUsersIndex() {
     const fileRes = await fetch(downloadUrl);
     const data = await fileRes.json();
 
-    // "Migration" for old array index
-    if (Array.isArray(data.usernames)) {
-      const migrated = { users: {}, bannedIps: data.bannedIps || [] };
-      data.usernames.forEach((u) => {
-        migrated.users[u.toLowerCase()] = { role: "dasher", banned: false };
-      });
-      return migrated;
-    }
-
     return {
       users: data.users || {},
       bannedIps: data.bannedIps || [],
@@ -187,8 +180,6 @@ async function updateUsersIndex(indexData) {
   const pinData = await pinReq.json();
   return pinData.ok;
 }
-
-// --- Middlewares ---
 
 const verifyAuth = (req, res, next) => {
   const token = req.cookies.auth_token;
@@ -231,7 +222,7 @@ const securityCheck = async (req, res, next) => {
   }
 };
 
-// --- Routes ---
+// ------ routes ------
 
 app.get("/", (req, res) => res.sendFile("index.html", { root: UI_PATH }));
 
@@ -244,7 +235,7 @@ app.get("/upload-project", (req, res) =>
   res.sendFile("upload-project.html", { root: UI_PATH }),
 );
 
-// --- Projects ---
+// ------ projects ------
 app.post(
   "/save-project",
   verifyAuth,
@@ -280,7 +271,37 @@ app.post(
         .json({ ok: false, error: "Custom extensions require Dasher+ role" });
     }
 
-    const projectId = await uploadToTelegram(
+    // Sending to getters group cuz we need to check if file and caption
+    // uploaded successfully, and if not, we don't want to waste ID
+    let projectId = await uploadToTelegram(
+      GETTERS_GROUP_ID,
+      file.buffer,
+      `${name || "Untitled"}.dbp.zip`,
+      metadata,
+    );
+    if (projectId) {
+      const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: GETTERS_GROUP_ID,
+          from_chat_id: GETTERS_GROUP_ID,
+          message_id: projectId,
+        }),
+      });
+
+      const data = await forwardRes.json();
+      if (!data.result.document.file_id)
+        return res.status(500).json("Failed to upload project");
+      try {
+        JSON.parse(data.result.caption);
+      } catch (_) {
+        return res.status(500).json("Failed to upload project metadata");
+      }
+    } else {
+      return res.status(500).json("Failed to upload project");
+    }
+    projectId = await uploadToTelegram(
       PROJECTS_GROUP_ID,
       file.buffer,
       `${name || "Untitled"}.dbp.zip`,
@@ -358,14 +379,14 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
       return res.status(404).json({ ok: false, error: "Project not found" });
 
     const doc = data.result.document;
-    let metadata = {
+    const metadata = {
       name: "Untitled",
       description: "",
       author: {
         id: null,
         username: "Unknown",
         role: "dasher",
-        profile: { avatarId: 1 },
+        profile: { avatarId: 1, description: "" },
         joinedAt: null,
         lastActive: null,
         projects: [],
@@ -389,6 +410,7 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
         metadata.author.lastActive = authorProfile.lastActive || null;
         metadata.author.projects = authorProfile.projects || [];
         metadata.author.profile = {
+          description: authorProfile.description || "",
           avatarId: authorProfile.avatarId || 1,
         };
       }
@@ -489,7 +511,7 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
   }
 });
 
-// --- Auth ---
+// ------ auth ------
 
 /* app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
   try {
@@ -534,6 +556,8 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
       role: "dasher",
       banned: false,
       ip: userIp,
+      description: "",
+      avatarId: 1,
       projects: [],
       joinedAt: new Date().toISOString(),
       lastActive: new Date().toISOString(),
@@ -557,7 +581,7 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
   }
 }); */
 
-app.post("/auth/login", securityCheck, async (req, res) => {
+app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
   try {
     const { userId, password } = req.body;
     const downloadUrl = await fetchFromTelegram(userId, USERS_GROUP_ID);
@@ -602,6 +626,7 @@ app.get("/users/:id", validateId, securityCheck, async (req, res) => {
         role: indexData?.role || "dasher",
         profile: {
           avatarId: indexData?.avatarId || 1,
+          description: indexData?.description || "",
         },
         joinedAt: indexData?.joinedAt || null,
         lastActive: indexData?.lastActive || null,
@@ -668,6 +693,7 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
     role: metadata?.role || "dasher",
     profile: {
       avatarId: metadata?.avatarId || 1,
+      description: metadata?.description || "",
     },
     joinedAt: metadata?.joinedAt || null,
     lastActive: metadata?.lastActive || null,
@@ -685,7 +711,7 @@ app.get("/auth/logout", verifyAuth, securityCheck, (req, res) => {
   res.json({ ok: true, message: "Logged out" });
 });
 
-// --- Admin ---
+// ------ admin ------
 
 app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
   if (req.userRole !== "dashteam")
