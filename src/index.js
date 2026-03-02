@@ -701,8 +701,9 @@ app.post(
         error: "No description provided",
       });
 
-    const user = req.usersIndex.users[req.user.username.toLowerCase()];
-    user.description = req.body.description;
+    const index = req.usersIndex;
+    const user = index.users[req.user.username.toLowerCase()];
+    user.description = description;
     await updateUsersIndex(index);
 
     res.json({
