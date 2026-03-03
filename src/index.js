@@ -292,14 +292,20 @@ app.post(
 
       const data = await forwardRes.json();
       if (!data.result.document.file_id)
-        return res.status(500).json("Failed to upload project");
+        return res
+          .status(500)
+          .json({ ok: false, error: "Failed to upload project" });
       try {
         JSON.parse(data.result.caption);
       } catch (_) {
-        return res.status(500).json("Failed to upload project metadata");
+        return res
+          .status(500)
+          .json({ ok: false, error: "Failed to upload project metadata" });
       }
     } else {
-      return res.status(500).json("Failed to upload project");
+      return res
+        .status(500)
+        .json({ ok: false, error: "Failed to upload project" });
     }
     projectId = await uploadToTelegram(
       PROJECTS_GROUP_ID,
