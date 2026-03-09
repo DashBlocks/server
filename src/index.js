@@ -30,7 +30,7 @@ const AVATARS_GROUP_ID = process.env.AVATARS_GROUP_ID;
 const THUMBNAILS_GROUP_ID = process.env.THUMBNAILS_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
-// eslint-disable-next-line no-unused-vars
+
 const forbiddenUsernames = [
   "unknown",
   "admin",
@@ -66,7 +66,7 @@ const uploadLimiter = rateLimit({
 
 // ------ helpers ------
 
-// eslint-disable-next-line no-unused-vars
+
 const isValidUsername = (username) => {
   const regex = /^[a-zA-Z0-9-_]+$/;
   return regex.test(username) && username.length <= 20 && username.length >= 3;
@@ -555,13 +555,13 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
       return res.status(400).json({ ok: false, error: "Invalid verification token :P" });
     }
 
-    const commentsRes = await fetch(`https://api.scratch.mit.edu/users/Dash_Blocks/projects/1288539368/comments?limit=20`);
+    const commentsRes = await fetch("https://api.scratch.mit.edu/users/Dash_Blocks/projects/1288539368/comments?limit=20");
     if (!commentsRes.ok) return res.status(400).json({ ok: false, error: "Failed to verify user" });
     const comments = await commentsRes.json();
 
-    const isVerified = comments.some(c => 
-      c.author.username.toLowerCase() === scratchUsername.toLowerCase() && 
-      c.content.includes(verifyCode)
+    const isVerified = comments.some(c =>
+      c.author.username.toLowerCase() === scratchUsername.toLowerCase() &&
+      c.content.includes(verifyCode),
     );
 
     if (!isVerified) {
