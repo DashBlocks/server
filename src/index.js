@@ -198,7 +198,7 @@ const securityCheck = async (req, res, next) => {
   try {
     const index = await getLatestUsersIndex();
     if (!index)
-      return res.status(500).json({ ok: false, error: "Database unreachable" });
+      return res.status(500).json({ ok: false, error: "Security check failed" });
 
     const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
     const username = req.user?.username?.toLowerCase();
@@ -519,10 +519,56 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
 
 // ------ auth ------
 
-/* app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
+app.get("/auth/get-auth-code", authLimiter, securityCheck, (_, res) => {
+  const arr = new Uint8Array(50);
+  crypto.getRandomValues(arr);
+  const code = Array.from(arr)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+
+  const token = jwt.sign({ code }, JWT_SECRET, {
+    expiresIn: "5m",
+  });
+  res.cookie("verification_token", token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    maxAge: 5 * 60 * 1000,
+    path: "/",
+  });
+
+  res.json({ ok: true, code });
+});
+
+app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    const { scratchUsername, username, password } = req.body;
+
+    // Verification
+
+    const verifyToken = req.cookies.verification_token;
+    if (!verifyToken) return res.status(400).json({ ok: false, error: "Verification token not found" });
+    let verifyCode;
+    try {
+      verifyCode = jwt.verify(verifyToken, JWT_SECRET).code;
+    } catch (_) {
+      return res.status(400).json({ ok: false, error: "Invalid verification token :P" });
+    }
+
+    const commentsRes = await fetch(`https://api.scratch.mit.edu/users/Dash_Blocks/projects/1288539368/comments?limit=20`);
+    if (!commentsRes.ok) return res.status(400).json({ ok: false, error: "Failed to verify user" });
+    const comments = await commentsRes.json();
+
+    const isVerified = comments.some(c => 
+      c.author.username.toLowerCase() === scratchUsername.toLowerCase() && 
+      c.content.includes(verifyCode)
+    );
+
+    if (!isVerified) {
+      return res.status(401).json({ ok: false, error: "Your verification token not found on project" });
+    }
+
+    // Account creation
 
     if (!isValidUsername(username))
       return res.status(400).json({
@@ -543,9 +589,11 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
     if (index.users[username.toLowerCase()])
       return res.status(400).json({ ok: false, error: "Username taken" });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
     const userData = JSON.stringify({
       username,
+      scratchUsername,
       password: hashedPassword,
       ip: userIp,
       banned: false,
@@ -556,9 +604,10 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
       Buffer.from(userData),
       `${username}.json`,
     );
-    if (!userId) throw new Error("Storage failed");
+    if (!userId) throw new Error("Failed to create user");
 
     index.users[username.toLowerCase()] = {
+      scratchUsername,
       role: "dasher",
       banned: false,
       ip: userIp,
@@ -569,6 +618,8 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
       lastActive: new Date().toISOString(),
     };
     await updateUsersIndex(index);
+
+    res.clearCookie("verification_token");
 
     const token = jwt.sign({ userId, username }, JWT_SECRET, {
       expiresIn: "7d",
@@ -585,7 +636,7 @@ app.get("/projects/thumbnails/:id", async (req, res) => {
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }
-}); */
+});
 
 app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
   try {
@@ -611,10 +662,10 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
     } else {
       res
         .status(401)
-        .json({ ok: false, error: "Invalid username or password" });
+        .json({ ok: false, error: "Invalid user ID or password" });
     }
   } catch (_) {
-    res.status(401).json({ ok: false, error: "Invalid username or password" });
+    res.status(401).json({ ok: false, error: "Invalid user ID or password" });
   }
 });
 
