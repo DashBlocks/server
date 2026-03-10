@@ -20,6 +20,7 @@ const __dirname = path.dirname(__filename);
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_VERIFY_SECRET = process.env.JWT_VERIFY_SECRET;
 const UI_PATH = path.join(__dirname, "ui");
 const ASSETS_PATH = path.join(__dirname, "assets");
 const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
@@ -29,7 +30,6 @@ const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
 const AVATARS_GROUP_ID = process.env.AVATARS_GROUP_ID;
 const THUMBNAILS_GROUP_ID = process.env.THUMBNAILS_GROUP_ID;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
-
 
 const forbiddenUsernames = [
   "unknown",
@@ -65,7 +65,6 @@ const uploadLimiter = rateLimit({
 });
 
 // ------ helpers ------
-
 
 const isValidUsername = (username) => {
   const regex = /^[a-zA-Z0-9-_]+$/;
@@ -198,7 +197,9 @@ const securityCheck = async (req, res, next) => {
   try {
     const index = await getLatestUsersIndex();
     if (!index)
-      return res.status(500).json({ ok: false, error: "Security check failed" });
+      return res
+        .status(500)
+        .json({ ok: false, error: "Security check failed" });
 
     const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
     const username = req.user?.username?.toLowerCase();
@@ -256,7 +257,11 @@ app.post(
       return res.status(400).json({ ok: false, error: "No file uploaded" });
 
     const zip = await JSZip.loadAsync(file.buffer);
-    const projectData = await zip.file("project.json").async("string");
+    const projectData = await zip.file("project.json")?.async("string");
+    if (!projectData)
+      return res
+        .status(400)
+        .json({ ok: false, error: "project.json not found" });
     const projectJson = JSON.parse(projectData);
     const hasCustomExtensions = Object.values(
       projectJson.extensionURLs || {},
@@ -526,7 +531,7 @@ app.get("/auth/get-auth-code", authLimiter, securityCheck, (_, res) => {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  const token = jwt.sign({ code }, JWT_SECRET, {
+  const token = jwt.sign({ code, type: "register_verification" }, JWT_VERIFY_SECRET, {
     expiresIn: "5m",
   });
   res.cookie("verification_token", token, {
@@ -547,25 +552,42 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
     // Verification
 
     const verifyToken = req.cookies.verification_token;
-    if (!verifyToken) return res.status(400).json({ ok: false, error: "Verification token not found" });
-    let verifyCode;
+    if (!verifyToken)
+      return res
+        .status(400)
+        .json({ ok: false, error: "Verification token not found" });
+    let decoded;
     try {
-      verifyCode = jwt.verify(verifyToken, JWT_SECRET).code;
+      decoded = jwt.verify(verifyToken, JWT_VERIFY_SECRET);
+      if (decoded.type !== "register_verification") throw new Error();
     } catch (_) {
-      return res.status(400).json({ ok: false, error: "Invalid verification token :P" });
+      return res
+        .status(400)
+        .json({ ok: false, error: "Invalid verification token :P" });
     }
 
-    const commentsRes = await fetch("https://api.scratch.mit.edu/users/Dash_Blocks/projects/1288539368/comments?limit=20");
-    if (!commentsRes.ok) return res.status(400).json({ ok: false, error: "Failed to verify user" });
+    const commentsRes = await fetch(
+      "https://api.scratch.mit.edu/users/Dash_Blocks/projects/1288539368/comments?limit=20",
+    );
+    if (!commentsRes.ok)
+      return res
+        .status(400)
+        .json({ ok: false, error: "Failed to verify user" });
     const comments = await commentsRes.json();
 
-    const isVerified = comments.some(c =>
-      c.author.username.toLowerCase() === scratchUsername.toLowerCase() &&
-      c.content.includes(verifyCode),
+    const isVerified = comments.some(
+      (c) =>
+        c.author.username.toLowerCase() === scratchUsername.toLowerCase() &&
+        c.content.includes(decoded.code),
     );
 
     if (!isVerified) {
-      return res.status(401).json({ ok: false, error: "Your verification token not found on project" });
+      return res
+        .status(401)
+        .json({
+          ok: false,
+          error: "Your verification token not found on project",
+        });
     }
 
     // Account creation
@@ -588,6 +610,18 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
     const index = req.usersIndex;
     if (index.users[username.toLowerCase()])
       return res.status(400).json({ ok: false, error: "Username taken" });
+    if (
+      Object.values(index.users).some(
+        (u) =>
+          u.scratchUsername?.toLowerCase() === scratchUsername.toLowerCase(),
+      )
+    )
+      return res
+        .status(400)
+        .json({
+          ok: false,
+          error: "This Scratch account is already linked to another user",
+        });
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
@@ -660,9 +694,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
       });
       res.json({ ok: true, username: storedUser.username, userId });
     } else {
-      res
-        .status(401)
-        .json({ ok: false, error: "Invalid user ID or password" });
+      res.status(401).json({ ok: false, error: "Invalid user ID or password" });
     }
   } catch (_) {
     res.status(401).json({ ok: false, error: "Invalid user ID or password" });

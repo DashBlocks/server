@@ -1,41 +1,56 @@
-<h1>Login</h1>
-<div id="status"></div>
-<form id="loginForm">
-  <input type="number" id="userId" placeholder="User ID" required /><br />
-  <input type="password" id="password" placeholder="Password" required /><br />
-  <button id="login" type="submit">Login</button>
-</form>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Log in</title>
+  </head>
+  <body>
+    <h1>Sign in</h1>
+    <div id="status"></div>
+    <form id="loginForm">
+      <input type="number" id="userId" placeholder="User ID" required /><br />
+      <input
+        type="password"
+        id="password"
+        placeholder="Password"
+        required
+      /><br />
+      <button id="login" type="submit">Login</button>
+    </form>
 
-<script>
-  document.getElementById("loginForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
+    <script>
+      const form = document.getElementById("loginForm");
+      const status = document.getElementById("status");
+      const submitBtn = document.getElementById("login");
 
-    const status = document.getElementById("status");
-    const userId = document.getElementById("userId").value;
-    const password = document.getElementById("password").value;
-    const submitBtn = document.getElementById("login");
+      form.onsubmit = async (event) => {
+        event.preventDefault();
+        submitBtn.disabled = true;
+        status.innerText = "Authenticating...";
 
-    status.innerText = "Authenticating...";
-    submitBtn.disabled = true;
+        const userId = document.getElementById("userId").value;
+        const password = document.getElementById("password").value;
 
-    try {
-      const res = await fetch(`${window.location.origin}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, password }),
-        credentials: "include",
-      });
-
-      const result = await res.json();
-      if (result.ok) {
-        status.innerText = "Success!!";
-      } else {
-        status.innerText = "Failed: " + result.error;
-      }
-    } catch (error) {
-      status.innerText = "Error: " + error.message;
-    } finally {
-      submitBtn.disabled = false;
-    }
-  });
-</script>
+        try {
+          const response = await fetch("/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, password }),
+            credentials: "include",
+          });
+          const result = await response.json();
+          if (result.ok) {
+            status.innerText = "Success!!";
+          } else {
+            throw new Error(result.error);
+          }
+        } catch (error) {
+          status.innerText = "Failed: " + error.message;
+        } finally {
+          submitBtn.disabled = false;
+        }
+      };
+    </script>
+  </body>
+</html>

@@ -8,8 +8,17 @@
   <body>
     <div>
       <h2>Join</h2>
-      <div id="infoBox"></div>
+      <div id="status"></div>
       <form id="registerForm">
+        <input
+          type="text"
+          id="scratchUsername"
+          placeholder="Username in Scratch"
+          required
+          minlength="3"
+          maxlength="20"
+        />
+        <br />
         <input
           type="text"
           id="username"
@@ -18,6 +27,7 @@
           minlength="3"
           maxlength="20"
         />
+        <br />
         <input
           type="password"
           id="password"
@@ -26,46 +36,78 @@
           minlength="8"
           maxlength="100"
         />
-        <button type="submit" id="submitBtn">Create Account</button>
+        <br />
+        <button id="register">Create Account</button>
       </form>
+      <button id="submitVerify">I did so</button>
       <div>Already have an account? <a href="/login">Log in</a></div>
     </div>
 
     <script>
       const form = document.getElementById("registerForm");
-      const infoBox = document.getElementById("infoBox");
-      const submitBtn = document.getElementById("submitBtn");
+      const status = document.getElementById("status");
+      const submitBtn = document.getElementById("register");
+      const submitVerifyBtn = document.getElementById("submitVerify");
+      submitVerifyBtn.style.display = "none";
 
-      form.onsubmit = async (e) => {
-        e.preventDefault();
+      form.onsubmit = async (event) => {
+        event.preventDefault();
         submitBtn.disabled = true;
-        infoBox.innerText = "Creating...";
+        status.innerText = "Creating...";
 
+        try {
+          const response = await fetch("/auth/get-auth-code");
+          const result = await response.json();
+          if (!result.ok) {
+            throw new Error(result.error);
+          }
+
+          status.innerHTML =
+            "Copy this code:<br />\n" +
+            `<code>${result.code}</code><br />\n` +
+            'Open <a href="https://scratch.mit.edu/projects/1288539368">Verification Project</a><br />\n' +
+            "Comment what did you copied (your verification code)<br />\n" +
+            'After that click the button "I did so"<br />';
+          submitBtn.style.display = "none";
+          submitVerifyBtn.style.display = "block";
+        } catch (error) {
+          status.innerText = "Failed: " + error.message;
+        } finally {
+          submitBtn.disabled = false;
+        }
+      };
+
+      submitVerifyBtn.onclick = async (event) => {
+        event.preventDefault();
+        submitVerifyBtn.disabled = true;
+        status.innerText = "Verifying...";
+
+        const scratchUsername =
+          document.getElementById("scratchUsername").value;
         const username = document.getElementById("username").value;
         const password = document.getElementById("password").value;
 
         try {
-          const res = await fetch("/auth/register", {
+          const response = await fetch("/auth/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({ scratchUsername, username, password }),
             credentials: "include",
           });
-
-          const data = await res.json();
-
+          const data = await response.json();
           if (data.ok) {
-            infoBox.innerText = `Success!!! Your ID: ${data.userId}`;
+            status.innerText = `Success!!! Your ID: ${data.userId}`;
           } else {
-            infoBox.innerText = "Failed: " + data.error;
-            infoBox.style.display = "block";
+            throw new Error(data.error);
           }
         } catch (error) {
-          infoBox.innerText = "Failed: " + error.message;
-          infoBox.style.display = "block";
+          status.innerText = "Failed: " + error.message;
         } finally {
+          submitVerifyBtn.style.display = "none";
+          submitVerifyBtn.disabled = false;
+
+          submitBtn.style.display = "block";
           submitBtn.disabled = false;
-          submitBtn.innerText = "Create Account";
         }
       };
     </script>
