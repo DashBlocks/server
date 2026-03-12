@@ -701,17 +701,25 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
   }
 });
 
-app.get("/users/:id", validateId, securityCheck, async (req, res) => {
+app.get("/users/:target", validateId, securityCheck, async (req, res) => {
   try {
-    const downloadUrl = await fetchFromTelegram(req.params.id, USERS_GROUP_ID);
-    const userFileRes = await fetch(downloadUrl);
-    const storedUser = await userFileRes.json();
-    const indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
+    const target = req.params.target;
+    let storedUser, indexData;
+    if (/^\d+$/.test(target)) {
+      // Likely ID
+      const downloadUrl = await fetchFromTelegram(target, USERS_GROUP_ID);
+      const userFileRes = await fetch(downloadUrl);
+      storedUser = await userFileRes.json();
+      indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
+    } else {
+      // Likely username
+      indexData = req.usersIndex.users[target.toLowerCase()];
+    }
 
     res.json({
       ok: true,
       user: {
-        username: storedUser.username,
+        username: storedUser?.username || target,
         role: indexData?.role || "dasher",
         profile: {
           avatarId: indexData?.avatarId || 1,
