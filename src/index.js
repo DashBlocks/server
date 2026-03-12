@@ -701,11 +701,11 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
   }
 });
 
-app.get("/users/:target", validateId, securityCheck, async (req, res) => {
+app.get("/users/:target", securityCheck, async (req, res) => {
   try {
     const target = req.params.target;
     let storedUser, indexData;
-    if (/^\d+$/.test(target)) {
+    if (/^\d+$/.test(target) || !target.startsWith("0")) {
       // Likely ID
       const downloadUrl = await fetchFromTelegram(target, USERS_GROUP_ID);
       const userFileRes = await fetch(downloadUrl);
