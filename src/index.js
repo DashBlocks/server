@@ -531,9 +531,13 @@ app.get("/auth/get-auth-code", authLimiter, securityCheck, (_, res) => {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 
-  const token = jwt.sign({ code, type: "register_verification" }, JWT_VERIFY_SECRET, {
-    expiresIn: "5m",
-  });
+  const token = jwt.sign(
+    { code, type: "register_verification" },
+    JWT_VERIFY_SECRET,
+    {
+      expiresIn: "5m",
+    },
+  );
   res.cookie("verification_token", token, {
     httpOnly: true,
     secure: true,
@@ -582,12 +586,10 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
     );
 
     if (!isVerified) {
-      return res
-        .status(401)
-        .json({
-          ok: false,
-          error: "Your verification token not found on project",
-        });
+      return res.status(401).json({
+        ok: false,
+        error: "Your verification token not found on project",
+      });
     }
 
     // Account creation
@@ -616,12 +618,10 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
           u.scratchUsername?.toLowerCase() === scratchUsername.toLowerCase(),
       )
     )
-      return res
-        .status(400)
-        .json({
-          ok: false,
-          error: "This Scratch account is already linked to another user",
-        });
+      return res.status(400).json({
+        ok: false,
+        error: "This Scratch account is already linked to another user",
+      });
 
     const hashedPassword = await bcrypt.hash(password, 12);
     const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
@@ -705,7 +705,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 
 app.get("/users/:target", securityCheck, async (req, res) => {
   try {
-    let target = req.params.target;
+    const target = req.params.target;
     let storedUser, indexData;
     if (/^\d+$/.test(target) && !target.startsWith("0")) {
       // Likely ID
@@ -842,14 +842,14 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
   });
 });
 
-app.get("/auth/logout", verifyAuth, securityCheck, (req, res) => {
+app.get("/auth/logout", verifyAuth, (req, res) => {
   res.clearCookie("auth_token", {
     httpOnly: true,
     secure: true,
     sameSite: "none",
     path: "/",
   });
-  res.json({ ok: true, message: "Logged out" });
+  return res.json({ ok: true, message: "Logged out" });
 });
 
 // ------ admin ------
