@@ -782,7 +782,7 @@ app.get("/users/avatars/:id", async (req, res) => {
     Readable.fromWeb(fileRes.body).pipe(res);
   } catch (_) {
     res.setHeader("Content-Type", "image/png");
-    res.sendFile(path.join(ASSETS_PATH, "dasher-icon.png"));
+    res.status(200).sendFile(path.join(ASSETS_PATH, "dasher-icon.png"));
   }
 });
 
