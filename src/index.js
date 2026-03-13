@@ -910,11 +910,11 @@ app.post(
     const projectData = await projectReq.json();
 
     if (!index.featuredProjects.find((p) => p.id === projectId)) {
-      index.featuredProjects.push({
+      index.featuredProjects = [{
         id: projectId,
         ...projectData.project,
         featuredAt: new Date().toISOString(),
-      });
+      }, ...index.featuredProjects];
       await updateUsersIndex(index);
     }
 
