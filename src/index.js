@@ -67,7 +67,7 @@ const uploadLimiter = rateLimit({
 // ------ helpers ------
 
 const isValidUsername = (username) => {
-  const regex = /^(?!\d+$) [a-zA-Z0-9-_]+$/;
+  const regex = /^(?!\d+$)[a-zA-Z0-9-_]+$/;
   return regex.test(username) && username.length <= 20 && username.length >= 3;
 };
 
