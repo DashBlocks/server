@@ -641,6 +641,8 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
     if (!userId) throw new Error("Failed to create user");
 
     index.users[username.toLowerCase()] = {
+      id: userId,
+      username,
       scratchUsername,
       role: "dasher",
       banned: false,
@@ -703,7 +705,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 
 app.get("/users/:target", securityCheck, async (req, res) => {
   try {
-    const target = req.params.target;
+    let target = req.params.target;
     let storedUser, indexData;
     if (/^\d+$/.test(target) && !target.startsWith("0")) {
       // Likely ID
@@ -714,12 +716,15 @@ app.get("/users/:target", securityCheck, async (req, res) => {
     } else {
       // Likely username
       indexData = req.usersIndex.users[target.toLowerCase()];
+      const downloadUrl = await fetchFromTelegram(indexData.id, USERS_GROUP_ID);
+      const userFileRes = await fetch(downloadUrl);
+      storedUser = await userFileRes.json();
     }
 
     res.json({
       ok: true,
       user: {
-        username: storedUser?.username || target,
+        username: storedUser?.username || "Unknown",
         role: indexData?.role || "dasher",
         profile: {
           avatarId: indexData?.avatarId || 1,
