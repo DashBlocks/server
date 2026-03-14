@@ -478,7 +478,7 @@ app.delete(
     const projectId = req.params.id;
     const index = req.usersIndex;
     const userKey =
-      req.user.role === "dashteam" && req.body?.targetUsername
+      req.userRole === "dashteam" && req.body?.targetUsername
         ? req.body.targetUsername.toLowerCase()
         : req.user.username.toLowerCase();
 
