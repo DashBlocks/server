@@ -469,6 +469,50 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
   }
 });
 
+app.delete("/projects/:id", validateId, securityCheck, async (req, res) => {
+  const projectId = req.params.id;
+  const index = req.usersIndex;
+  const userKey = req.user.username.toLowerCase();
+  const userProjects = index.users[userKey].projects;
+
+  const project = userProjects.find((p) => String(p.id) === String(projectId));
+  if (!project)
+    return res
+      .status(404)
+      .json({ ok: false, error: "Project not found in your profile" });
+
+  const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: GETTERS_GROUP_ID,
+      from_chat_id: PROJECTS_GROUP_ID,
+      message_id: projectId,
+    }),
+  });
+  const forwardData = await forwardRes.json();
+  if (!forwardData.ok || !forwardData.result.document)
+    return res.status(404).json({ ok: false, error: "Project not found" });
+
+  const response = await fetch(`${TELEGRAM_API}/deleteMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: PROJECTS_GROUP_ID,
+      message_id: projectId,
+    }),
+  });
+  const data = await response.json();
+  if (!data.ok || !data.result.document)
+    return res
+      .status(500)
+      .json({ ok: false, error: "Failed to delete project" });
+
+  userProjects.filter((p) => String(p.id) !== String(projectId));
+
+  res.json({ ok: true, projects: userProjects });
+});
+
 app.post(
   "/projects/:id/upload-thumbnail",
   verifyAuth,
@@ -724,6 +768,7 @@ app.get("/users/:target", securityCheck, async (req, res) => {
     res.json({
       ok: true,
       user: {
+        id: storedUser?.id || null,
         username: storedUser?.username || "Unknown",
         role: indexData?.role || "dasher",
         profile: {
@@ -910,11 +955,14 @@ app.post(
     const projectData = await projectReq.json();
 
     if (!index.featuredProjects.find((p) => p.id === projectId)) {
-      index.featuredProjects = [{
-        id: projectId,
-        ...projectData.project,
-        featuredAt: new Date().toISOString(),
-      }, ...index.featuredProjects];
+      index.featuredProjects = [
+        {
+          id: projectId,
+          ...projectData.project,
+          featuredAt: new Date().toISOString(),
+        },
+        ...index.featuredProjects,
+      ];
       await updateUsersIndex(index);
     }
 
