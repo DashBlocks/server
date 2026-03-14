@@ -772,7 +772,7 @@ app.get("/users/:target", securityCheck, async (req, res) => {
     res.json({
       ok: true,
       user: {
-        id: storedUser?.id || null,
+        id: indexData?.id || null,
         username: storedUser?.username || "Unknown",
         role: indexData?.role || "dasher",
         profile: {
