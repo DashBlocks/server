@@ -469,49 +469,53 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
   }
 });
 
-app.delete("/projects/:id", validateId, securityCheck, async (req, res) => {
-  const projectId = req.params.id;
-  const index = req.usersIndex;
-  const userKey = req.user.role === "dashteam" && req.body?.targetUsername ? req.body.targetUsername.toLowerCase() : req.user.username.toLowerCase();
-  const userProjects = index.users[userKey].projects;
+app.delete(
+  "/projects/:id",
+  verifyAuth,
+  validateId,
+  securityCheck,
+  async (req, res) => {
+    const projectId = req.params.id;
+    const index = req.usersIndex;
+    const userKey =
+      req.user.role === "dashteam" && req.body?.targetUsername
+        ? req.body.targetUsername.toLowerCase()
+        : req.user.username.toLowerCase();
 
-  const project = userProjects.find((p) => String(p.id) === String(projectId));
-  if (!project)
-    return res
-      .status(404)
-      .json({ ok: false, error: "Project not found in your profile" });
+    const userProfile = index.users[userKey];
+    if (!userProfile)
+      return res.status(404).json({ ok: false, error: "User not found" });
 
-  const forwardRes = await fetch(`${TELEGRAM_API}/forwardMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: GETTERS_GROUP_ID,
-      from_chat_id: PROJECTS_GROUP_ID,
-      message_id: projectId,
-    }),
-  });
-  const forwardData = await forwardRes.json();
-  if (!forwardData.ok || !forwardData.result.document)
-    return res.status(404).json({ ok: false, error: "Project not found" });
+    const projectIndex = userProfile.projects.findIndex(
+      (p) => String(p.id) === String(projectId),
+    );
+    if (projectIndex === -1)
+      return res
+        .status(404)
+        .json({ ok: false, error: "Project not found in profile" });
 
-  const response = await fetch(`${TELEGRAM_API}/deleteMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: PROJECTS_GROUP_ID,
-      message_id: projectId,
-    }),
-  });
-  const data = await response.json();
-  if (!data.ok || !data.result.document)
-    return res
-      .status(500)
-      .json({ ok: false, error: "Failed to delete project" });
+    const delRes = await fetch(`${TELEGRAM_API}/deleteMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: PROJECTS_GROUP_ID,
+        message_id: projectId,
+      }),
+    });
+    const delData = await delRes.json();
+    if (!delData)
+      return res
+        .status(404)
+        .json({ ok: false, error: "Project not found" });
 
-  userProjects.filter((p) => String(p.id) !== String(projectId));
+    userProfile.projects = userProfile.projects.filter(
+      (p) => String(p.id) !== String(projectId),
+    );
+    await updateUsersIndex(index);
 
-  res.json({ ok: true, projects: userProjects });
-});
+    res.json({ ok: true, projects: userProfile.projects });
+  },
+);
 
 app.post(
   "/projects/:id/upload-thumbnail",
