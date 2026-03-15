@@ -777,6 +777,7 @@ app.get("/users/:target", securityCheck, async (req, res) => {
         role: indexData?.role || "dasher",
         profile: {
           avatarId: indexData?.avatarId || 1,
+          scratchUsername: indexData?.scratchUsername || null,
           description: indexData?.description || "",
         },
         joinedAt: indexData?.joinedAt || null,
