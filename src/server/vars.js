@@ -19,6 +19,7 @@ const ASSETS_PATH = path.join(__dirname, "assets");
 const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
 const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;
 const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
+const INDEX_FILENAME = "users_index.json";
 const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
 const AVATARS_GROUP_ID = process.env.AVATARS_GROUP_ID;
 const THUMBNAILS_GROUP_ID = process.env.THUMBNAILS_GROUP_ID;
@@ -26,10 +27,9 @@ const THUMBNAILS_GROUP_ID = process.env.THUMBNAILS_GROUP_ID;
 const FORBIDDEN_USERNAMES = [
 	"unknown",
 	"admin",
-	"system",
 	"dashblocks",
 	"dash",
-	"dashteam",
+	"dashteam"
 ];
 
 export {
@@ -45,9 +45,10 @@ export {
 	PROJECTS_GROUP_ID,
 	GETTERS_GROUP_ID,
 	USERS_GROUP_ID,
+	INDEX_FILENAME,
 	USERS_INDEX_GROUP_ID,
 	AVATARS_GROUP_ID,
 	THUMBNAILS_GROUP_ID,
 
-	FORBIDDEN_USERNAMES,
+	FORBIDDEN_USERNAMES
 };
