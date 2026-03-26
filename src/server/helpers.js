@@ -1,4 +1,6 @@
 import jwt from "jsonwebtoken";
+import rateLimit from "express-rate-limit";
+
 import { JWT_SECRET } from "./vars";
 import { getLatestUsersIndex } from "./telegram";
 
@@ -72,10 +74,24 @@ const securityCheck = async (req, res, next) => {
 	}
 };
 
+const authLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000,
+	max: 15,
+	message: { ok: false, error: "Too many attempts, try again later" }
+});
+
+const uploadLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000,
+	max: 10,
+	message: { ok: false, error: "Upload limit reached, try again later" }
+});
+
 export {
 	isValidUsername,
 	validateId,
 	isTrustedUrl,
 	verifyAuth,
-	securityCheck
+	securityCheck,
+	authLimiter,
+	uploadLimiter
 };
