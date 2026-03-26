@@ -10,8 +10,8 @@ export default [
 			globals: {
 				...globals.node,
 				...globals.es2021,
-				process: "readonly",
-			},
+				process: "readonly"
+			}
 		},
 		rules: {
 			"no-unused-vars": [
@@ -19,8 +19,8 @@ export default [
 				{
 					argsIgnorePattern: "^_$",
 					varsIgnorePattern: "^_$",
-					caughtErrorsIgnorePattern: "^_$",
-				},
+					caughtErrorsIgnorePattern: "^_$"
+				}
 			],
 			"no-console": "warn",
 			"prefer-const": "error",
@@ -32,14 +32,14 @@ export default [
 			semi: ["error", "always"],
 			quotes: ["error", "double"],
 			indent: ["error", "tab"],
-			"comma-dangle": ["error", "always-multiline"],
+			"comma-dangle": ["error", "never"],
 			"arrow-spacing": ["error", { before: true, after: true }],
 
 			"no-eval": "error",
-			"no-implied-eval": "error",
-		},
+			"no-implied-eval": "error"
+		}
 	},
 	{
-		ignores: ["node_modules/", "dist/"],
-	},
+		ignores: ["node_modules/", "dist/"]
+	}
 ];
