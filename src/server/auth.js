@@ -1,10 +1,10 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
-import app from "../index";
-import * as vars from "./vars";
-import { isValidUsername, securityCheck, verifyAuth, authLimiter } from "./helpers";
-import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram";
+import app from "../app.js";
+import * as vars from "./vars.js";
+import { isValidUsername, securityCheck, verifyAuth, authLimiter } from "./helpers.js";
+import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram.js";
 
 app.get("/auth/get-auth-code", authLimiter, securityCheck, (_, res) => {
 	const arr = new Uint8Array(50);

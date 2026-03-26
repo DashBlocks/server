@@ -1,4 +1,4 @@
-import * as vars from "./vars";
+import * as vars from "./vars.js";
 
 async function uploadToTelegram(chatId, buffer, filename, caption = "") {
 	try {

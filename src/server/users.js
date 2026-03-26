@@ -1,10 +1,10 @@
 import path from "path";
 import { Readable } from "stream";
 
-import app, { upload } from "../index";
-import * as vars from "./vars";
-import { securityCheck, verifyAuth } from "./helpers";
-import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram";
+import app, { upload } from "../app.js";
+import * as vars from "./vars.js";
+import { securityCheck, verifyAuth } from "./helpers.js";
+import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram.js";
 
 app.get("/users/:target", securityCheck, async (req, res) => {
 	try {

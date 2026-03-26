@@ -13,8 +13,8 @@ const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_VERIFY_SECRET = process.env.JWT_VERIFY_SECRET;
 
-const UI_PATH = path.join(__dirname, "ui");
-const ASSETS_PATH = path.join(__dirname, "assets");
+const UI_PATH = path.join(__dirname, "../ui");
+const ASSETS_PATH = path.join(__dirname, "../assets");
 
 const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
 const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;

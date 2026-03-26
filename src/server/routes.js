@@ -1,5 +1,5 @@
-import app from "../index";
-import { UI_PATH } from "./vars";
+import app from "../app.js";
+import { UI_PATH } from "./vars.js";
 
 app.get("/", (req, res) => res.sendFile("index.html", { root: UI_PATH }));
 

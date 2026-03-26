@@ -1,8 +1,8 @@
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 
-import { JWT_SECRET } from "./vars";
-import { getLatestUsersIndex } from "./telegram";
+import { JWT_SECRET } from "./vars.js";
+import { getLatestUsersIndex } from "./telegram.js";
 
 const isValidUsername = (username) => {
 	const regex = /^(?!\d+$)[a-zA-Z0-9-_]+$/;

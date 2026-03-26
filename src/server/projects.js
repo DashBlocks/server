@@ -2,10 +2,10 @@ import JSZip from "jszip";
 import path from "path";
 import { Readable } from "stream";
 
-import app, { upload } from "../index";
-import * as vars from "./vars";
-import { validateId, isTrustedUrl, securityCheck, verifyAuth, uploadLimiter } from "./helpers";
-import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram";
+import app, { upload } from "../app.js";
+import * as vars from "./vars.js";
+import { validateId, isTrustedUrl, securityCheck, verifyAuth, uploadLimiter } from "./helpers.js";
+import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram.js";
 
 app.post(
 	"/save-project",
