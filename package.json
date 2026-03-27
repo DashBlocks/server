@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node src/dev.js",
     "lint": "eslint .",
     "lint-fix": "eslint . --fix"
   },
@@ -24,7 +24,8 @@
     "globals": "^17.3.0",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "serverless-http": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0"
