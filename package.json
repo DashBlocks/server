@@ -24,8 +24,7 @@
     "globals": "^17.3.0",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
-    "multer": "^2.0.2",
-    "serverless-http": "^4.0.0"
+    "multer": "^2.0.2"
   },
   "devDependencies": {
     "@types/node": "^22.0.0"
