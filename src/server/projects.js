@@ -97,7 +97,10 @@ app.post(
 		user.projects.push({
 			id: projectId,
 			name: name || "Untitled",
-			description: description || ""
+			description: description || "",
+			stats: {
+				fires: 0
+			}
 		});
 
 		const accountAgeMs = Date.now() - new Date(user.joinedAt).getTime();
@@ -265,10 +268,10 @@ app.delete(
 		if (!userProfile)
 			return res.status(404).json({ ok: false, error: "User not found" });
 
-		const projectIndex = userProfile.projects.findIndex(
+		const project = userProfile.projects.find(
 			(p) => String(p.id) === String(projectId)
 		);
-		if (projectIndex === -1)
+		if (!project)
 			return res
 				.status(404)
 				.json({ ok: false, error: "Project not found in profile" });
@@ -284,6 +287,18 @@ app.delete(
 		const delData = await delRes.json();
 		if (!delData)
 			return res.status(404).json({ ok: false, error: "Project not found" });
+
+		if (project.thumbnailId > 1) {
+			await fetch(`${vars.TELEGRAM_API}/deleteMessage`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					chat_id: vars.THUMBNAILS_GROUP_ID,
+					message_id: project.thumbnailId
+				})
+			});
+			// Ignore if failed
+		}
 
 		userProfile.projects = userProfile.projects.filter(
 			(p) => String(p.id) !== String(projectId)
@@ -315,6 +330,19 @@ app.post(
 			return res
 				.status(404)
 				.json({ ok: false, error: "Project not found in your profile" });
+
+		// Don't even try to delete previous thumbnail cuz it may be a placeholder or just not exist
+		if (project.thumbnailId > 1) {
+			await fetch(`${vars.TELEGRAM_API}/deleteMessage`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					chat_id: vars.THUMBNAILS_GROUP_ID,
+					message_id: project.thumbnailId
+				})
+			});
+			// Ignore if failed
+		}
 
 		const thumbnailId = await uploadToTelegram(
 			vars.THUMBNAILS_GROUP_ID,
