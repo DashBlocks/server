@@ -132,6 +132,7 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 			description: "",
 			avatarId: 1,
 			projects: [],
+			firedProjects: [],
 			joinedAt: new Date().toISOString(),
 			lastActive: new Date().toISOString()
 		};
@@ -198,7 +199,8 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
 		},
 		joinedAt: metadata?.joinedAt || null,
 		lastActive: metadata?.lastActive || null,
-		projects: metadata?.projects || []
+		projects: metadata?.projects || [],
+		firedProjects: metadata?.firedProjects || []
 	});
 });
 

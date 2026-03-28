@@ -37,7 +37,8 @@ app.get("/users/:target", securityCheck, async (req, res) => {
 				},
 				joinedAt: indexData?.joinedAt || null,
 				lastActive: indexData?.lastActive || null,
-				projects: indexData?.projects || []
+				projects: indexData?.projects || [],
+				firedProjects: indexData?.firedProjects || []
 			}
 		});
 	} catch (_) {
@@ -116,15 +117,18 @@ app.post(
 		res.json({
 			ok: true,
 			user: {
-				username: user.username,
+				id: user?.id || null,
+				username: user?.username || "Unknown",
 				role: user?.role || "dasher",
 				profile: {
 					avatarId: user?.avatarId || 1,
+					scratchUsername: user?.scratchUsername || null,
 					description: user?.description || ""
 				},
 				joinedAt: user?.joinedAt || null,
 				lastActive: user?.lastActive || null,
-				projects: user?.projects || []
+				projects: user?.projects || [],
+				firedProjects: user?.firedProjects || []
 			}
 		});
 	}
