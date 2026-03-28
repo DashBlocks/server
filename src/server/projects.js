@@ -38,7 +38,7 @@ app.post(
 		).some(
 			(ext) =>
 				(ext.startsWith("http") || ext.startsWith("data")) &&
-                !isTrustedUrl(ext)
+				!isTrustedUrl(ext)
 		);
 		if (hasCustomExtensions && req.userRole === "dasher") {
 			return res
@@ -105,16 +105,16 @@ app.post(
 		const hasEnoughProjects = user.projects.length >= 3;
 		const isOldEnough = accountAgeMs >= 14 * 24 * 60 * 60 * 1000;
 		const isActive =
-            new Date(user.lastActive).getTime() >
-            Date.now() - 7 * 24 * 60 * 60 * 1000;
+			new Date(user.lastActive).getTime() >
+			Date.now() - 7 * 24 * 60 * 60 * 1000;
 
 		user.lastActive = new Date().toISOString();
 
 		if (
 			user.role === "dasher" &&
-            hasEnoughProjects &&
-            isOldEnough &&
-            isActive
+			hasEnoughProjects &&
+			isOldEnough &&
+			isActive
 		) {
 			user.role = "dasher+";
 		}
@@ -160,9 +160,14 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
 			return res.status(404).json({ ok: false, error: "Project not found" });
 
 		const doc = data.result.document;
+		const projectId = data.result.forward_from_message_id;
 		const metadata = {
 			name: "Untitled",
 			description: "",
+			thumbnailId: 1,
+			stats: {
+				fires: 0
+			},
 			author: {
 				id: null,
 				username: "Unknown",
@@ -184,12 +189,19 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
 			}
 
 			const authorProfile =
-                req.usersIndex.users[metadata.author.username.toLowerCase()];
+				req.usersIndex.users[metadata.author.username.toLowerCase()];
 			if (authorProfile) {
 				metadata.author.role = authorProfile.role || "dasher";
 				metadata.author.joinedAt = authorProfile.joinedAt || null;
 				metadata.author.lastActive = authorProfile.lastActive || null;
 				metadata.author.projects = authorProfile.projects || [];
+				const projectInIndex = metadata.author.projects.find(
+					(p) => String(p.id) === String(req.params.id)
+				);
+				if (projectInIndex) {
+					metadata.stats.fires = projectInIndex.stats?.fires || 0;
+					metadata.thumbnailId = projectInIndex.thumbnailId || 1;
+				}
 				metadata.author.profile = {
 					description: authorProfile.description || "",
 					avatarId: authorProfile.avatarId || 1
@@ -205,26 +217,23 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
 					.replace(".dbp.zip", "");
 			} else if (doc.file_name.endsWith(".dbp.zip")) {
 				metadata.name =
-                    doc.file_name.replace(".dbp.zip", "") !== ""
-                    	? doc.file_name.replace(".dbp.zip", "")
-                    	: "Untitled";
+					doc.file_name.replace(".dbp.zip", "") !== ""
+						? doc.file_name.replace(".dbp.zip", "")
+						: "Untitled";
 			}
-		}
-
-		const projectInIndex = metadata.author.projects.find(
-			(p) => String(p.id) === String(req.params.id)
-		);
-		if (projectInIndex) {
-			metadata.thumbnailId = projectInIndex.thumbnailId || null;
 		}
 
 		res.json({
 			ok: true,
 			project: {
-				id: data.result.forward_from_message_id,
+				id: projectId,
 				name: metadata.name,
 				description: metadata.description,
-				thumbnailId: metadata.thumbnailId || 1,
+				thumbnailId: metadata.thumbnailId,
+				stats: {
+					fires: metadata.fires
+					// TODO: Views, remixes, etc
+				},
 				author: metadata.author,
 				fileSize: doc.file_size,
 				uploadedAt: data.result.forward_date
@@ -248,9 +257,9 @@ app.delete(
 		const projectId = req.params.id;
 		const index = req.usersIndex;
 		const userKey =
-            req.userRole === "dashteam" && req.body?.targetUsername
-            	? req.body.targetUsername.toLowerCase()
-            	: req.user.username.toLowerCase();
+			req.userRole === "dashteam" && req.body?.targetUsername
+				? req.body.targetUsername.toLowerCase()
+				: req.user.username.toLowerCase();
 
 		const userProfile = index.users[userKey];
 		if (!userProfile)
