@@ -386,7 +386,7 @@ app.post(
 		const projectId = req.params.id;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-		if (user.firedProjects?.contains(projectId))
+		if (user.firedProjects?.includes(projectId))
 			return res.status(400).json({ ok: false, error: "Project already fired" });
 
 		const forwardRes = await fetch(`${vars.TELEGRAM_API}/forwardMessage`, {
