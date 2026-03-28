@@ -231,7 +231,7 @@ app.get("/projects/:id", validateId, securityCheck, async (req, res) => {
 				description: metadata.description,
 				thumbnailId: metadata.thumbnailId,
 				stats: {
-					fires: metadata.fires
+					fires: metadata.stats.fires
 					// TODO: Views, remixes, etc
 				},
 				author: metadata.author,
