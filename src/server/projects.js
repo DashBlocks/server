@@ -288,6 +288,7 @@ app.delete(
 		if (!delData)
 			return res.status(404).json({ ok: false, error: "Project not found" });
 
+		// Don't even try to delete thumbnail cuz it may be a placeholder or just not exist
 		if (project.thumbnailId > 1) {
 			await fetch(`${vars.TELEGRAM_API}/deleteMessage`, {
 				method: "POST",
