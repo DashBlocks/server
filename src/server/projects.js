@@ -383,7 +383,6 @@ app.post(
 	securityCheck,
 	validateId,
 	async (req, res) => {
-		try {
 		const projectId = req.params.id;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
@@ -422,7 +421,7 @@ app.post(
 			}
 		}
 
-		const project = authorProfile?.find(
+		const project = authorProfile?.projects.find(
 			(p) => String(p.id) === String(projectId)
 		);
 		if (!project)
@@ -434,8 +433,5 @@ app.post(
 		user.firedProjects ? user.firedProjects.push(projectId) : user.firedProjects = [projectId];
 		await updateUsersIndex(index);
 		res.json({ ok: true, fires: project.stats.fires });
-		} catch (error) {
-			res.status(500).json({ ok: false, error })
-		}
 	}
 );
