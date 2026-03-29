@@ -383,7 +383,7 @@ app.post(
 	securityCheck,
 	validateId,
 	async (req, res) => {
-		const projectId = req.params.id;
+		const projectId = Number(req.params.id);
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
 		if (user.firedProjects?.includes(projectId))
@@ -431,6 +431,65 @@ app.post(
 
 		project.stats ? project.stats.fires += 1 : project.stats = { fires: 1 };
 		user.firedProjects ? user.firedProjects.push(projectId) : user.firedProjects = [projectId];
+		await updateUsersIndex(index);
+		res.json({ ok: true, fires: project.stats.fires });
+	}
+);
+
+app.delete(
+	"/projects/:id/fire",
+	verifyAuth,
+	securityCheck,
+	validateId,
+	async (req, res) => {
+		const projectId = Number(req.params.id);
+		const index = req.usersIndex;
+		const user = index.users[req.user.username.toLowerCase()];
+		if (!user.firedProjects?.includes(projectId))
+			return res.status(400).json({ ok: false, error: "Project is not fired" });
+
+		const forwardRes = await fetch(`${vars.TELEGRAM_API}/forwardMessage`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				chat_id: vars.GETTERS_GROUP_ID,
+				from_chat_id: vars.PROJECTS_GROUP_ID,
+				message_id: projectId
+			})
+		});
+
+		const data = await forwardRes.json();
+		if (!data.ok || !data.result.document)
+			return res.status(404).json({ ok: false, error: "Project not found" });
+
+		const doc = data.result.document;
+		let authorProfile;
+		try {
+			const savedData = JSON.parse(data.result.caption);
+			authorProfile =
+				index.users[savedData.author?.username.toLowerCase()];
+			if (!authorProfile) throw new Error();
+		} catch (_) {
+			// It might be old project
+			const lastUnderscoreIndex = doc.file_name.lastIndexOf("_");
+			if (lastUnderscoreIndex !== -1) {
+				const username = doc.file_name
+					.substring(lastUnderscoreIndex + 1)
+					.replace(".dbp.zip", "");
+				authorProfile = username ? index.users[username.toLowerCase()] : null;
+			}
+		}
+
+		const project = authorProfile?.projects.find(
+			(p) => String(p.id) === String(projectId)
+		);
+		if (!project)
+			return res
+				.status(404)
+				.json({ ok: false, error: "Project not found" });
+
+		project.stats && project.stats.fires > 0 ? project.stats.fires -= 1 : project.stats = { fires: 0 };
+		user.firedProjects ? user.firedProjects = user.firedProjects.filter((id) => String(id) !== String(projectId)) : user.firedProjects = [];
 		await updateUsersIndex(index);
 		res.json({ ok: true, fires: project.stats.fires });
 	}
