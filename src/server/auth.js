@@ -64,7 +64,7 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 		const isVerified = comments.some(
 			(c) =>
 				c.author.username.toLowerCase() === scratchUsername.toLowerCase() &&
-                c.content.includes(decoded.code)
+				c.content.includes(decoded.code)
 		);
 
 		if (!isVerified) {
@@ -80,7 +80,7 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 			return res.status(400).json({
 				ok: false,
 				error:
-                    "Username must be 3-20 characters long and contain only letters, numbers, underscores, and dashes"
+					"Username must be 3-20 characters long and contain only letters, numbers, underscores, and dashes"
 			});
 		if (vars.FORBIDDEN_USERNAMES.includes(username.toLowerCase()))
 			return res
@@ -160,9 +160,20 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 	try {
 		const { userId, password } = req.body;
-		const downloadUrl = await fetchFromTelegram(userId, vars.USERS_GROUP_ID);
-		const userFileRes = await fetch(downloadUrl);
-		const storedUser = await userFileRes.json();
+		let storedUser, indexData;
+		if (/^\d+$/.test(userId) && !userId.startsWith("0")) {
+			// Likely ID
+			const downloadUrl = await fetchFromTelegram(userId, vars.USERS_GROUP_ID);
+			const userFileRes = await fetch(downloadUrl);
+			storedUser = await userFileRes.json();
+			indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
+		} else {
+			// Likely username
+			indexData = req.usersIndex.users[userId.toLowerCase()];
+			const downloadUrl = await fetchFromTelegram(indexData.id, vars.USERS_GROUP_ID);
+			const userFileRes = await fetch(downloadUrl);
+			storedUser = await userFileRes.json();
+		}
 
 		if (await bcrypt.compare(password, storedUser.password)) {
 			const token = jwt.sign(
@@ -179,10 +190,10 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 			});
 			res.json({ ok: true, username: storedUser.username, userId });
 		} else {
-			res.status(401).json({ ok: false, error: "Invalid user ID or password" });
+			res.status(401).json({ ok: false, error: "Invalid target or password" });
 		}
 	} catch (_) {
-		res.status(401).json({ ok: false, error: "Invalid user ID or password" });
+		res.status(401).json({ ok: false, error: "Invalid target or password" });
 	}
 });
 
