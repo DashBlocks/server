@@ -177,7 +177,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 
 		if (await bcrypt.compare(password, storedUser.password)) {
 			const token = jwt.sign(
-				{ userId: storedUser.userId, username: storedUser.username },
+				{ userId: indexData.id, username: storedUser.username },
 				vars.JWT_SECRET,
 				{ expiresIn: "7d" }
 			);
@@ -188,9 +188,9 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 				maxAge: 7 * 24 * 60 * 60 * 1000,
 				path: "/"
 			});
-			res.json({ ok: true, username: storedUser.username, userId: storedUser.userId });
+			res.json({ ok: true, userId: indexData.id, username: storedUser.username });
 		} else {
-			res.status(401).json({ ok: false, error: "Invalid target or password" });
+			throw new Error();
 		}
 	} catch (_) {
 		res.status(401).json({ ok: false, error: "Invalid target or password" });
