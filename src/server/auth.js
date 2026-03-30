@@ -256,20 +256,14 @@ app.post("/auth/change-password", verifyAuth, securityCheck, authLimiter, async 
 		if (!success)
 			throw new Error("Failed to update password");
 
-		res.json({
-			ok: true,
-			userId: Number(req.user.userId),
-			username: req.user.username,
-			role: userIndexData?.role || "dasher",
-			profile: {
-				avatarId: userIndexData?.avatarId || 1,
-				description: userIndexData?.description || ""
-			},
-			joinedAt: userIndexData?.joinedAt || null,
-			lastActive: userIndexData?.lastActive || null,
-			projects: userIndexData?.projects || [],
-			firedProjects: userIndexData?.firedProjects || []
+		res.clearCookie("auth_token", {
+			httpOnly: true,
+			secure: true,
+			sameSite: "none",
+			path: "/"
 		});
+
+		res.json({ ok: true, message: "Password changed. Log in now" });
 	} catch (error) {
 		res.status(500).json({ ok: false, error: error.message });
 	}
