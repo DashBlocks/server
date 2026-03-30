@@ -24,38 +24,38 @@ app.post(
 		);
 		if (!projectReq.ok)
 			return res.status(404).json({ ok: false, error: "Project not found" });
-		const projectData = await projectReq.json();
+		const projectData = (await projectReq.json()).project;
 
 		if (!index.featuredProjects.find((p) => p.id === projectId)) {
 			index.featuredProjects = [
-				// Not adding all the data here since it would be
-				// redundant and we can just fetch it when needed,
-				// also prevents stale data
 				{
 					id: projectId,
-					name: projectData?.name || "Unknown",
-					author: {
-						id: projectData?.author?.id || null,
-						username: projectData?.author?.username || "Unknown",
-						profile: {
-							avatarId: projectData?.author?.profile?.avatarId || 1,
-						},
-						joinedAt: projectData?.author?.joinedAt || null
-					},
-					thumbnailId: projectData?.thumbnailId || 1,
-					fileSize: projectData?.fileSize || null,
-					uploadedAt: projectData?.uploadedAt || null,
-					featuredAt: new Date().toISOString()
+					...projectData,
+					featuredAt: new Date().toISOString(),
 				},
 				...index.featuredProjects
 			];
 			await updateUsersIndex(index);
 		}
 
-		res.json({
-			ok: true,
-			projects: index.featuredProjects || []
-		});
+		let projects = index.featuredProjects || [];
+		projects = projects.map((p) => ({
+			id: p?.id || null,
+			name: p?.name || "Unknown",
+			author: {
+				id: p.author?.id || null,
+				username: p.author?.username || "Unknown",
+				profile: {
+					avatarId: p.author?.profile?.avatarId || 1
+				},
+				joinedAt: p.author?.joinedAt || null
+			},
+			thumbnailId: p?.thumbnailId || 1,
+			fileSize: p?.fileSize || null,
+			uploadedAt: p?.uploadedAt || null,
+			featuredAt: p?.featuredAt || null
+		}));
+		res.json({ ok: true, projects });
 	}
 );
 
@@ -81,12 +81,32 @@ app.delete(
 			await updateUsersIndex(index);
 		}
 
-		res.json({ ok: true, projects: index.featuredProjects || [] });
+		let projects = index.featuredProjects || [];
+		projects = projects.map((p) => ({
+			id: p?.id || null,
+			name: p?.name || "Unknown",
+			author: {
+				id: p.author?.id || null,
+				username: p.author?.username || "Unknown",
+				profile: {
+					avatarId: p.author?.profile?.avatarId || 1
+				},
+				joinedAt: p.author?.joinedAt || null
+			},
+			thumbnailId: p?.thumbnailId || 1,
+			fileSize: p?.fileSize || null,
+			uploadedAt: p?.uploadedAt || null,
+			featuredAt: p?.featuredAt || null
+		}));
+		res.json({ ok: true, projects });
 	}
 );
 
 app.get("/featured-projects", securityCheck, (req, res) => {
 	let projects = req.usersIndex.featuredProjects || [];
+	// Not showing all the data here since it would be
+	// redundant and we can just fetch it when needed,
+	// also prevents stale data
 	projects = projects.map((p) => ({
 		id: p?.id || null,
 		name: p?.name || "Unknown",
