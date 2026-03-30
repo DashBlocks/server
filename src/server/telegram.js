@@ -20,6 +20,29 @@ async function uploadToTelegram(chatId, buffer, filename, caption = "") {
 	}
 }
 
+async function editUserFile(messageId, buffer, filename) {
+	try {
+		const formData = new FormData();
+		formData.append("chat_id", vars.USERS_GROUP_ID);
+		formData.append("message_id", messageId);
+		formData.append("media", JSON.stringify({
+			type: "document",
+			media: "attach://document"
+		}));
+		formData.append("document", new Blob([buffer]), filename);
+
+		const response = await fetch(`${vars.TELEGRAM_API}/editMessageMedia`, {
+			method: "POST",
+			body: formData
+		});
+
+		const result = await response.json();
+		return result.ok;
+	} catch (_) {
+		return false;
+	}
+}
+
 async function fetchFromTelegram(messageId, fromChatId) {
 	const forwardRes = await fetch(`${vars.TELEGRAM_API}/forwardMessage`, {
 		method: "POST",
@@ -89,6 +112,7 @@ async function updateUsersIndex(indexData) {
 
 export {
 	uploadToTelegram,
+	editUserFile,
 	fetchFromTelegram,
 	getLatestUsersIndex,
 	updateUsersIndex

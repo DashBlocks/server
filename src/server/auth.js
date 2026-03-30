@@ -4,7 +4,7 @@ import bcrypt from "bcrypt";
 import app from "../app.js";
 import * as vars from "./vars.js";
 import { isValidUsername, securityCheck, verifyAuth, authLimiter } from "./helpers.js";
-import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram.js";
+import { uploadToTelegram, fetchFromTelegram, updateUsersIndex, editUserFile } from "./telegram.js";
 
 app.get("/auth/get-auth-code", authLimiter, securityCheck, (_, res) => {
 	const arr = new Uint8Array(50);
@@ -223,4 +223,59 @@ app.get("/auth/logout", verifyAuth, (req, res) => {
 		path: "/"
 	});
 	return res.json({ ok: true, message: "Logged out" });
+});
+
+app.post("/auth/change-password", verifyAuth, securityCheck, authLimiter, async (req, res) => {
+	try {
+		const { currentPassword, newPassword } = req.body;
+
+		if (!currentPassword || !newPassword) {
+			return res.status(400).json({ ok: false, error: "Current and new password required" });
+		}
+
+		if (newPassword.length < 8 || newPassword.length > 100) {
+			return res.status(400).json({ ok: false, error: "Password must be 8-100 characters long" });
+		}
+
+		const index = req.usersIndex;
+		const userIndexData = index.users[req.user.username.toLowerCase()];
+		if (!userIndexData) {
+			return res.status(404).json({ ok: false, error: "User not found" });
+		}
+
+		const downloadUrl = await fetchFromTelegram(userIndexData.id, vars.USERS_GROUP_ID);
+		const userFileRes = await fetch(downloadUrl);
+		const storedUser = await userFileRes.json();
+
+		if (!(await bcrypt.compare(currentPassword, storedUser.password))) {
+			return res.status(401).json({ ok: false, error: "Current password is incorrect" });
+		}
+
+		storedUser.password = await bcrypt.hash(newPassword, 12);
+
+		const success = await editUserFile(
+			userIndexData.id,
+			Buffer.from(JSON.stringify(storedUser)),
+			`${storedUser.username}.json`
+		);
+		if (!success)
+			throw new Error("Failed to update password");
+
+		res.json({
+			ok: true,
+			userId: Number(req.user.userId),
+			username: req.user.username,
+			role: userIndexData?.role || "dasher",
+			profile: {
+				avatarId: userIndexData?.avatarId || 1,
+				description: userIndexData?.description || ""
+			},
+			joinedAt: userIndexData?.joinedAt || null,
+			lastActive: userIndexData?.lastActive || null,
+			projects: userIndexData?.projects || [],
+			firedProjects: userIndexData?.firedProjects || []
+		});
+	} catch (error) {
+		res.status(500).json({ ok: false, error: error.message });
+	}
 });
