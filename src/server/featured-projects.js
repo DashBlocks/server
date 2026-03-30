@@ -28,9 +28,23 @@ app.post(
 
 		if (!index.featuredProjects.find((p) => p.id === projectId)) {
 			index.featuredProjects = [
+				// Not adding all the data here since it would be
+				// redundant and we can just fetch it when needed,
+				// also prevents stale data
 				{
 					id: projectId,
-					...projectData.project,
+					name: projectData?.name || "Unknown",
+					author: {
+						id: projectData?.author?.id || null,
+						username: projectData?.author?.username || "Unknown",
+						profile: {
+							avatarId: projectData?.author?.profile?.avatarId || 1,
+						},
+						joinedAt: projectData?.author?.joinedAt || null
+					},
+					thumbnailId: projectData?.thumbnailId || 1,
+					fileSize: projectData?.fileSize || null,
+					uploadedAt: projectData?.uploadedAt || null,
 					featuredAt: new Date().toISOString()
 				},
 				...index.featuredProjects
