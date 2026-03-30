@@ -86,5 +86,22 @@ app.delete(
 );
 
 app.get("/featured-projects", securityCheck, (req, res) => {
-	res.json({ ok: true, projects: req.usersIndex.featuredProjects || [] });
+	let projects = req.usersIndex.featuredProjects || [];
+	projects = projects.map((p) => ({
+		id: p?.id || null,
+		name: p?.name || "Unknown",
+		author: {
+			id: p.author?.id || null,
+			username: p.author?.username || "Unknown",
+			profile: {
+				avatarId: p.author?.profile?.avatarId || 1
+			},
+			joinedAt: p.author?.joinedAt || null
+		},
+		thumbnailId: p?.thumbnailId || 1,
+		fileSize: p?.fileSize || null,
+		uploadedAt: p?.uploadedAt || null,
+		featuredAt: p?.featuredAt || null
+	}));
+	res.json({ ok: true, projects });
 });
