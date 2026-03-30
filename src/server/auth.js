@@ -210,8 +210,7 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
 		},
 		joinedAt: metadata?.joinedAt || null,
 		lastActive: metadata?.lastActive || null,
-		projects: metadata?.projects || [],
-		firedProjects: metadata?.firedProjects || []
+		projects: metadata?.projects || []
 	});
 });
 
