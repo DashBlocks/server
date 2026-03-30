@@ -228,28 +228,23 @@ app.get("/auth/logout", verifyAuth, (req, res) => {
 app.post("/auth/change-password", verifyAuth, securityCheck, authLimiter, async (req, res) => {
 	try {
 		const { currentPassword, newPassword } = req.body;
-
-		if (!currentPassword || !newPassword) {
+		if (!currentPassword || !newPassword)
 			return res.status(400).json({ ok: false, error: "Current and new password required" });
-		}
 
-		if (newPassword.length < 8 || newPassword.length > 100) {
+		if (newPassword.length < 8 || newPassword.length > 100)
 			return res.status(400).json({ ok: false, error: "Password must be 8-100 characters long" });
-		}
 
 		const index = req.usersIndex;
 		const userIndexData = index.users[req.user.username.toLowerCase()];
-		if (!userIndexData) {
+		if (!userIndexData)
 			return res.status(404).json({ ok: false, error: "User not found" });
-		}
 
 		const downloadUrl = await fetchFromTelegram(userIndexData.id, vars.USERS_GROUP_ID);
 		const userFileRes = await fetch(downloadUrl);
 		const storedUser = await userFileRes.json();
 
-		if (!(await bcrypt.compare(currentPassword, storedUser.password))) {
+		if (!(await bcrypt.compare(currentPassword, storedUser.password)))
 			return res.status(401).json({ ok: false, error: "Current password is incorrect" });
-		}
 
 		storedUser.password = await bcrypt.hash(newPassword, 12);
 
