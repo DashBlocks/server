@@ -177,7 +177,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 
 		if (await bcrypt.compare(password, storedUser.password)) {
 			const token = jwt.sign(
-				{ userId, username: storedUser.username },
+				{ userId: storedUser.id, username: storedUser.username },
 				vars.JWT_SECRET,
 				{ expiresIn: "7d" }
 			);
