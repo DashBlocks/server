@@ -188,7 +188,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 				maxAge: 7 * 24 * 60 * 60 * 1000,
 				path: "/"
 			});
-			res.json({ ok: true, username: storedUser.username, userId });
+			res.json({ ok: true, username: storedUser.username, userId: storedUser.userId });
 		} else {
 			res.status(401).json({ ok: false, error: "Invalid target or password" });
 		}
