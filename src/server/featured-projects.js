@@ -31,7 +31,7 @@ app.post(
 				{
 					id: projectId,
 					...projectData,
-					featuredAt: new Date().toISOString(),
+					featuredAt: new Date().toISOString()
 				},
 				...index.featuredProjects
 			];

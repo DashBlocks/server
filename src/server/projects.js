@@ -285,8 +285,24 @@ app.delete(
 			})
 		});
 		const delData = await delRes.json();
-		if (!delData.ok)
-			return res.status(500).json({ ok: false, error: delData.description });
+		if (!delData.ok) {
+			const delReqRes = await fetch(`${vars.TELEGRAM_API}/sendMessage`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					chat_id: vars.REQUESTS_GROUP_ID,
+					text: `DELETE: ${projectId}\nBy: ${req.user.username} (${req.user.userId})`
+				})
+			});
+			const delReqData = await delReqRes.json();
+			if (!delReqData.ok)
+				return res.status(500).json({ ok: false, error: "Failed to delete project" });
+			userProfile.projects = userProfile.projects.filter(
+				(p) => String(p.id) !== String(projectId)
+			);
+			await updateUsersIndex(index);
+			return res.status(202).json({ ok: true, message: "Project deleted from profile, but it still can be accessed by ID - full deletion requested" });
+		}
 
 		// Don't even try to delete thumbnail cuz it may be a placeholder or just not exist
 		if (project.thumbnailId > 1) {
