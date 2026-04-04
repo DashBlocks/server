@@ -285,8 +285,8 @@ app.delete(
 			})
 		});
 		const delData = await delRes.json();
-		if (!delData)
-			return res.status(404).json({ ok: false, error: "Project not found" });
+		if (!delData.ok)
+			return res.status(404).json({ ok: false, error: "Failed to delete project" });
 
 		// Don't even try to delete thumbnail cuz it may be a placeholder or just not exist
 		if (project.thumbnailId > 1) {
