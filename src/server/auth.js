@@ -53,7 +53,7 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 		}
 
 		const commentsRes = await fetch(
-			"https://api.scratch.mit.edu/users/Dash_Blocks/projects/1288539368/comments?limit=20"
+			`https://api.scratch.mit.edu/users/Dash_Blocks/projects/${vars.VERIFY_PROJECT_ID}/comments?limit=20`
 		);
 		if (!commentsRes.ok)
 			return res
