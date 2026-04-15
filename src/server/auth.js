@@ -33,7 +33,7 @@ app.get("/auth/verify-scratch", authLimiter, securityCheck, async (req, res) => 
 			path: "/"
 		});
 
-		res.json({ ok: true, scratchUsername });
+		res.send("<script>alert(\"Scratch account verified, return to the registration page\");window.close();</script>");
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Scratch Auth unavailable" });
 	}
