@@ -6,17 +6,17 @@ import * as vars from "./vars.js";
 import { isValidUsername, securityCheck, verifyAuth, authLimiter } from "./helpers.js";
 import { uploadToTelegram, fetchFromTelegram, updateUsersIndex, editUserFile } from "./telegram.js";
 
-app.get("/auth/verify-scratch", authLimiter, securityCheck, (req, res) => {
+app.get("/auth/verify-scratch", authLimiter, securityCheck, async (req, res) => {
 	const { privateCode } = req.query;
 	if (!privateCode)
 		return res.status(400).json({ ok: false, error: "Private code required" });
 
 	let token;
 	let scratchUsername;
-	fetch(`https://auth.itinerary.eu.org/api/auth/verifyToken?privateCode=${privateCode}`)
+	await fetch(`https://auth.itinerary.eu.org/api/auth/verifyToken?privateCode=${privateCode}`)
 		.then((response) => response.json())
 		.then((data) => {
-			if (!data.valid || data.redirect !== `${vars.SERVER_URL}/auth/register`)
+			if (!data.valid || data.redirect !== `${vars.SERVER_URL}/auth/verify-scratch`)
 				return res.status(400).json({ ok: false, error: "Invalid private code :P" });
 
 			scratchUsername = data.username;
