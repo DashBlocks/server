@@ -30,7 +30,6 @@ const VERIFY_PROJECT_ID = 1307211779;
 const FORBIDDEN_USERNAMES = [
 	"unknown",
 	"admin",
-	"dashblocks",
 	"dash",
 	"dashteam"
 ];
