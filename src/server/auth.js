@@ -7,33 +7,36 @@ import { isValidUsername, securityCheck, verifyAuth, authLimiter } from "./helpe
 import { uploadToTelegram, fetchFromTelegram, updateUsersIndex, editUserFile } from "./telegram.js";
 
 app.get("/auth/verify-scratch", authLimiter, securityCheck, async (req, res) => {
-	const { privateCode } = req.query;
-	if (!privateCode)
-		return res.status(400).json({ ok: false, error: "Private code required" });
+	try {
+		const { privateCode } = req.query;
+		if (!privateCode)
+			return res.status(400).json({ ok: false, error: "Private code required" });
 
-	const response = await fetch(`https://auth.itinerary.eu.org/api/auth/verifyToken?privateCode=${privateCode}`);
-	const data = await response.json();
+		const response = await fetch(`https://auth.itinerary.eu.org/api/auth/verifyToken?privateCode=${privateCode}`);
+		const data = await response.json();
 
-	if (!data.valid || data.redirect !== `${vars.SERVER_URL}/auth/verify-scratch`) {
-		return res.status(400).json({ ok: false, error: "Invalid private code :P" });
+		if (!data.valid || data.redirect !== `${vars.SERVER_URL}/auth/verify-scratch`)
+			return res.status(400).json({ ok: false, error: "Invalid private code :P" });
+
+		const scratchUsername = data.username;
+		const token = jwt.sign(
+			{ type: "scratch_verification", scratchUsername },
+			vars.JWT_SCRATCH_VERIFY_SECRET,
+			{ expiresIn: "5m" }
+		);
+
+		res.cookie("scratch_verify_token", token, {
+			httpOnly: true,
+			secure: true,
+			sameSite: "none",
+			maxAge: 5 * 60 * 1000,
+			path: "/"
+		});
+
+		res.json({ ok: true, scratchUsername });
+	} catch (error) {
+		res.status(500).json({ ok: false, error: error.message });
 	}
-
-	const scratchUsername = data.username;
-	const token = jwt.sign(
-		{ type: "scratch_verification", scratchUsername },
-		vars.JWT_SCRATCH_VERIFY_SECRET,
-		{ expiresIn: "5m" }
-	);
-
-	res.cookie("scratch_verify_token", token, {
-		httpOnly: true,
-		secure: true,
-		sameSite: "none",
-		maxAge: 5 * 60 * 1000,
-		path: "/"
-	});
-
-	res.json({ ok: true, scratchUsername });
 });
 
 app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
