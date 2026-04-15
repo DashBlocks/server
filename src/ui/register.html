@@ -12,16 +12,13 @@
 		<h2>Join</h2>
 		<div id="status"></div>
 		<form id="registerForm">
-			<input type="text" id="scratchUsername" placeholder="Username in Scratch" required minlength="3"
-				maxlength="20" />
-			<br />
 			<input type="text" id="username" placeholder="Username" required minlength="3" maxlength="20" />
 			<br />
 			<input type="password" id="password" placeholder="Password" required minlength="8" maxlength="100" />
 			<br />
 			<button id="register">Create Account</button>
 		</form>
-		<button id="submitVerify">I did so</button>
+		<button id="submitVerify">Complete Verification</button>
 		<div>Already have an account? <a href="/login">Log in</a></div>
 	</div>
 
@@ -38,18 +35,16 @@
 			status.innerText = "Creating...";
 
 			try {
-				const response = await fetch("/auth/get-auth-code");
-				const result = await response.json();
-				if (!result.ok) {
-					throw new Error(result.error);
-				}
+				let redirectLocation = new Buffer("https://dashblocks-server.vercel.app/auth/verify-scratch").toString('base64');
+				window.open(
+					`https://auth.itinerary.eu.org/auth/?redirect=${redirectLocation}&name=Dash (DashBlocks)`,
+					"_blank",
+					"noopener,noreferrer"
+				);
 
 				status.innerHTML =
-					"Copy this code:<br />\n" +
-					`<code>${result.code}</code><br />\n` +
-					"Open <a href=\"https://scratch.mit.edu/projects/1307211779\" target=\"_blank\">Verification Project</a><br />\n" +
-					"Comment what did you copied (your verification code)<br />\n" +
-					"After that click the button \"I did so\"<br />";
+					"Did you finish?\n" +
+					"Click the button below to complete verification";
 				submitBtn.style.display = "none";
 				submitVerifyBtn.style.display = "block";
 			} catch (error) {
@@ -64,8 +59,6 @@
 			submitVerifyBtn.disabled = true;
 			status.innerText = "Verifying...";
 
-			const scratchUsername =
-				document.getElementById("scratchUsername").value;
 			const username = document.getElementById("username").value;
 			const password = document.getElementById("password").value;
 
@@ -73,7 +66,7 @@
 				const response = await fetch("/auth/register", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ scratchUsername, username, password }),
+					body: JSON.stringify({ username, password }),
 					credentials: "include"
 				});
 				const data = await response.json();

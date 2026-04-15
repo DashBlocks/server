@@ -6,7 +6,7 @@ import * as vars from "./vars.js";
 import { isValidUsername, securityCheck, verifyAuth, authLimiter } from "./helpers.js";
 import { uploadToTelegram, fetchFromTelegram, updateUsersIndex, editUserFile } from "./telegram.js";
 
-app.get("/auth/verifyScratch", authLimiter, securityCheck, (req, res) => {
+app.get("/auth/verify-scratch", authLimiter, securityCheck, (req, res) => {
 	const { privateCode } = req.query;
 	if (!privateCode)
 		return res.status(400).json({ ok: false, error: "Private code required" });
