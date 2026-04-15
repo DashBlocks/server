@@ -34,8 +34,8 @@ app.get("/auth/verify-scratch", authLimiter, securityCheck, async (req, res) => 
 		});
 
 		res.json({ ok: true, scratchUsername });
-	} catch (error) {
-		res.status(500).json({ ok: false, error: error.message });
+	} catch (_) {
+		res.status(500).json({ ok: false, error: "Scratch Auth unavailable" });
 	}
 });
 
