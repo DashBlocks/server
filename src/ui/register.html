@@ -35,7 +35,7 @@
 			status.innerText = "Creating...";
 
 			try {
-				const redirectLocation = new Buffer("https://dashblocks-server.vercel.app/auth/verify-scratch").toString('base64');
+				const redirectLocation = btoa("https://dashblocks-server.vercel.app/auth/verify-scratch");
 				window.open(
 					`https://auth.itinerary.eu.org/auth/?redirect=${redirectLocation}&name=Dash (DashBlocks)`,
 					"_blank",
