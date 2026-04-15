@@ -7,11 +7,13 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000";
+
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_VERIFY_SECRET = process.env.JWT_VERIFY_SECRET;
+const JWT_SCRATCH_VERIFY_SECRET = process.env.JWT_SCRATCH_VERIFY_SECRET;
 
 const UI_PATH = path.join(__dirname, "../ui");
 const ASSETS_PATH = path.join(__dirname, "../assets");
@@ -35,11 +37,13 @@ const FORBIDDEN_USERNAMES = [
 ];
 
 export {
+	SERVER_URL,
+
 	BOT_TOKEN,
 	TELEGRAM_API,
 
 	JWT_SECRET,
-	JWT_VERIFY_SECRET,
+	JWT_SCRATCH_VERIFY_SECRET,
 
 	UI_PATH,
 	ASSETS_PATH,

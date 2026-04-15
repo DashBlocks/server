@@ -6,21 +6,30 @@ import * as vars from "./vars.js";
 import { isValidUsername, securityCheck, verifyAuth, authLimiter } from "./helpers.js";
 import { uploadToTelegram, fetchFromTelegram, updateUsersIndex, editUserFile } from "./telegram.js";
 
-app.get("/auth/get-auth-code", authLimiter, securityCheck, (_, res) => {
-	const arr = new Uint8Array(50);
-	crypto.getRandomValues(arr);
-	const code = Array.from(arr)
-		.map((b) => b.toString(16).padStart(2, "0"))
-		.join("");
+app.get("/auth/verifyScratch", authLimiter, securityCheck, (req, res) => {
+	const { privateCode } = req.query;
+	if (!privateCode)
+		return res.status(400).json({ ok: false, error: "Private code required" });
 
-	const token = jwt.sign(
-		{ code, type: "register_verification" },
-		vars.JWT_VERIFY_SECRET,
-		{
-			expiresIn: "5m"
-		}
-	);
-	res.cookie("verification_token", token, {
+	let token;
+	let scratchUsername;
+	fetch(`https://auth.itinerary.eu.org/api/auth/verifyToken?privateCode=${privateCode}`)
+		.then((response) => response.json())
+		.then((data) => {
+			if (!data.valid || data.redirect !== `${vars.SERVER_URL}/auth/register`)
+				return res.status(400).json({ ok: false, error: "Invalid private code :P" });
+
+			scratchUsername = data.username;
+			token = jwt.sign(
+				{ type: "scratch_verification", scratchUsername },
+				vars.JWT_SCRATCH_VERIFY_SECRET,
+				{ expiresIn: "5m" }
+			);
+		});
+	if (!token || !scratchUsername)
+		return res.status(500).json({ ok: false, error: "Failed to generate token" });
+
+	res.cookie("scratch_verify_token", token, {
 		httpOnly: true,
 		secure: true,
 		sameSite: "none",
@@ -28,50 +37,30 @@ app.get("/auth/get-auth-code", authLimiter, securityCheck, (_, res) => {
 		path: "/"
 	});
 
-	res.json({ ok: true, code });
+	res.json({ ok: true, scratchUsername });
 });
 
 app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 	try {
-		const { scratchUsername, username, password } = req.body;
+		let scratchUsername;
+		const { username, password } = req.body;
 
 		// Verification
 
-		const verifyToken = req.cookies.verification_token;
-		if (!verifyToken)
+		const scratchVerifyToken = req.cookies.scratch_verify_token;
+		if (!scratchVerifyToken)
 			return res
 				.status(400)
 				.json({ ok: false, error: "Verification token not found" });
 		let decoded;
 		try {
-			decoded = jwt.verify(verifyToken, vars.JWT_VERIFY_SECRET);
-			if (decoded.type !== "register_verification") throw new Error();
+			decoded = jwt.verify(scratchVerifyToken, vars.JWT_SCRATCH_VERIFY_SECRET);
+			if (decoded.type !== "scratch_verification") throw new Error();
+			scratchUsername = decoded.scratchUsername;
 		} catch (_) {
 			return res
 				.status(400)
 				.json({ ok: false, error: "Invalid verification token :P" });
-		}
-
-		const commentsRes = await fetch(
-			`https://api.scratch.mit.edu/users/Dash_Blocks/projects/${vars.VERIFY_PROJECT_ID}/comments?limit=20`
-		);
-		if (!commentsRes.ok)
-			return res
-				.status(400)
-				.json({ ok: false, error: "Failed to verify user" });
-		const comments = await commentsRes.json();
-
-		const isVerified = comments.some(
-			(c) =>
-				c.author.username.toLowerCase() === scratchUsername.toLowerCase() &&
-				c.content.includes(decoded.code)
-		);
-
-		if (!isVerified) {
-			return res.status(401).json({
-				ok: false,
-				error: "Your verification token not found on project"
-			});
 		}
 
 		// Account creation
