@@ -11,23 +11,19 @@ app.get("/auth/verify-scratch", authLimiter, securityCheck, async (req, res) => 
 	if (!privateCode)
 		return res.status(400).json({ ok: false, error: "Private code required" });
 
-	let token;
-	let scratchUsername;
-	await fetch(`https://auth.itinerary.eu.org/api/auth/verifyToken?privateCode=${privateCode}`)
-		.then((response) => response.json())
-		.then((data) => {
-			if (!data.valid || data.redirect !== `${vars.SERVER_URL}/auth/verify-scratch`)
-				return res.status(400).json({ ok: false, error: "Invalid private code :P" });
+	const response = await fetch(`https://auth.itinerary.eu.org/api/auth/verifyToken?privateCode=${privateCode}`);
+	const data = await response.json();
 
-			scratchUsername = data.username;
-			token = jwt.sign(
-				{ type: "scratch_verification", scratchUsername },
-				vars.JWT_SCRATCH_VERIFY_SECRET,
-				{ expiresIn: "5m" }
-			);
-		});
-	if (!token || !scratchUsername)
-		return res.status(500).json({ ok: false, error: "Failed to generate token" });
+	if (!data.valid || data.redirect !== `${vars.SERVER_URL}/auth/verify-scratch`) {
+		return res.status(400).json({ ok: false, error: "Invalid private code :P" });
+	}
+
+	const scratchUsername = data.username;
+	const token = jwt.sign(
+		{ type: "scratch_verification", scratchUsername },
+		vars.JWT_SCRATCH_VERIFY_SECRET,
+		{ expiresIn: "5m" }
+	);
 
 	res.cookie("scratch_verify_token", token, {
 		httpOnly: true,
@@ -75,7 +71,7 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 			return res
 				.status(400)
 				.json({ ok: false, error: "You cannot use this username" });
-		if (!password || (password.length < 8 && password.length > 100))
+		if (!password || password.length < 8 || password.length > 100)
 			return res
 				.status(400)
 				.json({ ok: false, error: "Password must be 8-100 characters long" });
@@ -127,7 +123,7 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 		};
 		await updateUsersIndex(index);
 
-		res.clearCookie("verification_token");
+		res.clearCookie("scratch_verify_token");
 
 		const token = jwt.sign({ userId, username }, vars.JWT_SECRET, {
 			expiresIn: "7d"
@@ -159,6 +155,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 		} else {
 			// Likely username
 			indexData = req.usersIndex.users[userId.toLowerCase()];
+			if (!indexData) throw new Error();
 			const downloadUrl = await fetchFromTelegram(indexData.id, vars.USERS_GROUP_ID);
 			const userFileRes = await fetch(downloadUrl);
 			storedUser = await userFileRes.json();
