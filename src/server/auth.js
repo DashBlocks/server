@@ -62,6 +62,8 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 				.json({ ok: false, error: "Invalid verification token :P" });
 		}
 
+		res.clearCookie("scratch_verify_token");
+
 		// Account creation
 
 		if (!isValidUsername(username))
@@ -125,8 +127,6 @@ app.post("/auth/register", authLimiter, securityCheck, async (req, res) => {
 			lastActive: new Date().toISOString()
 		};
 		await updateUsersIndex(index);
-
-		res.clearCookie("scratch_verify_token");
 
 		const token = jwt.sign({ userId, username }, vars.JWT_SECRET, {
 			expiresIn: "7d"
