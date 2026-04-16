@@ -33,7 +33,7 @@ app.get("/auth/verify-scratch", authLimiter, securityCheck, async (req, res) => 
 			path: "/"
 		});
 
-		res.send("<script>window.close();</script>");
+		res.send("<h1>Scratch account verified, you may now close this page and return to the registration page</h1>");
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Scratch Auth unavailable" });
 	}
