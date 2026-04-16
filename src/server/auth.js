@@ -34,6 +34,7 @@ app.get("/auth/verify-scratch", authLimiter, securityCheck, async (req, res) => 
 		});
 
 		res.send(`
+			<title>Verified</title>
 			<h1>Scratch account verified, you may now close this page and return to the registration page</h1>
 			<script>const url = new URL(window.location);url.searchParams.delete("privateCode");window.history.replaceState({}, "", url)</script>
 		`);
