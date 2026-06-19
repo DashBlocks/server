@@ -16,13 +16,9 @@ const UI_PATH = path.join(__dirname, "../ui");
 const ASSETS_PATH = path.join(__dirname, "../assets");
 
 const DATA_PATH = "/var/lib/dash";
-const DATA_BASE_PATH = path.join(DATA_PATH, "data");
-const DATA_INDEX_PATH = path.join(DATA_BASE_PATH, "index.json");
-const DATA_USERS_PATH = path.join(DATA_BASE_PATH, "users");
-const DATA_PROJECTS_PATH = path.join(DATA_BASE_PATH, "projects");
-const DATA_ASSETS_PATH = path.join(DATA_PATH, "assets");
-const DATA_AVATARS_PATH = path.join(DATA_ASSETS_PATH, "users_avatars");
-const DATA_THUMBNAILS_PATH = path.join(DATA_ASSETS_PATH, "project_thumbnails");
+const DATA_INDEX_PATH = path.join(DATA_PATH, "index.json");
+const DATA_USERS_PATH = path.join(DATA_PATH, "users");
+const DATA_PROJECTS_PATH = path.join(DATA_PATH, "projects");
 
 const FORBIDDEN_USERNAMES = [
 	"user",
@@ -47,13 +43,9 @@ export {
 	ASSETS_PATH,
 
 	DATA_PATH,
-	DATA_BASE_PATH,
 	DATA_INDEX_PATH,
 	DATA_USERS_PATH,
 	DATA_PROJECTS_PATH,
-	DATA_ASSETS_PATH,
-	DATA_AVATARS_PATH,
-	DATA_THUMBNAILS_PATH,
 
 	FORBIDDEN_USERNAMES
 };
