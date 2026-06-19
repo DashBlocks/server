@@ -12,8 +12,7 @@ const writeJson = async (filePath, data) =>
 	fsPromises.writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
 
 async function getIndex() {
-	const index = await readJson(vars.DATA_INDEX_PATH);
-	return index;
+	return await readJson(vars.DATA_INDEX_PATH);
 }
 
 async function updateIndex(indexData) {
@@ -22,37 +21,47 @@ async function updateIndex(indexData) {
 }
 
 async function createUserJson(userId, userData) {
-	await writeJson(path.join(vars.DATA_USERS_PATH, `${userId}.json`), userData);
+	const userDir = path.join(vars.DATA_USERS_PATH, String(userId));
+	await fsPromises.mkdir(userDir, { recursive: true });
+	await writeJson(path.join(userDir, `${userId}.json`), userData);
 	return String(userId);
 }
 
 async function readUserJson(userId) {
-	return readJson(path.join(vars.DATA_USERS_PATH, `${userId}.json`));
+	const userDir = path.join(vars.DATA_USERS_PATH, String(userId));
+	return readJson(path.join(userDir, `${userId}.json`));
 }
 
 async function updateUserJson(userId, userData) {
-	return writeJson(path.join(vars.DATA_USERS_PATH, `${userId}.json`), userData);
+	const userDir = path.join(vars.DATA_USERS_PATH, String(userId));
+	await fsPromises.mkdir(userDir, { recursive: true });
+	return writeJson(path.join(userDir, `${userId}.json`), userData);
 }
 
 async function deleteUserJson(userId) {
 	try {
-		await fsPromises.unlink(path.join(vars.DATA_USERS_PATH, `${userId}.json`));
+		const userDir = path.join(vars.DATA_USERS_PATH, String(userId));
+		await fsPromises.unlink(path.join(userDir, `${userId}.json`));
 	} catch (_) {
 		// ignore
 	}
 }
 
 async function saveProjectFile(projectId, buffer) {
-	return fsPromises.writeFile(path.join(vars.DATA_PROJECTS_PATH, `${projectId}.dbp.zip`), buffer);
+	const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(projectId));
+	await fsPromises.mkdir(projectDir, { recursive: true });
+	return fsPromises.writeFile(path.join(projectDir, `${projectId}.zip`), buffer);
 }
 
 function streamProjectFile(projectId) {
-	return fs.createReadStream(path.join(vars.DATA_PROJECTS_PATH, `${projectId}.dbp.zip`));
+	const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(projectId));
+	return fs.createReadStream(path.join(projectDir, `${projectId}.zip`));
 }
 
 async function deleteProjectFile(projectId) {
 	try {
-		await fsPromises.unlink(path.join(vars.DATA_PROJECTS_PATH, `${projectId}.dbp.zip`));
+		const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(projectId));
+		await fsPromises.unlink(path.join(projectDir, `${projectId}.zip`));
 	} catch (_) {
 		// ignore
 	}
@@ -60,7 +69,8 @@ async function deleteProjectFile(projectId) {
 
 async function projectFileExists(projectId) {
 	try {
-		await fsPromises.access(path.join(vars.DATA_PROJECTS_PATH, `${projectId}.dbp.zip`));
+		const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(projectId));
+		await fsPromises.access(path.join(projectDir, `${projectId}.zip`));
 		return true;
 	} catch (_) {
 		return false;
@@ -68,21 +78,27 @@ async function projectFileExists(projectId) {
 }
 
 async function getProjectStats(projectId) {
-	const stats = await fsPromises.stat(path.join(vars.DATA_PROJECTS_PATH, `${projectId}.dbp.zip`));
+	const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(projectId));
+	const stats = await fsPromises.stat(path.join(projectDir, `${projectId}.zip`));
 	return stats;
 }
 
 async function saveAvatarFile(avatarId, buffer) {
-	return fsPromises.writeFile(path.join(vars.DATA_AVATARS_PATH, `${avatarId}.png`), buffer);
+	const userDir = path.join(vars.DATA_USERS_PATH, String(avatarId));
+	await fsPromises.mkdir(userDir, { recursive: true });
+	return fsPromises.writeFile(path.join(userDir, `${avatarId}.png`), buffer);
 }
 
 async function saveThumbnailFile(thumbnailId, buffer) {
-	return fsPromises.writeFile(path.join(vars.DATA_THUMBNAILS_PATH, `${thumbnailId}.png`), buffer);
+	const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(thumbnailId));
+	await fsPromises.mkdir(projectDir, { recursive: true });
+	return fsPromises.writeFile(path.join(projectDir, `${thumbnailId}.png`), buffer);
 }
 
 async function deleteThumbnailFile(thumbnailId) {
 	try {
-		await fsPromises.unlink(path.join(vars.DATA_THUMBNAILS_PATH, `${thumbnailId}.png`));
+		const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(thumbnailId));
+		await fsPromises.unlink(path.join(projectDir, `${thumbnailId}.png`));
 	} catch (_) {
 		// ignore
 	}
@@ -90,7 +106,8 @@ async function deleteThumbnailFile(thumbnailId) {
 
 async function avatarFileExists(avatarId) {
 	try {
-		await fsPromises.access(path.join(vars.DATA_AVATARS_PATH, `${avatarId}.png`));
+		const userDir = path.join(vars.DATA_USERS_PATH, String(avatarId));
+		await fsPromises.access(path.join(userDir, `${avatarId}.png`));
 		return true;
 	} catch (_) {
 		return false;
@@ -99,7 +116,8 @@ async function avatarFileExists(avatarId) {
 
 async function thumbnailFileExists(thumbnailId) {
 	try {
-		await fsPromises.access(path.join(vars.DATA_THUMBNAILS_PATH, `${thumbnailId}.png`));
+		const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(thumbnailId));
+		await fsPromises.access(path.join(projectDir, `${thumbnailId}.png`));
 		return true;
 	} catch (_) {
 		return false;
