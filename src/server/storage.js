@@ -9,7 +9,7 @@ const readJson = async (filePath) => {
 };
 
 const writeJson = async (filePath, data) =>
-	fsPromises.writeFile(filePath, JSON.stringify(data, null, 2), "utf8");
+	fsPromises.writeFile(filePath, JSON.stringify(data), "utf8");
 
 async function getIndex() {
 	return await readJson(vars.DATA_INDEX_PATH);
@@ -137,6 +137,8 @@ function findProjectById(index, projectId) {
 }
 
 export {
+	writeJson,
+	readJson,
 	getIndex,
 	updateIndex,
 	createUserJson,

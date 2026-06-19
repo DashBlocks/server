@@ -1,28 +1,26 @@
 import path from "path";
 import jwt from "jsonwebtoken";
-import { Readable } from "stream";
 
 import app, { upload } from "../app.js";
 import * as vars from "./vars.js";
 import { generateUserObject, securityCheck, verifyAuth } from "./helpers.js";
-import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram.js";
+import * as storage from "./storage.js";
 
 app.get("/users/:target", securityCheck, async (req, res) => {
 	try {
 		const target = req.params.target;
 		let storedUser, indexData;
+		
 		if (/^\d+$/.test(target) && !target.startsWith("0")) {
 			// Likely ID
-			const downloadUrl = await fetchFromTelegram(target, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			storedUser = await userFileRes.json();
-			indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
+			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
+			if (!indexData) throw new Error("User not found");
+			storedUser = await storage.readUserJson(indexData.id);
 		} else {
 			// Likely username
 			indexData = req.usersIndex.users[target.toLowerCase()];
-			const downloadUrl = await fetchFromTelegram(indexData.id, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			storedUser = await userFileRes.json();
+			if (!indexData) throw new Error("User not found");
+			storedUser = await storage.readUserJson(indexData.id);
 		}
 
 		let user;
@@ -30,7 +28,7 @@ app.get("/users/:target", securityCheck, async (req, res) => {
 		try {
 			const decoded = jwt.verify(token, vars.JWT_SECRET);
 			user = decoded;
-		} catch (_) {}
+		} catch (_) {/* ignore */}
 
 		res.json({
 			ok: true,
@@ -51,17 +49,14 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 		let offset = parseInt(req.query.offset, 10);
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-		let storedUser, indexData;
+		
+		let indexData;
 		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			// Likely ID
-			const downloadUrl = await fetchFromTelegram(target, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			storedUser = await userFileRes.json();
-			indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
+			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
 		} else {
-			// Likely username
 			indexData = req.usersIndex.users[target.toLowerCase()];
 		}
+		if (!indexData) throw new Error("User not found");
 
 		const projects = (indexData.projects || []).slice(offset, offset + limit).map(p => ({
 			id: p?.id || null,
@@ -89,17 +84,14 @@ app.get("/users/:target/actions", securityCheck, async (req, res) => {
 		let offset = parseInt(req.query.offset, 10);
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-		let storedUser, indexData;
+		
+		let indexData;
 		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			// Likely ID
-			const downloadUrl = await fetchFromTelegram(target, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			storedUser = await userFileRes.json();
-			indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
+			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
 		} else {
-			// Likely username
 			indexData = req.usersIndex.users[target.toLowerCase()];
 		}
+		if (!indexData) throw new Error("User not found");
 
 		const actions = (indexData.actions || []).slice(offset, offset + limit);
 
@@ -119,17 +111,14 @@ app.get("/users/:target/followers", securityCheck, async (req, res) => {
 		let offset = parseInt(req.query.offset, 10);
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-		let storedUser, indexData;
+		
+		let indexData;
 		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			// Likely ID
-			const downloadUrl = await fetchFromTelegram(target, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			storedUser = await userFileRes.json();
-			indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
+			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
 		} else {
-			// Likely username
 			indexData = req.usersIndex.users[target.toLowerCase()];
 		}
+		if (!indexData) throw new Error("User not found");
 
 		const followers = (indexData.followers || []).slice(offset, offset + limit).map(user => {
 			const followerData = req.usersIndex.users[user.username.toLowerCase()];
@@ -152,17 +141,14 @@ app.get("/users/:target/following", securityCheck, async (req, res) => {
 		let offset = parseInt(req.query.offset, 10);
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-		let storedUser, indexData;
+		
+		let indexData;
 		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			// Likely ID
-			const downloadUrl = await fetchFromTelegram(target, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			storedUser = await userFileRes.json();
-			indexData = req.usersIndex.users[storedUser.username.toLowerCase()];
+			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
 		} else {
-			// Likely username
 			indexData = req.usersIndex.users[target.toLowerCase()];
 		}
+		if (!indexData) throw new Error("User not found");
 
 		const following = (indexData.following || []).slice(offset, offset + limit).map(user => {
 			const followingData = req.usersIndex.users[user.username.toLowerCase()];
@@ -183,25 +169,22 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 		const target = req.params.target;
 		if (
 			target.toLowerCase() === req.user.username.toLowerCase() ||
-			/^\d+$/.test(target) && !target.startsWith("0") && String(target) === String(req.user.userId)
+			(/^\d+$/.test(target) && !target.startsWith("0") && String(target) === String(req.user.userId))
 		)
 			return res.status(400).json({ ok: false, error: "Cannot follow yourself" });
 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
 		let targetUser, targetIndexData;
+		
 		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			// Likely ID
-			const downloadUrl = await fetchFromTelegram(target, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			targetUser = await userFileRes.json();
-			targetIndexData = index.users[targetUser.username.toLowerCase()];
+			targetIndexData = Object.values(index.users).find(u => String(u.id) === target);
+			if (!targetIndexData) throw new Error();
+			targetUser = await storage.readUserJson(targetIndexData.id);
 		} else {
-			// Likely username
 			targetIndexData = index.users[target.toLowerCase()];
-			const downloadUrl = await fetchFromTelegram(targetIndexData.id, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			targetUser = await userFileRes.json();
+			if (!targetIndexData) throw new Error();
+			targetUser = await storage.readUserJson(targetIndexData.id);
 		}
 
 		if (!targetIndexData || !targetUser)
@@ -222,33 +205,14 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 			id: index.users[user.username.toLowerCase()].id
 		});
 
-		if (targetIndexData.followers.length === 1)
+		if ([1, 25, 50, 100].includes(targetIndexData.followers.length)) {
+			targetIndexData.achievements = targetIndexData.achievements || [];
 			targetIndexData.achievements.push({
 				type: "reached-followers-count",
 				count: targetIndexData.followers.length,
 				date: new Date().toISOString()
 			});
-
-		if (targetIndexData.followers.length === 25)
-			targetIndexData.achievements.push({
-				type: "reached-followers-count",
-				count: targetIndexData.followers.length,
-				date: new Date().toISOString()
-			});
-
-		if (targetIndexData.followers.length === 50)
-			targetIndexData.achievements.push({
-				type: "reached-followers-count",
-				count: targetIndexData.followers.length,
-				date: new Date().toISOString()
-			});
-
-		if (targetIndexData.followers.length === 100)
-			targetIndexData.achievements.push({
-				type: "reached-followers-count",
-				count: targetIndexData.followers.length,
-				date: new Date().toISOString()
-			});
+		}
 
 		user.lastActive = new Date().toISOString();
 		user.actions = user.actions || [];
@@ -274,7 +238,8 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 			},
 			...(targetIndexData.messages || [])
 		];
-		await updateUsersIndex(index);
+		
+		await storage.updateIndex(index);
 
 		res.json({ ok: true });
 	} catch (_) {
@@ -288,18 +253,15 @@ app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
 		let targetUser, targetIndexData;
+		
 		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			// Likely ID
-			const downloadUrl = await fetchFromTelegram(target, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			targetUser = await userFileRes.json();
-			targetIndexData = index.users[targetUser.username.toLowerCase()];
+			targetIndexData = Object.values(index.users).find(u => String(u.id) === target);
+			if (!targetIndexData) throw new Error();
+			targetUser = await storage.readUserJson(targetIndexData.id);
 		} else {
-			// Likely username
 			targetIndexData = index.users[target.toLowerCase()];
-			const downloadUrl = await fetchFromTelegram(targetIndexData.id, vars.USERS_GROUP_ID);
-			const userFileRes = await fetch(downloadUrl);
-			targetUser = await userFileRes.json();
+			if (!targetIndexData) throw new Error();
+			targetUser = await storage.readUserJson(targetIndexData.id);
 		}
 
 		if (!targetIndexData || !targetUser)
@@ -315,7 +277,8 @@ app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) 
 		user.lastActive = new Date().toISOString();
 		if (targetIndexData.messages)
 			targetIndexData.messages = targetIndexData.messages.filter(m => !(m.type === "new-follower" && m.user.username.toLowerCase() === user.username.toLowerCase()));
-		await updateUsersIndex(index);
+		
+		await storage.updateIndex(index);
 
 		res.json({ ok: true });
 	} catch (_) {
@@ -332,34 +295,32 @@ app.post(
 		if (!req.file)
 			return res.status(400).json({ ok: false, error: "No image provided" });
 
-		const avatarId = await uploadToTelegram(
-			vars.AVATARS_GROUP_ID,
-			req.file.buffer,
-			`avatar_${req.user.username}.png`
-		);
-		if (!avatarId)
-			return res.status(500).json({ ok: false, error: "Upload failed" });
+		try {
+			const index = req.usersIndex;
+			const user = index.users[req.user.username.toLowerCase()];
+			const avatarId = user.id; 
+			await storage.saveAvatarFile(avatarId, req.file.buffer);
 
-		const index = req.usersIndex;
-		const user = index.users[req.user.username.toLowerCase()];
-		user.avatarId = avatarId;
-		user.lastActive = new Date().toISOString();
-		await updateUsersIndex(index);
+			user.avatarId = avatarId;
+			user.lastActive = new Date().toISOString();
+			await storage.updateIndex(index);
 
-		res.json({ ok: true, avatarId });
+			res.json({ ok: true, avatarId });
+		} catch (_) {
+			res.status(500).json({ ok: false, error: "Upload failed" });
+		}
 	}
 );
 
 app.get("/users/avatars/:id", async (req, res) => {
 	try {
-		const downloadUrl = await fetchFromTelegram(
-			req.params.id,
-			vars.AVATARS_GROUP_ID
-		);
-		const fileRes = await fetch(downloadUrl);
+		const avatarId = req.params.id;
+		const exists = await storage.avatarFileExists(avatarId);
+
+		if (!exists) throw new Error("Avatar not found");
 
 		res.setHeader("Content-Type", "image/png");
-		Readable.fromWeb(fileRes.body).pipe(res);
+		res.sendFile(path.join(vars.DATA_USERS_PATH, String(avatarId), `${avatarId}.png`));
 	} catch (_) {
 		res.setHeader("Content-Type", "image/png");
 		res.status(200).sendFile(path.join(vars.ASSETS_PATH, "dasher-icon.png"));
@@ -393,7 +354,7 @@ app.post(
 		const user = index.users[req.user.username.toLowerCase()];
 		user.description = description;
 		user.lastActive = new Date().toISOString();
-		await updateUsersIndex(index);
+		await storage.updateIndex(index);
 
 		res.json({
 			ok: true,
@@ -428,7 +389,7 @@ app.post(
 			thumbnailId: projectMeta.thumbnailId
 		};
 		user.lastActive = new Date().toISOString();
-		await updateUsersIndex(index);
+		await storage.updateIndex(index);
 
 		res.json({
 			ok: true,
@@ -482,7 +443,7 @@ app.post(
 			link
 		});
 		user.lastActive = new Date().toISOString();
-		await updateUsersIndex(index);
+		await storage.updateIndex(index);
 
 		res.json({
 			ok: true,
@@ -535,7 +496,7 @@ app.post(
 			link
 		};
 		user.lastActive = new Date().toISOString();
-		await updateUsersIndex(index);
+		await storage.updateIndex(index);
 
 		res.json({
 			ok: true,
@@ -570,7 +531,7 @@ app.post(
 			});
 		user.links.splice(linkIndex, 1);
 		user.lastActive = new Date().toISOString();
-		await updateUsersIndex(index);
+		await storage.updateIndex(index);
 
 		res.json({
 			ok: true,
