@@ -9,23 +9,20 @@ const __dirname = path.dirname(__filename);
 
 const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000";
 
-const BOT_TOKEN = process.env.BOT_TOKEN;
-const TELEGRAM_API = `https://api.telegram.org/bot${BOT_TOKEN}`;
-
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SCRATCH_VERIFY_SECRET = process.env.JWT_SCRATCH_VERIFY_SECRET;
 
 const UI_PATH = path.join(__dirname, "../ui");
 const ASSETS_PATH = path.join(__dirname, "../assets");
 
-const PROJECTS_GROUP_ID = process.env.PROJECTS_GROUP_ID;
-const GETTERS_GROUP_ID = process.env.GETTERS_GROUP_ID;
-const USERS_GROUP_ID = process.env.USERS_GROUP_ID;
-const INDEX_FILENAME = "users_index.json";
-const USERS_INDEX_GROUP_ID = process.env.USERS_INDEX_GROUP_ID;
-const AVATARS_GROUP_ID = process.env.AVATARS_GROUP_ID;
-const THUMBNAILS_GROUP_ID = process.env.THUMBNAILS_GROUP_ID;
-const REQUESTS_GROUP_ID = process.env.REQUESTS_GROUP_ID;
+const DATA_PATH = "/var/lib/dash";
+const DATA_BASE_PATH = path.join(DATA_PATH, "data");
+const DATA_INDEX_PATH = path.join(DATA_BASE_PATH, "index.json");
+const DATA_USERS_PATH = path.join(DATA_BASE_PATH, "users");
+const DATA_PROJECTS_PATH = path.join(DATA_BASE_PATH, "projects");
+const DATA_ASSETS_PATH = path.join(DATA_PATH, "assets");
+const DATA_AVATARS_PATH = path.join(DATA_ASSETS_PATH, "users_avatars");
+const DATA_THUMBNAILS_PATH = path.join(DATA_ASSETS_PATH, "project_thumbnails");
 
 const FORBIDDEN_USERNAMES = [
 	"user",
@@ -43,23 +40,20 @@ const FORBIDDEN_USERNAMES = [
 export {
 	SERVER_URL,
 
-	BOT_TOKEN,
-	TELEGRAM_API,
-
 	JWT_SECRET,
 	JWT_SCRATCH_VERIFY_SECRET,
 
 	UI_PATH,
 	ASSETS_PATH,
 
-	PROJECTS_GROUP_ID,
-	GETTERS_GROUP_ID,
-	USERS_GROUP_ID,
-	INDEX_FILENAME,
-	USERS_INDEX_GROUP_ID,
-	AVATARS_GROUP_ID,
-	THUMBNAILS_GROUP_ID,
-	REQUESTS_GROUP_ID,
+	DATA_PATH,
+	DATA_BASE_PATH,
+	DATA_INDEX_PATH,
+	DATA_USERS_PATH,
+	DATA_PROJECTS_PATH,
+	DATA_ASSETS_PATH,
+	DATA_AVATARS_PATH,
+	DATA_THUMBNAILS_PATH,
 
 	FORBIDDEN_USERNAMES
 };
