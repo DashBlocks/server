@@ -14,7 +14,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
-          username: dash
+          username: deploy
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd /opt/dash
