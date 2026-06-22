@@ -103,7 +103,6 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 		if (!user) throw new Error();
 
 		const storedUser = await storage.readUserJson(user.id);
-		console.log(storedUser);
 
 		if (await bcrypt.compare(password, storedUser.password)) {
 			user.ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
@@ -117,8 +116,8 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 		} else {
 			throw new Error();
 		}
-	} catch (_) {
-		res.status(401).json({ ok: false, error: "Invalid target or password" });
+	} catch (error) {
+		res.status(401).json({ ok: false, error });
 	}
 });
 
