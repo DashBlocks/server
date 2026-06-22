@@ -61,7 +61,7 @@ app.post(
 				id: p.author?.id || null,
 				username: p.author?.username || "Unknown",
 				profile: {
-					avatarId: p.author?.profile?.avatarId || 1
+					avatarId: p.author?.id || 1
 				},
 				joinedAt: p.author?.joinedAt || null
 			},
@@ -114,7 +114,7 @@ app.delete(
 				id: p.author?.id || null,
 				username: p.author?.username || "Unknown",
 				profile: {
-					avatarId: p.author?.profile?.avatarId || 1
+					avatarId: p.author?.id || 1
 				},
 				joinedAt: p.author?.joinedAt || null
 			},
@@ -143,7 +143,7 @@ app.get("/featured-projects", securityCheck, (req, res) => {
 			id: p.author?.id || null,
 			username: p.author?.username || "Unknown",
 			profile: {
-				avatarId: p.author?.profile?.avatarId || 1
+				avatarId: p.author?.id || 1
 			},
 			joinedAt: p.author?.joinedAt || null
 		},

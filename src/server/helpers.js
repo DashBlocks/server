@@ -56,7 +56,7 @@ const generateUserObject = (user) => {
 		username: user.username || "Unknown",
 		role: user.role || "dasher",
 		profile: {
-			avatarId: user.avatarId || 1,
+			avatarId: user.id || 1,
 			scratchUsername: user.scratchUsername || null,
 			description: user.description || "",
 			recommendedProject: {

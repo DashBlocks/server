@@ -174,7 +174,7 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 					id: authorProfile?.id || null,
 					username: authorProfile?.username || "Unknown",
 					role: authorProfile?.role || "dasher",
-					profile: { avatarId: authorProfile?.avatarId || 1 },
+					profile: { avatarId: authorProfile?.id || 1 },
 					joinedAt: authorProfile?.joinedAt || null,
 					lastActive: authorProfile?.lastActive || null
 				},
