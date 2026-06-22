@@ -1,6 +1,6 @@
 import app from "../app.js";
 import { validateId, securityCheck, verifyAuth } from "./helpers.js";
-import { updateUsersIndex } from "./telegram.js";
+import { updateIndex } from "./storage.js";
 
 app.post(
 	"/featured-projects/:id",
@@ -14,10 +14,10 @@ app.post(
 				error: "Only Dash Team can do this, what did you expect?"
 			});
 
-		const projectId = Number(req.params.id);
+		const projectId = req.params.id;
 		const index = req.usersIndex;
 
-		if (index.featuredProjects.find((p) => p.id === projectId))
+		if (index.featuredProjects?.find((p) => String(p.id) === String(projectId)))
 			return res.status(400).json({ ok: false, error: "Project already featured" });
 
 		if (!index.featuredProjects) index.featuredProjects = [];
@@ -38,17 +38,20 @@ app.post(
 			...index.featuredProjects
 		];
 
-		index.users[projectData.author.username.toLowerCase()].messages = [
-			{
-				type: "featured",
-				id: projectId,
-				name: projectData.name,
-				date: new Date().toISOString()
-			},
-			...(index.users[projectData.author.username.toLowerCase()].messages || [])
-		];
+		const authorUsername = projectData.author.username.toLowerCase();
+		if (index.users[authorUsername]) {
+			index.users[authorUsername].messages = [
+				{
+					type: "featured",
+					id: projectId,
+					name: projectData.name,
+					date: new Date().toISOString()
+				},
+				...(index.users[authorUsername].messages || [])
+			];
+		}
 
-		await updateUsersIndex(index);
+		await updateIndex(index);
 
 		let projects = index.featuredProjects || [];
 		projects = projects.map((p) => ({
@@ -83,18 +86,25 @@ app.delete(
 				error: "Only Dash Team can do this, what did you expect?"
 			});
 
-		const projectId = Number(req.params.id);
+		const projectId = req.params.id;
 		const index = req.usersIndex;
-		const authorProfile = index.users[index.featuredProjects.find((p) => p.id === projectId)?.author.username.toLowerCase()];
+        
+		const featuredProject = index.featuredProjects?.find((p) => String(p.id) === String(projectId));
 
-		if (!index.featuredProjects.find((p) => p.id === projectId))
+		if (!featuredProject)
 			return res.status(404).json({ ok: false, error: "Project not featured" });
 
+		const authorProfile = index.users[featuredProject.author.username.toLowerCase()];
+
 		index.featuredProjects = index.featuredProjects.filter(
-			(p) => p.id !== projectId
+			(p) => String(p.id) !== String(projectId)
 		);
-		authorProfile.messages = authorProfile.messages?.filter((m) => !(m.type === "featured" && String(m.id) === String(projectId))) || [];
-		await updateUsersIndex(index);
+        
+		if (authorProfile) {
+			authorProfile.messages = authorProfile.messages?.filter((m) => !(m.type === "featured" && String(m.id) === String(projectId))) || [];
+		}
+        
+		await updateIndex(index);
 
 		let projects = index.featuredProjects || [];
 		projects = projects.map((p) => ({
