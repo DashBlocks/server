@@ -62,7 +62,7 @@ const generateUserObject = (user) => {
 			recommendedProject: {
 				id: user.recommendedProject?.id || null,
 				name: user.recommendedProject?.name || "Unknown",
-				thumbnailId: user.recommendedProject?.thumbnailId || 1
+				thumbnailId: user.recommendedProject?.id || 1
 			},
 			links: user.links || [],
 			achievements: user.achievements || []

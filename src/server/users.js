@@ -54,7 +54,7 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 			stats: {
 				fires: p?.stats?.fires || 0
 			},
-			thumbnailId: p?.thumbnailId || 1
+			thumbnailId: p?.id || 1
 		}));
 
 		res.json({ ok: true, projects });
@@ -319,7 +319,7 @@ app.post(
 		user.recommendedProject = {
 			id: projectId,
 			name: projectMeta.name,
-			thumbnailId: projectMeta.thumbnailId
+			thumbnailId: projectId
 		};
 		user.lastActive = new Date().toISOString();
         

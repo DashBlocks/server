@@ -165,7 +165,7 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 				id: Number(req.params.id),
 				name: projectInIndex.name || "Untitled",
 				description: projectInIndex.description || "",
-				thumbnailId: projectInIndex.thumbnailId || 1,
+				thumbnailId: Number(req.params.id) || 1,
 				stats: {
 					fires: projectInIndex.stats?.fires || 0
 					// TODO: Views, remixes, etc

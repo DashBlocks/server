@@ -65,7 +65,7 @@ app.post(
 				},
 				joinedAt: p.author?.joinedAt || null
 			},
-			thumbnailId: p?.thumbnailId || 1,
+			thumbnailId: p?.id || 1,
 			fileSize: p?.fileSize || null,
 			uploadedAt: p?.uploadedAt || null,
 			featuredAt: p?.featuredAt || null
@@ -118,7 +118,7 @@ app.delete(
 				},
 				joinedAt: p.author?.joinedAt || null
 			},
-			thumbnailId: p?.thumbnailId || 1,
+			thumbnailId: p?.id || 1,
 			fileSize: p?.fileSize || null,
 			uploadedAt: p?.uploadedAt || null,
 			featuredAt: p?.featuredAt || null
@@ -147,7 +147,7 @@ app.get("/featured-projects", securityCheck, (req, res) => {
 			},
 			joinedAt: p.author?.joinedAt || null
 		},
-		thumbnailId: p?.thumbnailId || 1,
+		thumbnailId: p?.id || 1,
 		fileSize: p?.fileSize || null,
 		uploadedAt: p?.uploadedAt || null,
 		featuredAt: p?.featuredAt || null
