@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 
 import { JWT_SECRET } from "./vars.js";
-import { getLatestUsersIndex } from "./telegram.js";
+import { getIndex } from "./storage.js";
 
 const isValidUsername = (username) => {
 	const regex = /^(?!\d+$)[a-zA-Z0-9-_]+$/;
@@ -11,7 +11,7 @@ const isValidUsername = (username) => {
 
 const validateId = (req, res, next) => {
 	const id = req.params.id;
-	if (!id || !/^\d+$/.test(id) || id.startsWith("0")) {
+	if (!id || !/^s?\d+$/.test(id) || id.startsWith("0") || id.startsWith("s0")) {
 		return res.status(400).json({ ok: false, error: "Invalid ID" });
 	}
 	next();
@@ -73,7 +73,7 @@ const generateUserObject = (user) => {
 };
 
 function getUserIndexData(index, target) {
-	if (/^\d+$/.test(target) && !target.startsWith("0")) {
+	if (/^s?\d+$/.test(target) && !target.startsWith("0") && !target.startsWith("s0")) {
 		return Object.values(index.users).find((u) => String(u.id) === String(target));
 	}
 	return index.users[target.toLowerCase()];
@@ -94,7 +94,7 @@ const verifyAuth = (req, res, next) => {
 
 const securityCheck = async (req, res, next) => {
 	try {
-		const index = await getLatestUsersIndex();
+		const index = await getIndex();
 		if (!index)
 			return res
 				.status(500)
@@ -103,7 +103,7 @@ const securityCheck = async (req, res, next) => {
 		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 		const username = req.user?.username?.toLowerCase();
 
-		if (index.bannedIps.includes(userIp)) {
+		if (index.bannedIps?.includes(userIp)) {
 			return res.status(403).json({ ok: false, error: "IP address banned" });
 		}
 
