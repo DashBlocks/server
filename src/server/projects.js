@@ -1,11 +1,10 @@
 import JSZip from "jszip";
 import path from "path";
-import { Readable } from "stream";
 
 import app, { upload } from "../app.js";
 import * as vars from "./vars.js";
 import { validateId, isTrustedUrl, securityCheck, verifyAuth, uploadLimiter, uploadTimeout } from "./helpers.js";
-import { uploadToTelegram, fetchFromTelegram, updateUsersIndex } from "./telegram.js";
+import * as storage from "./storage.js";
 
 app.post(
 	"/save-project",
@@ -23,11 +22,6 @@ app.post(
 			return res.status(400).json({ ok: false, error: "Project name is too long (maximum length 100)" });
 		if (description.length > 1000)
 			return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
-		const metadata = JSON.stringify({
-			name: name || "Untitled",
-			description: description || "",
-			author: { id: Number(req.user.userId), username: req.user.username }
-		});
 
 		const file = req.file;
 		if (!file)
@@ -45,7 +39,7 @@ app.post(
 		).some(
 			(ext) =>
 				(ext.startsWith("http") || ext.startsWith("data")) &&
-				!isTrustedUrl(ext)
+                !isTrustedUrl(ext)
 		);
 		if (hasCustomExtensions && req.userRole === "dasher") {
 			return res
@@ -53,58 +47,16 @@ app.post(
 				.json({ ok: false, error: "Custom extensions require Dasher+ role" });
 		}
 
-		// Sending to getters group cuz we need to check if file and caption
-		// uploaded successfully, and if not, we don't want to waste ID
-		let projectId = null;
-		try {
-			projectId = await uploadToTelegram(
-				vars.GETTERS_GROUP_ID,
-				file.buffer,
-				`${name || "Untitled"}.dbp.zip`,
-				metadata
-			);
-		} catch (_) {
-			return res
-				.status(500)
-				.json({ ok: false, error: "Failed to upload project, likely project is too big" });
-		}
-		if (projectId) {
-			const forwardRes = await fetch(`${vars.TELEGRAM_API}/forwardMessage`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					chat_id: vars.GETTERS_GROUP_ID,
-					from_chat_id: vars.GETTERS_GROUP_ID,
-					message_id: projectId
-				})
-			});
-
-			const data = await forwardRes.json();
-			if (!data.result.document.file_id)
-				return res
-					.status(500)
-					.json({ ok: false, error: "Failed to upload project" });
-			try {
-				JSON.parse(data.result.caption);
-			} catch (_) {
-				return res
-					.status(500)
-					.json({ ok: false, error: "Failed to upload project metadata" });
-			}
-		} else {
-			return res
-				.status(500)
-				.json({ ok: false, error: "Failed to upload project" });
-		}
-		projectId = await uploadToTelegram(
-			vars.PROJECTS_GROUP_ID,
-			file.buffer,
-			`${name || "Untitled"}.dbp.zip`,
-			metadata
-		);
-
-		// Update user profile
 		const index = req.usersIndex;
+
+		const projectId = index.nextProjectId;
+        
+		try {
+			await storage.saveProjectFile(projectId, file.buffer);
+		} catch (_) {
+			return res.status(500).json({ ok: false, error: "Failed to save project file" });
+		}
+
 		const userKey = req.user.username.toLowerCase();
 		const user = index.users[userKey];
 
@@ -112,10 +64,14 @@ app.post(
 			id: projectId,
 			name: name || "Untitled",
 			description: description || "",
+			thumbnailId: 1,
 			stats: {
 				fires: 0
-			}
+			},
+			uploadedAt: new Date().toISOString()
 		});
+
+		index.nextProjectId++;
 
 		if (!user.achievements) user.achievements = [];
 		if (user.projects.length === 1)
@@ -129,7 +85,6 @@ app.post(
 			});
 
 		const accountAgeMs = Date.now() - new Date(user.joinedAt).getTime();
-
 		const hasEnoughProjects = user.projects.length >= 3;
 		const isOldEnough = accountAgeMs >= 14 * 24 * 60 * 60 * 1000;
 		const isActive =
@@ -167,7 +122,7 @@ app.post(
 			];
 		}
 
-		await updateUsersIndex(index);
+		await storage.updateIndex(index);
 
 		res.json({ ok: true, projectId });
 	}
@@ -175,121 +130,60 @@ app.post(
 
 app.get("/get-project/:id", securityCheck, validateId, async (req, res) => {
 	try {
-		const downloadUrl = await fetchFromTelegram(
-			req.params.id,
-			vars.PROJECTS_GROUP_ID
-		);
-		const fileRes = await fetch(downloadUrl);
+		const exists = await storage.projectFileExists(req.params.id);
+		if (!exists) {
+			return res.status(404).json({ ok: false, error: "Project not found" });
+		}
+        
+		const fileStream = storage.streamProjectFile(req.params.id);
 		res.setHeader("Content-Type", "application/zip");
-		res.setHeader(
-			"Content-Disposition",
-			`attachment; filename="${req.params.id}.dbp.zip"`
-		);
-		Readable.fromWeb(fileRes.body).pipe(res);
+		res.setHeader("Content-Disposition", `attachment; filename="${req.params.id}.dbp.zip"`);
+		fileStream.pipe(res);
 	} catch (_) {
-		res.status(404).json({ ok: false, error: "Project not found" });
+		res.status(500).json({ ok: false, error: "Failed to stream project" });
 	}
 });
 
 app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 	try {
-		const forwardRes = await fetch(`${vars.TELEGRAM_API}/forwardMessage`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				chat_id: vars.GETTERS_GROUP_ID,
-				from_chat_id: vars.PROJECTS_GROUP_ID,
-				message_id: req.params.id
-			})
-		});
+		const projectInIndex = storage.findProjectById(req.usersIndex, req.params.id);
+		if (!projectInIndex) return res.status(404).json({ ok: false, error: "Project not found" });
 
-		const data = await forwardRes.json();
-		if (!data.ok || !data.result.document)
-			return res.status(404).json({ ok: false, error: "Project not found" });
+		const authorProfile = Object.values(req.usersIndex.users).find((u) =>
+			u.projects?.some((p) => String(p.id) === String(req.params.id))
+		);
 
-		const doc = data.result.document;
-		const projectId = data.result.forward_from_message_id;
-		const metadata = {
-			name: "Untitled",
-			description: "",
-			thumbnailId: 1,
-			stats: {
-				fires: 0
-			},
-			author: {
-				id: null,
-				username: "Unknown",
-				role: "dasher",
-				profile: { avatarId: 1 },
-				joinedAt: null,
-				lastActive: null
-			}
-		};
-
+		let fileSize = 0;
 		try {
-			const savedData = JSON.parse(data.result.caption);
-			metadata.name = savedData.name || "Untitled";
-			metadata.description = savedData.description || "";
-			if (savedData.author) {
-				metadata.author.id = Number(savedData.author.id) || null;
-				metadata.author.username = savedData.author.username || "Unknown";
-			}
-
-			const authorProfile =
-				req.usersIndex.users[metadata.author.username.toLowerCase()];
-			if (authorProfile) {
-				metadata.author.role = authorProfile.role || "dasher";
-				metadata.author.joinedAt = authorProfile.joinedAt || null;
-				metadata.author.lastActive = authorProfile.lastActive || null;
-				metadata.author.profile = {
-					avatarId: authorProfile.avatarId || 1
-				};
-				const projectInIndex = authorProfile.projects.find(
-					(p) => String(p.id) === String(req.params.id)
-				);
-				if (projectInIndex) {
-					metadata.stats.fires = projectInIndex.stats?.fires || 0;
-					metadata.thumbnailId = projectInIndex.thumbnailId || 1;
-				}
-			}
-		} catch (_) {
-			// It might be old project
-			const lastUnderscoreIndex = doc.file_name.lastIndexOf("_");
-			if (lastUnderscoreIndex !== -1) {
-				metadata.name = doc.file_name.substring(0, lastUnderscoreIndex);
-				metadata.author.username = doc.file_name
-					.substring(lastUnderscoreIndex + 1)
-					.replace(".dbp.zip", "");
-			} else if (doc.file_name.endsWith(".dbp.zip")) {
-				metadata.name =
-					doc.file_name.replace(".dbp.zip", "") !== ""
-						? doc.file_name.replace(".dbp.zip", "")
-						: "Untitled";
-			}
-		}
+			const stats = await storage.getProjectStats(req.params.id);
+			fileSize = stats.size;
+		} catch (_) {/* ignore */}
 
 		res.json({
 			ok: true,
 			project: {
-				id: projectId,
-				name: metadata.name,
-				description: metadata.description,
-				thumbnailId: metadata.thumbnailId,
+				id: Number(req.params.id),
+				name: projectInIndex.name || "Untitled",
+				description: projectInIndex.description || "",
+				thumbnailId: projectInIndex.thumbnailId || 1,
 				stats: {
-					fires: metadata.stats.fires
+					fires: projectInIndex.stats?.fires || 0
 					// TODO: Views, remixes, etc
 				},
-				author: metadata.author,
-				fileSize: doc.file_size,
-				uploadedAt: data.result.forward_date
-					? new Date(data.result.forward_date * 1000).toISOString()
-					: null
+				author: {
+					id: authorProfile?.id || null,
+					username: authorProfile?.username || "Unknown",
+					role: authorProfile?.role || "dasher",
+					profile: { avatarId: authorProfile?.avatarId || 1 },
+					joinedAt: authorProfile?.joinedAt || null,
+					lastActive: authorProfile?.lastActive || null
+				},
+				fileSize: fileSize,
+				uploadedAt: projectInIndex.uploadedAt || null
 			}
 		});
 	} catch (_) {
-		res
-			.status(500)
-			.json({ ok: false, error: "Failed to fetch project metadata" });
+		res.status(500).json({ ok: false, error: "Failed to fetch project metadata" });
 	}
 });
 
@@ -325,45 +219,13 @@ app.delete(
 			(p) => String(p.id) === String(projectId)
 		) || null;
 
-		const delRes = await fetch(`${vars.TELEGRAM_API}/deleteMessage`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				chat_id: vars.PROJECTS_GROUP_ID,
-				message_id: projectId
-			})
-		});
-		const delData = await delRes.json();
-
-		let fullDeletionRequested = false;
-
-		if (!delData.ok) {
-			const delReqRes = await fetch(`${vars.TELEGRAM_API}/sendMessage`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					chat_id: vars.REQUESTS_GROUP_ID,
-					text: `DELETE: Project ${projectId}\nBy: ${req.user.username} (${req.user.userId})`
-				})
-			});
-			const delReqData = await delReqRes.json();
-                
-			if (!delReqData.ok) {
-				return res.status(500).json({ ok: false, error: "Failed to delete project" });
+		try {
+			await storage.deleteProjectFile(projectId);
+			if ((project?.thumbnailId || 0) > 1) {
+				await storage.deleteThumbnailFile(project.thumbnailId);
 			}
-			fullDeletionRequested = true;
-		}
-
-		// Don't even try to delete thumbnail cuz it may be a placeholder or just not exist
-		if ((project?.thumbnailId || 0) > 1) {
-			await fetch(`${vars.TELEGRAM_API}/deleteMessage`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					chat_id: vars.THUMBNAILS_GROUP_ID,
-					message_id: project.thumbnailId
-				})
-			}).catch(() => {/* ignore */});
+		} catch (_) {
+			return res.status(500).json({ ok: false, error: "Failed to delete project files" });
 		}
 
 		if (userProfile) {
@@ -377,14 +239,7 @@ app.delete(
 					name: "Unknown",
 					thumbnailId: 1
 				};
-			await updateUsersIndex(index);
-		}
-
-		if (fullDeletionRequested) {
-			return res.status(202).json({ 
-				ok: true, 
-				message: "Project deleted from your profile, but still accessable via ID - full deletion requested" 
-			});
+			await storage.updateIndex(index);
 		}
 
 		return res.json({ ok: true, projects: userProfile?.projects || [] });
@@ -415,31 +270,21 @@ app.post(
 				.status(404)
 				.json({ ok: false, error: "Project not found in your profile" });
 
-		// Don't even try to delete previous thumbnail cuz it may be a placeholder or just not exist
 		if (project.thumbnailId > 1) {
-			await fetch(`${vars.TELEGRAM_API}/deleteMessage`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					chat_id: vars.THUMBNAILS_GROUP_ID,
-					message_id: project.thumbnailId
-				})
-			});
-			// Ignore if failed
+			await storage.deleteThumbnailFile(project.thumbnailId);
 		}
 
-		const thumbnailId = await uploadToTelegram(
-			vars.THUMBNAILS_GROUP_ID,
-			req.file.buffer,
-			`thumb_${projectId}.png`
-		);
+		const thumbnailId = project.id;
 
-		if (!thumbnailId)
+		try {
+			await storage.saveThumbnailFile(thumbnailId, req.file.buffer);
+		} catch (_) {
 			return res.status(500).json({ ok: false, error: "Upload failed" });
+		}
 
 		project.thumbnailId = thumbnailId;
 		user.lastActive = new Date().toISOString();
-		await updateUsersIndex(index);
+		await storage.updateIndex(index);
 
 		res.json({ ok: true, thumbnailId });
 	}
@@ -447,14 +292,12 @@ app.post(
 
 app.get("/projects/thumbnails/:id", validateId, async (req, res) => {
 	try {
-		const downloadUrl = await fetchFromTelegram(
-			req.params.id,
-			vars.THUMBNAILS_GROUP_ID
-		);
-		const fileRes = await fetch(downloadUrl);
-
+		const exists = await storage.thumbnailFileExists(req.params.id);
+		if (!exists) throw new Error("Not found");
+        
+		const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(req.params.id));
 		res.setHeader("Content-Type", "image/png");
-		Readable.fromWeb(fileRes.body).pipe(res);
+		res.sendFile(path.join(projectDir, `${req.params.id}.png`));
 	} catch (_) {
 		res.setHeader("Content-Type", "image/png");
 		res.sendFile(path.join(vars.ASSETS_PATH, "dasher-icon.png"));
@@ -467,59 +310,32 @@ app.post(
 	securityCheck,
 	validateId,
 	async (req, res) => {
-		const projectId = Number(req.params.id);
+		const projectId = req.params.id;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-		if (user.firedProjects?.includes(projectId))
+        
+		if (user.firedProjects?.includes(Number(projectId)) || user.firedProjects?.includes(String(projectId)))
 			return res.status(400).json({ ok: false, error: "Project already fired" });
 
-		const forwardRes = await fetch(`${vars.TELEGRAM_API}/forwardMessage`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				chat_id: vars.GETTERS_GROUP_ID,
-				from_chat_id: vars.PROJECTS_GROUP_ID,
-				message_id: projectId
-			})
-		});
+		const projectInIndex = storage.findProjectById(index, projectId);
+		if (!projectInIndex) return res.status(404).json({ ok: false, error: "Project not found" });
 
-		const data = await forwardRes.json();
-		if (!data.ok || !data.result.document)
-			return res.status(404).json({ ok: false, error: "Project not found" });
-
-		const doc = data.result.document;
-		let authorProfile;
-		try {
-			const savedData = JSON.parse(data.result.caption);
-			authorProfile =
-				index.users[savedData.author?.username.toLowerCase()];
-			if (!authorProfile) throw new Error();
-		} catch (_) {
-			// It might be old project
-			const lastUnderscoreIndex = doc.file_name.lastIndexOf("_");
-			if (lastUnderscoreIndex !== -1) {
-				const username = doc.file_name
-					.substring(lastUnderscoreIndex + 1)
-					.replace(".dbp.zip", "");
-				authorProfile = username ? index.users[username.toLowerCase()] : null;
-			}
-		}
-
-		const project = authorProfile?.projects.find(
-			(p) => String(p.id) === String(projectId)
+		const authorProfile = Object.values(index.users).find((u) =>
+			u.projects?.some((p) => String(p.id) === String(projectId))
 		);
-		if (!project)
-			return res
-				.status(404)
-				.json({ ok: false, error: "Project not found" });
 
+		if (!authorProfile) return res.status(404).json({ ok: false, error: "Author profile not found" });
+
+		const project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
+        
 		project.stats ? project.stats.fires += 1 : project.stats = { fires: 1 };
 		user.firedProjects ? user.firedProjects.push(projectId) : user.firedProjects = [projectId];
-		if (user.id !== authorProfile.id)
+        
+		if (user.id !== authorProfile.id) {
 			authorProfile.messages = [
 				{
 					type: "fired",
-					id: projectId,
+					id: Number(projectId),
 					name: project.name,
 					user: {
 						id: user.id,
@@ -529,20 +345,23 @@ app.post(
 				},
 				...(authorProfile.messages || [])
 			];
+		}
+
 		user.lastActive = new Date().toISOString();
 		user.actions = user.actions || [];
 		user.actions = [
 			{
 				type: "fired-project",
 				project: {
-					id: projectId,
+					id: Number(projectId),
 					name: project.name
 				},
 				date: new Date().toISOString()
 			},
 			...user.actions
 		];
-		await updateUsersIndex(index);
+        
+		await storage.updateIndex(index);
 		res.json({ ok: true, fires: project.stats.fires });
 	}
 );
@@ -553,57 +372,30 @@ app.delete(
 	securityCheck,
 	validateId,
 	async (req, res) => {
-		const projectId = Number(req.params.id);
+		const projectId = req.params.id;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-		if (!user.firedProjects?.includes(projectId))
+        
+		const isFired = user.firedProjects?.includes(Number(projectId)) || user.firedProjects?.includes(String(projectId));
+		if (!isFired)
 			return res.status(400).json({ ok: false, error: "Project is not fired" });
 
-		const forwardRes = await fetch(`${vars.TELEGRAM_API}/forwardMessage`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({
-				chat_id: vars.GETTERS_GROUP_ID,
-				from_chat_id: vars.PROJECTS_GROUP_ID,
-				message_id: projectId
-			})
-		});
-
-		const data = await forwardRes.json();
-		if (!data.ok || !data.result.document)
-			return res.status(404).json({ ok: false, error: "Project not found" });
-
-		const doc = data.result.document;
-		let authorProfile;
-		try {
-			const savedData = JSON.parse(data.result.caption);
-			authorProfile =
-				index.users[savedData.author?.username.toLowerCase()];
-			if (!authorProfile) throw new Error();
-		} catch (_) {
-			// It might be old project
-			const lastUnderscoreIndex = doc.file_name.lastIndexOf("_");
-			if (lastUnderscoreIndex !== -1) {
-				const username = doc.file_name
-					.substring(lastUnderscoreIndex + 1)
-					.replace(".dbp.zip", "");
-				authorProfile = username ? index.users[username.toLowerCase()] : null;
-			}
-		}
-
-		const project = authorProfile?.projects.find(
-			(p) => String(p.id) === String(projectId)
+		const authorProfile = Object.values(index.users).find((u) =>
+			u.projects?.some((p) => String(p.id) === String(projectId))
 		);
-		if (!project)
-			return res
-				.status(404)
-				.json({ ok: false, error: "Project not found" });
+		if (!authorProfile) return res.status(404).json({ ok: false, error: "Project author not found" });
+
+		const project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
 
 		project.stats && project.stats.fires > 0 ? project.stats.fires -= 1 : project.stats = { fires: 0 };
-		user.firedProjects ? user.firedProjects = user.firedProjects.filter((id) => String(id) !== String(projectId)) : user.firedProjects = [];
-		authorProfile.messages = authorProfile.messages?.filter((m) => !(m.type === "fired" && String(m.id) === String(projectId) && m.user?.id === user.id)) || [];
+		user.firedProjects = user.firedProjects ? user.firedProjects.filter((id) => String(id) !== String(projectId)) : [];
+        
+		authorProfile.messages = authorProfile.messages?.filter(
+			(m) => !(m.type === "fired" && String(m.id) === String(projectId) && m.user?.id === user.id)
+		) || [];
+        
 		user.lastActive = new Date().toISOString();
-		await updateUsersIndex(index);
+		await storage.updateIndex(index);
 		res.json({ ok: true, fires: project.stats.fires });
 	}
 );

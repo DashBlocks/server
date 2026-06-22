@@ -17,8 +17,8 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 	if (!target)
 		return res.status(404).json({ ok: false, error: "User not found" });
 
-	if (userIndexData.role === 'dashteam')
-		return res.status(400).json({ ok: false, error: "A user in the Dash Team" });
+	if (target.role === "dashteam")
+		return res.status(400).json({ ok: false, error: "User's role is Dash Team" });
 
 	if (action === "ban-user") {
 		target.banned = true;
@@ -67,8 +67,8 @@ app.post("/admin/delete-account", verifyAuth, securityCheck, async (req, res) =>
 	if (!userIndexData)
 		return res.status(404).json({ ok: false, error: "User not found" });
 
-	if (userIndexData.role === 'dashteam')
-		return res.status(400).json({ ok: false, error: "A user in the Dash Team" });
+	if (userIndexData.role === "dashteam")
+		return res.status(400).json({ ok: false, error: "User's role is Dash Team" });
 
 	const reqRes = await fetch(`${vars.TELEGRAM_API}/sendMessage`, {
 		method: "POST",
