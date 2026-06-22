@@ -6,6 +6,4 @@ import "./server/users.js";
 import "./server/admin.js";
 
 // eslint-disable-next-line no-console
-app.listen(process.env.PORT, "127.0.0.1", () => {
-	console.log(`Port ${process.env.PORT}`);
-});
+app.listen(process.env.PORT, "127.0.0.1", () => console.log(`Port ${process.env.PORT}`));
