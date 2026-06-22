@@ -3,31 +3,26 @@ import jwt from "jsonwebtoken";
 
 import app, { upload } from "../app.js";
 import * as vars from "./vars.js";
-import { generateUserObject, securityCheck, verifyAuth } from "./helpers.js";
+import { generateUserObject, getUserIndexData, securityCheck, verifyAuth } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.get("/users/:target", securityCheck, async (req, res) => {
 	try {
-		const target = req.params.target;
-		let storedUser, indexData;
-		
-		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			// Likely ID
-			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
-			if (!indexData) throw new Error("User not found");
+		const indexData = getUserIndexData(req.usersIndex, req.params.target);
+		if (!indexData) throw new Error("User not found");
+
+		let storedUser = {};
+		try {
 			storedUser = await storage.readUserJson(indexData.id);
-		} else {
-			// Likely username
-			indexData = req.usersIndex.users[target.toLowerCase()];
-			if (!indexData) throw new Error("User not found");
-			storedUser = await storage.readUserJson(indexData.id);
-		}
+		} catch (_) {/* ignore */}
 
 		let user;
 		const token = req.cookies.auth_token;
 		try {
-			const decoded = jwt.verify(token, vars.JWT_SECRET);
-			user = decoded;
+			if (token) {
+				const decoded = jwt.verify(token, vars.JWT_SECRET);
+				user = decoded;
+			}
 		} catch (_) {/* ignore */}
 
 		res.json({
@@ -44,20 +39,14 @@ app.get("/users/:target", securityCheck, async (req, res) => {
 
 app.get("/users/:target/projects", securityCheck, async (req, res) => {
 	try {
-		const target = req.params.target;
+		const indexData = getUserIndexData(req.usersIndex, req.params.target);
+		if (!indexData) throw new Error("User not found");
+
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-		
-		let indexData;
-		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
-		} else {
-			indexData = req.usersIndex.users[target.toLowerCase()];
-		}
-		if (!indexData) throw new Error("User not found");
-
+        
 		const projects = (indexData.projects || []).slice(offset, offset + limit).map(p => ({
 			id: p?.id || null,
 			name: p?.name || "Unknown",
@@ -68,10 +57,7 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 			thumbnailId: p?.thumbnailId || 1
 		}));
 
-		res.json({
-			ok: true,
-			projects
-		});
+		res.json({ ok: true, projects });
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
@@ -79,26 +65,17 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 
 app.get("/users/:target/actions", securityCheck, async (req, res) => {
 	try {
-		const target = req.params.target;
+		const indexData = getUserIndexData(req.usersIndex, req.params.target);
+		if (!indexData) throw new Error("User not found");
+
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-		
-		let indexData;
-		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
-		} else {
-			indexData = req.usersIndex.users[target.toLowerCase()];
-		}
-		if (!indexData) throw new Error("User not found");
-
+        
 		const actions = (indexData.actions || []).slice(offset, offset + limit);
 
-		res.json({
-			ok: true,
-			actions
-		});
+		res.json({ ok: true, actions });
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
@@ -106,29 +83,21 @@ app.get("/users/:target/actions", securityCheck, async (req, res) => {
 
 app.get("/users/:target/followers", securityCheck, async (req, res) => {
 	try {
-		const target = req.params.target;
+		const indexData = getUserIndexData(req.usersIndex, req.params.target);
+		if (!indexData) throw new Error("User not found");
+
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-		
-		let indexData;
-		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
-		} else {
-			indexData = req.usersIndex.users[target.toLowerCase()];
-		}
-		if (!indexData) throw new Error("User not found");
 
-		const followers = (indexData.followers || []).slice(offset, offset + limit).map(user => {
-			const followerData = req.usersIndex.users[user.username.toLowerCase()];
-			return generateUserObject(followerData);
-		});
+		const followers = (indexData.followers || [])
+			.slice(offset, offset + limit)
+			.map(user => req.usersIndex.users[user.username.toLowerCase()])
+			.filter(Boolean)
+			.map(followerData => generateUserObject(followerData));
 
-		res.json({
-			ok: true,
-			followers
-		});
+		res.json({ ok: true, followers });
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
@@ -136,29 +105,21 @@ app.get("/users/:target/followers", securityCheck, async (req, res) => {
 
 app.get("/users/:target/following", securityCheck, async (req, res) => {
 	try {
-		const target = req.params.target;
+		const indexData = getUserIndexData(req.usersIndex, req.params.target);
+		if (!indexData) throw new Error("User not found");
+
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-		
-		let indexData;
-		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			indexData = Object.values(req.usersIndex.users).find(u => String(u.id) === target);
-		} else {
-			indexData = req.usersIndex.users[target.toLowerCase()];
-		}
-		if (!indexData) throw new Error("User not found");
 
-		const following = (indexData.following || []).slice(offset, offset + limit).map(user => {
-			const followingData = req.usersIndex.users[user.username.toLowerCase()];
-			return generateUserObject(followingData);
-		});
+		const following = (indexData.following || [])
+			.slice(offset, offset + limit)
+			.map(user => req.usersIndex.users[user.username.toLowerCase()])
+			.filter(Boolean)
+			.map(followingData => generateUserObject(followingData));
 
-		res.json({
-			ok: true,
-			following
-		});
+		res.json({ ok: true, following });
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
@@ -169,40 +130,29 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 		const target = req.params.target;
 		if (
 			target.toLowerCase() === req.user.username.toLowerCase() ||
-			(/^\d+$/.test(target) && !target.startsWith("0") && String(target) === String(req.user.userId))
+            (/^\d+$/.test(target) && !target.startsWith("0") && String(target) === String(req.user.userId))
 		)
 			return res.status(400).json({ ok: false, error: "Cannot follow yourself" });
 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-		let targetUser, targetIndexData;
-		
-		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			targetIndexData = Object.values(index.users).find(u => String(u.id) === target);
-			if (!targetIndexData) throw new Error();
-			targetUser = await storage.readUserJson(targetIndexData.id);
-		} else {
-			targetIndexData = index.users[target.toLowerCase()];
-			if (!targetIndexData) throw new Error();
-			targetUser = await storage.readUserJson(targetIndexData.id);
-		}
-
-		if (!targetIndexData || !targetUser)
-			return res.status(404).json({ ok: false, error: "User not found" });
+		const targetIndexData = getUserIndexData(index, target);
+        
+		if (!targetIndexData) return res.status(404).json({ ok: false, error: "User not found" });
 
 		if (!user.following) user.following = [];
 		if (!targetIndexData.followers) targetIndexData.followers = [];
-		if (user.following.find(u => String(u.id) === String(targetIndexData.id)))
+		if (user.following.some(u => String(u.id) === String(targetIndexData.id)))
 			return res.status(400).json({ ok: false, error: "Already following" });
 
 		user.following.push({
-			username: targetUser.username,
+			username: targetIndexData.username,
 			id: targetIndexData.id
 		});
 
 		targetIndexData.followers.push({
 			username: user.username,
-			id: index.users[user.username.toLowerCase()].id
+			id: user.id
 		});
 
 		if ([1, 25, 50, 100].includes(targetIndexData.followers.length)) {
@@ -221,7 +171,7 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 				type: "followed-user",
 				user: {
 					id: targetIndexData.id,
-					username: targetUser.username
+					username: targetIndexData.username
 				},
 				date: new Date().toISOString()
 			},
@@ -238,51 +188,47 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 			},
 			...(targetIndexData.messages || [])
 		];
-		
+        
 		await storage.updateIndex(index);
+		await storage.updateUserJson(user.id, user).catch(() => {});
+		await storage.updateUserJson(targetIndexData.id, targetIndexData).catch(() => {});
 
 		res.json({ ok: true });
 	} catch (_) {
-		res.status(404).json({ ok: false, error: "User not found" });
+		res.status(500).json({ ok: false, error: "Failed to follow user" });
 	}
 });
 
 app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) => {
 	try {
-		const target = req.params.target;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-		let targetUser, targetIndexData;
-		
-		if (/^\d+$/.test(target) && !target.startsWith("0")) {
-			targetIndexData = Object.values(index.users).find(u => String(u.id) === target);
-			if (!targetIndexData) throw new Error();
-			targetUser = await storage.readUserJson(targetIndexData.id);
-		} else {
-			targetIndexData = index.users[target.toLowerCase()];
-			if (!targetIndexData) throw new Error();
-			targetUser = await storage.readUserJson(targetIndexData.id);
-		}
+		const targetIndexData = getUserIndexData(index, req.params.target);
 
-		if (!targetIndexData || !targetUser)
-			return res.status(404).json({ ok: false, error: "User not found" });
+		if (!targetIndexData) return res.status(404).json({ ok: false, error: "User not found" });
 
 		if (!user.following) user.following = [];
 		if (!targetIndexData.followers) targetIndexData.followers = [];
-		if (!user.following.find(u => String(u.id) === String(targetIndexData.id)))
+		if (!user.following.some(u => String(u.id) === String(targetIndexData.id)))
 			return res.status(400).json({ ok: false, error: "Not following" });
 
-		user.following.splice(user.following.findIndex(u => String(u.id) === String(targetIndexData.id)), 1);
-		targetIndexData.followers.splice(targetIndexData.followers.findIndex(u => u.username.toLowerCase() === user.username.toLowerCase()), 1);
+		user.following = user.following.filter(u => String(u.id) !== String(targetIndexData.id));
+		targetIndexData.followers = targetIndexData.followers.filter(u => String(u.id) !== String(user.id));
+        
 		user.lastActive = new Date().toISOString();
-		if (targetIndexData.messages)
-			targetIndexData.messages = targetIndexData.messages.filter(m => !(m.type === "new-follower" && m.user.username.toLowerCase() === user.username.toLowerCase()));
-		
+		if (targetIndexData.messages) {
+			targetIndexData.messages = targetIndexData.messages.filter(
+				m => !(m.type === "new-follower" && String(m.user?.id) === String(user.id))
+			);
+		}
+        
 		await storage.updateIndex(index);
+		await storage.updateUserJson(user.id, user).catch(() => {});
+		await storage.updateUserJson(targetIndexData.id, targetIndexData).catch(() => {});
 
 		res.json({ ok: true });
 	} catch (_) {
-		res.status(404).json({ ok: false, error: "User not found" });
+		res.status(500).json({ ok: false, error: "Failed to unfollow user" });
 	}
 });
 
@@ -299,11 +245,14 @@ app.post(
 			const index = req.usersIndex;
 			const user = index.users[req.user.username.toLowerCase()];
 			const avatarId = user.id; 
+            
 			await storage.saveAvatarFile(avatarId, req.file.buffer);
 
 			user.avatarId = avatarId;
 			user.lastActive = new Date().toISOString();
+            
 			await storage.updateIndex(index);
+			await storage.updateUserJson(user.id, user).catch(() => {});
 
 			res.json({ ok: true, avatarId });
 		} catch (_) {
@@ -333,33 +282,22 @@ app.post(
 	securityCheck,
 	async (req, res) => {
 		if (req.userRole === "dasher")
-			return res.status(403).json({
-				ok: false,
-				error: "Must have Dasher+ role"
-			});
+			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
+            
 		const description = req.body.description?.toString();
-		if (!description)
-			return res.status(400).json({
-				ok: false,
-				error: "No description provided"
-			});
-
-		if (description.length > 1000)
-			return res.status(400).json({
-				ok: false,
-				error: "Max length is 1000"
-			});
+		if (!description) return res.status(400).json({ ok: false, error: "No description provided" });
+		if (description.length > 1000) return res.status(400).json({ ok: false, error: "Max length is 1000" });
 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
+        
 		user.description = description;
 		user.lastActive = new Date().toISOString();
+        
 		await storage.updateIndex(index);
+		await storage.updateUserJson(user.id, user).catch(() => {});
 
-		res.json({
-			ok: true,
-			user: generateUserObject(user)
-		});
+		res.json({ ok: true, user: generateUserObject(user) });
 	}
 );
 
@@ -369,32 +307,26 @@ app.post(
 	securityCheck,
 	async (req, res) => {
 		const projectId = Number(req.body.projectId);
-		if (!projectId)
-			return res.status(400).json({
-				ok: false,
-				error: "No project ID provided"
-			});
+		if (!projectId) return res.status(400).json({ ok: false, error: "No project ID provided" });
 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
 		const projectMeta = user.projects.find(p => String(p.id) === String(projectId));
+        
 		if (!projectMeta)
-			return res.status(404).json({
-				ok: false,
-				error: "Project not found in your profile"
-			});
+			return res.status(404).json({ ok: false, error: "Project not found in your profile" });
+            
 		user.recommendedProject = {
 			id: projectId,
 			name: projectMeta.name,
 			thumbnailId: projectMeta.thumbnailId
 		};
 		user.lastActive = new Date().toISOString();
+        
 		await storage.updateIndex(index);
+		await storage.updateUserJson(user.id, user).catch(() => {});
 
-		res.json({
-			ok: true,
-			user: generateUserObject(user)
-		});
+		res.json({ ok: true, user: generateUserObject(user) });
 	}
 );
 
@@ -404,51 +336,27 @@ app.post(
 	securityCheck,
 	async (req, res) => {
 		if (req.userRole === "dasher")
-			return res.status(403).json({
-				ok: false,
-				error: "Must have Dasher+ role"
-			});
+			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
+            
 		const { label, link } = req.body;
-		if (!link)
-			return res.status(400).json({
-				ok: false,
-				error: "No link provided"
-			});
-		if (link.length > 200)
-			return res.status(400).json({
-				ok: false,
-				error: "Link max length is 200"
-			});
-		if (label && label.length > 50)
-			return res.status(400).json({
-				ok: false,
-				error: "Label max length is 50"
-			});
-		if (!/^https?:\/\//.test(link))
-			return res.status(400).json({
-				ok: false,
-				error: "Invalid link"
-			});
+		if (!link) return res.status(400).json({ ok: false, error: "No link provided" });
+		if (link.length > 200) return res.status(400).json({ ok: false, error: "Link max length is 200" });
+		if (label && label.length > 50) return res.status(400).json({ ok: false, error: "Label max length is 50" });
+		if (!/^https?:\/\//.test(link)) return res.status(400).json({ ok: false, error: "Invalid link" });
 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
+        
 		if (!user.links) user.links = [];
-		if (user.links.length === 5)
-			return res.status(400).json({
-				ok: false,
-				error: "Max links count is 5"
-			});
-		user.links.push({
-			label: label || "Link",
-			link
-		});
+		if (user.links.length === 5) return res.status(400).json({ ok: false, error: "Max links count is 5" });
+        
+		user.links.push({ label: label || "Link", link });
 		user.lastActive = new Date().toISOString();
+        
 		await storage.updateIndex(index);
+		await storage.updateUserJson(user.id, user).catch(() => {});
 
-		res.json({
-			ok: true,
-			user: generateUserObject(user)
-		});
+		res.json({ ok: true, user: generateUserObject(user) });
 	}
 );
 
@@ -458,50 +366,28 @@ app.post(
 	securityCheck,
 	async (req, res) => {
 		if (req.userRole === "dasher")
-			return res.status(403).json({
-				ok: false,
-				error: "Must have Dasher+ role"
-			});
+			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
+            
 		const { linkIndex, label, link } = req.body;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
+        
 		if ((!linkIndex && linkIndex !== 0) || !link)
-			return res.status(400).json({
-				ok: false,
-				error: "No link provided"
-			});
-		if (link.length > 200)
-			return res.status(400).json({
-				ok: false,
-				error: "Link max length is 200"
-			});
-		if (label && label.length > 50)
-			return res.status(400).json({
-				ok: false,
-				error: "Label max length is 50"
-			});
-		if (!/^https?:\/\//.test(link))
-			return res.status(400).json({
-				ok: false,
-				error: "Invalid link"
-			});
+			return res.status(400).json({ ok: false, error: "No link provided" });
+		if (link.length > 200) return res.status(400).json({ ok: false, error: "Link max length is 200" });
+		if (label && label.length > 50) return res.status(400).json({ ok: false, error: "Label max length is 50" });
+		if (!/^https?:\/\//.test(link)) return res.status(400).json({ ok: false, error: "Invalid link" });
 
 		if (!user.links || !user.links[linkIndex])
-			return res.status(400).json({
-				ok: false,
-				error: "Link not found"
-			});
-		user.links[linkIndex] = {
-			label: label || "Link",
-			link
-		};
+			return res.status(400).json({ ok: false, error: "Link not found" });
+            
+		user.links[linkIndex] = { label: label || "Link", link };
 		user.lastActive = new Date().toISOString();
+        
 		await storage.updateIndex(index);
+		await storage.updateUserJson(user.id, user).catch(() => {});
 
-		res.json({
-			ok: true,
-			user: generateUserObject(user)
-		});
+		res.json({ ok: true, user: generateUserObject(user) });
 	}
 );
 
@@ -511,31 +397,23 @@ app.post(
 	securityCheck,
 	async (req, res) => {
 		if (req.userRole === "dasher")
-			return res.status(403).json({
-				ok: false,
-				error: "Must have Dasher+ role"
-			});
+			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
+            
 		const linkIndex = req.body.linkIndex;
-		if (!linkIndex && linkIndex !== 0)
-			return res.status(400).json({
-				ok: false,
-				error: "No link provided"
-			});
+		if (!linkIndex && linkIndex !== 0) return res.status(400).json({ ok: false, error: "No link provided" });
 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
+        
 		if (!user.links || !user.links[linkIndex])
-			return res.status(400).json({
-				ok: false,
-				error: "Link not found"
-			});
+			return res.status(400).json({ ok: false, error: "Link not found" });
+            
 		user.links.splice(linkIndex, 1);
 		user.lastActive = new Date().toISOString();
+        
 		await storage.updateIndex(index);
+		await storage.updateUserJson(user.id, user).catch(() => {});
 
-		res.json({
-			ok: true,
-			user: generateUserObject(user)
-		});
+		res.json({ ok: true, user: generateUserObject(user) });
 	}
 );

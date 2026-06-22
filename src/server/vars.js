@@ -12,7 +12,6 @@ const SERVER_URL = process.env.SERVER_URL || "http://localhost:3000";
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_SCRATCH_VERIFY_SECRET = process.env.JWT_SCRATCH_VERIFY_SECRET;
 
-const UI_PATH = path.join(__dirname, "../ui");
 const ASSETS_PATH = path.join(__dirname, "../assets");
 
 const DATA_PATH = "/var/lib/dash";
@@ -39,7 +38,6 @@ export {
 	JWT_SECRET,
 	JWT_SCRATCH_VERIFY_SECRET,
 
-	UI_PATH,
 	ASSETS_PATH,
 
 	DATA_PATH,

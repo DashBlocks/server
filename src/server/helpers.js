@@ -49,8 +49,7 @@ const generateUserObject = (user) => {
 			achievements: []
 		},
 		joinedAt: null,
-		lastActive: null,
-		projects: [] // Will be removed in the next update
+		lastActive: null
 	};
 	return {
 		id: user.id || null,
@@ -69,10 +68,16 @@ const generateUserObject = (user) => {
 			achievements: user.achievements || []
 		},
 		joinedAt: user.joinedAt || null,
-		lastActive: user.lastActive || null,
-		projects: user.projects || [] // Will be removed in the next update
+		lastActive: user.lastActive || null
 	};
 };
+
+function getUserIndexData(index, target) {
+	if (/^\d+$/.test(target) && !target.startsWith("0")) {
+		return Object.values(index.users).find((u) => String(u.id) === String(target));
+	}
+	return index.users[target.toLowerCase()];
+}
 
 const verifyAuth = (req, res, next) => {
 	const token = req.cookies.auth_token;
@@ -146,6 +151,7 @@ export {
 	validateId,
 	isTrustedUrl,
 	generateUserObject,
+	getUserIndexData,
 	verifyAuth,
 	securityCheck,
 	authLimiter,

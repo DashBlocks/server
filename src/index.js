@@ -1,5 +1,4 @@
 import app from "./app.js";
-import "./server/routes.js";
 import "./server/auth.js";
 import "./server/projects.js";
 import "./server/featured-projects.js";

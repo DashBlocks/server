@@ -215,11 +215,7 @@ app.get("/session", verifyAuth, securityCheck, (req, res) => {
 	const metadata = req.usersIndex.users[req.user.username.toLowerCase()];
 	res.json({
 		ok: true,
-		userId: Number(req.user.userId),
-		...generateUserObject(metadata),
-		firedProjects: metadata?.firedProjects || null,
-		messages: metadata?.messages || [],
-		user: { // In the next update everything above will be removed
+		user: {
 			...generateUserObject(metadata),
 			firedProjects: metadata?.firedProjects || null
 		}
