@@ -329,7 +329,7 @@ app.post(
 		const project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
         
 		project.stats ? project.stats.fires += 1 : project.stats = { fires: 1 };
-		user.firedProjects ? user.firedProjects.push(projectId) : user.firedProjects = [projectId];
+		user.firedProjects ? user.firedProjects.push(Number(projectId)) : user.firedProjects = [Number(projectId)];
         
 		if (user.id !== authorProfile.id) {
 			authorProfile.messages = [
