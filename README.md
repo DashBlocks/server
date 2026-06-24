@@ -1,5 +1,7 @@
 # Dash Server
-https://dashblocks-server.vercel.app
+https://api.dashblocks.org
+
+### Please note that stuff below is a bit deprecated and hasn't every server methods
 
 ## Available methods:
 - `/session` - session with user info
