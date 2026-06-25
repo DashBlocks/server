@@ -116,8 +116,8 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 		} else {
 			throw new Error();
 		}
-	} catch (_) {
-		res.status(401).json({ ok: false, error: "Invalid target or password" });
+	} catch (error) {
+		res.status(401).json({ ok: false, error });
 	}
 });
 
