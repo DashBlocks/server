@@ -190,8 +190,6 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 		];
         
 		await storage.updateIndex(index);
-		await storage.updateUserJson(user.id, user).catch(() => {});
-		await storage.updateUserJson(targetIndexData.id, targetIndexData).catch(() => {});
 
 		res.json({ ok: true });
 	} catch (_) {
@@ -223,8 +221,6 @@ app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) 
 		}
         
 		await storage.updateIndex(index);
-		await storage.updateUserJson(user.id, user).catch(() => {});
-		await storage.updateUserJson(targetIndexData.id, targetIndexData).catch(() => {});
 
 		res.json({ ok: true });
 	} catch (_) {
@@ -252,7 +248,6 @@ app.post(
 			user.lastActive = new Date().toISOString();
             
 			await storage.updateIndex(index);
-			await storage.updateUserJson(user.id, user).catch(() => {});
 
 			res.json({ ok: true, avatarId });
 		} catch (_) {
@@ -295,7 +290,6 @@ app.post(
 		user.lastActive = new Date().toISOString();
         
 		await storage.updateIndex(index);
-		await storage.updateUserJson(user.id, user).catch(() => {});
 
 		res.json({ ok: true, user: generateUserObject(user) });
 	}
@@ -324,7 +318,6 @@ app.post(
 		user.lastActive = new Date().toISOString();
         
 		await storage.updateIndex(index);
-		await storage.updateUserJson(user.id, user).catch(() => {});
 
 		res.json({ ok: true, user: generateUserObject(user) });
 	}
@@ -354,7 +347,6 @@ app.post(
 		user.lastActive = new Date().toISOString();
         
 		await storage.updateIndex(index);
-		await storage.updateUserJson(user.id, user).catch(() => {});
 
 		res.json({ ok: true, user: generateUserObject(user) });
 	}
@@ -385,7 +377,6 @@ app.post(
 		user.lastActive = new Date().toISOString();
         
 		await storage.updateIndex(index);
-		await storage.updateUserJson(user.id, user).catch(() => {});
 
 		res.json({ ok: true, user: generateUserObject(user) });
 	}
@@ -412,7 +403,6 @@ app.post(
 		user.lastActive = new Date().toISOString();
         
 		await storage.updateIndex(index);
-		await storage.updateUserJson(user.id, user).catch(() => {});
 
 		res.json({ ok: true, user: generateUserObject(user) });
 	}
