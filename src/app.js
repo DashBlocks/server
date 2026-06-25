@@ -9,7 +9,7 @@ const upload = multer();
 app.use(
 	express.json({ limit: "100mb" }),
 	cors({
-		origin: ["https://dashblocks.github.io", "http://localhost:3000"],
+		origin: ["https://dashblocks.org", "http://localhost:3000"],
 		credentials: true
 	}),
 	cookieParser()
