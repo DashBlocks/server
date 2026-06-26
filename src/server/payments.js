@@ -14,7 +14,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 	const fakeEmail = userId + "@dashblocks.org"; // Lava requires an email, but we don't have one, so we use a fake one
 
 	try {
-		const response = await fetch("https://api.lava.top/v3/invoice", {
+		const response = await fetch("https://gate.lava.top/api/v3/invoice", {
 			method: "POST",
 			headers: {
 				"Accept": "application/json",
