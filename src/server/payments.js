@@ -4,7 +4,7 @@ import { getUserIndexData, securityCheck, verifyAuth } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
-	const { offerId, currency } = req.body;
+	const { offerId, currency, method } = req.body;
 	if (!offerId || !currency)
 		return res.status(400).json({ ok: false, error: "Offer ID and currency are required" });
 	if (typeof currency !== "string" || currency.length !== 3)
@@ -20,6 +20,21 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 		currency: currency.toUpperCase(),
 		email: fakeEmail
 	};
+
+	if (method) {
+        switch (method) {
+            case "SBP": {
+                body.paymentMethod = "SBP";
+                break;
+            }
+            case "CARD": {
+                body.paymentMethod = "CARD";
+                break;
+            }
+            default:
+                return res.status(400).json({ ok: false, message: `Invalid payment method` });
+        }
+    }
 
 	try {
 		const response = await fetch("https://gate.lava.top/api/v3/invoice", {
