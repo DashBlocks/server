@@ -6,12 +6,13 @@ import * as storage from "./storage.js";
 app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 	const { amount, currency } = req.body;
 	if (!amount || !currency)
-		return res.status(400).json({ success: false, message: "Amount and currency are required" });
+		return res.status(400).json({ ok: false, message: "Amount and currency are required" });
 	if (typeof amount !== "number" || amount <= 0)
-		return res.status(400).json({ success: false, message: "Amount must be a positive number" });
+		return res.status(400).json({ ok: false, message: "Amount must be a positive number" });
 	if (typeof currency !== "string" || currency.length !== 3)
-		return res.status(400).json({ success: false, message: "Currency must be a 3-letter string" });
+		return res.status(400).json({ ok: false, message: "Currency must be a 3-letter string" });
 	const userId = req.user.userId;
+	if (!userId) return res.status(400).json({ ok: false, message: "User ID not found" });
 
 	try {
 		const response = await fetch("https://api.lava.top/v1/invoice/create", {
