@@ -28,6 +28,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 		case "CARD": {
 			body.paymentProvider = "PAY2ME";
 			body.paymentMethod = "CARD";
+			break;
 		}
 		default:
 			return res.status(400).json({ ok: false, message: "Invalid payment method" });
