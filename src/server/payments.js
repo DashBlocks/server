@@ -16,8 +16,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 	const body = {
 		offerId,
 		currency,
-		email: fakeEmail,
-		description: "Subscription for additional privileges in Dash community."
+		email: fakeEmail
 	};
 
 	switch (method) {
