@@ -4,7 +4,7 @@ import { getUserIndexData, securityCheck, verifyAuth } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
-	const { offerId, currency } = req.body;
+	const { offerId, currency, method } = req.body;
 	if (!offerId || !currency)
 		return res.status(400).json({ ok: false, message: "Offer ID and currency are required" });
 	if (typeof currency !== "string" || currency.length !== 3)
@@ -12,6 +12,27 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 	const userId = req.user.userId;
 	if (!userId) return res.status(400).json({ ok: false, message: "User ID not found" });
 	const fakeEmail = userId + "@dashblocks.org"; // Lava requires an email, but we don't have one, so we use a fake one
+
+	const body = {
+		offerId,
+		currency,
+		email: fakeEmail,
+		description: "Subscription for additional privileges in Dash community."
+	};
+
+	switch (method) {
+		case "SBP": {
+			body.paymentProvider = "PAY2ME";
+			body.paymentMethod = "SBP";
+			break;
+		}
+		case "CARD": {
+			body.paymentProvider = "PAY2ME";
+			body.paymentMethod = "CARD";
+		}
+		default:
+			return res.status(400).json({ ok: false, message: "Invalid payment method" });
+	}
 
 	try {
 		const response = await fetch("https://gate.lava.top/api/v3/invoice", {
@@ -21,12 +42,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 				"Content-Type": "application/json",
 				"X-Api-Key": vars.LAVA_API_KEY
 			},
-			body: JSON.stringify({
-				offerId,
-				currency,
-				email: fakeEmail,
-				description: "Subscription for additional privileges in Dash community."
-			})
+			body: JSON.stringify(body)
 		});
 
 		if (!response.ok) {
