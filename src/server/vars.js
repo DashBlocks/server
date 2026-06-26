@@ -30,6 +30,13 @@ const FORBIDDEN_USERNAMES = [
 	"remove-link"
 ];
 
+const PLANS_DAYS = {
+	[process.env.OFFER_ID_30_DAYS]: 30,
+	[process.env.OFFER_ID_90_DAYS]: 90,
+	[process.env.OFFER_ID_180_DAYS]: 180,
+	[process.env.OFFER_ID_360_DAYS]: 360
+};
+
 export {
 	JWT_SECRET,
 	LAVA_API_KEY,
@@ -41,5 +48,7 @@ export {
 	DATA_USERS_PATH,
 	DATA_PROJECTS_PATH,
 
-	FORBIDDEN_USERNAMES
+	FORBIDDEN_USERNAMES,
+
+	PLANS_DAYS
 };
