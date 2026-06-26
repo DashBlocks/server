@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const LAVA_API_KEY = process.env.LAVA_API_KEY;
 
 const ASSETS_PATH = path.join(__dirname, "../assets");
 
@@ -31,6 +32,7 @@ const FORBIDDEN_USERNAMES = [
 
 export {
 	JWT_SECRET,
+	LAVA_API_KEY,
 
 	ASSETS_PATH,
 
