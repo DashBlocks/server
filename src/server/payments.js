@@ -42,8 +42,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 		} else {
 			return res.status(400).json({ ok: false, message: "Failed to get payment link" });
 		}
-	} catch (error) {
-		console.error("Payment creation error:", error);
+	} catch (_) {
 		res.status(500).json({ ok: false, message: "Failed to create payment" });
 	}
 });
