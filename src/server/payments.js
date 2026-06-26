@@ -19,7 +19,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 			headers: {
 				"Accept": "application/json",
 				"Content-Type": "application/json",
-				"Authorization": vars.LAVA_API_KEY
+				"X-Api-Key": vars.LAVA_API_KEY
 			},
 			body: JSON.stringify({
 				offerId,
