@@ -4,18 +4,17 @@ import { getUserIndexData, securityCheck, verifyAuth } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
-	const { amount, currency } = req.body;
-	if (!amount || !currency)
-		return res.status(400).json({ ok: false, message: "Amount and currency are required" });
-	if (typeof amount !== "number" || amount <= 0)
-		return res.status(400).json({ ok: false, message: "Amount must be a positive number" });
+	const { offerId, currency } = req.body;
+	if (!offerId || !currency)
+		return res.status(400).json({ ok: false, message: "Offer ID and currency are required" });
 	if (typeof currency !== "string" || currency.length !== 3)
 		return res.status(400).json({ ok: false, message: "Currency must be a 3-letter string" });
 	const userId = req.user.userId;
 	if (!userId) return res.status(400).json({ ok: false, message: "User ID not found" });
+	const fakeEmail = userId + "@dashblocks.org"; // Lava requires an email, but we don't have one, so we use a fake one
 
 	try {
-		const response = await fetch("https://api.lava.top/v1/invoice/create", {
+		const response = await fetch("https://api.lava.top/v3/invoice", {
 			method: "POST",
 			headers: {
 				"Accept": "application/json",
@@ -23,19 +22,20 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 				"Authorization": vars.LAVA_API_KEY
 			},
 			body: JSON.stringify({
-				amount,
+				offerId,
 				currency,
-				order_id: userId,
-				description: "Subscription for additional privileges in Dash community.",
-				success_url: "https://dashblocks.org/payment-success",
-				fail_url: "https://dashblocks.org/payment-fail"
+				email: fakeEmail,
+				description: "Subscription for additional privileges in Dash community."
 			})
 		});
 
+		if (!response.ok) {
+			return res.status(400).json({ ok: false, message: "Failed to get payment link" });
+		}
+
 		const data = await response.json();
-		console.log(data);
-		if (data && data.url) {
-			return res.json({ ok: true, url: data.url }); 
+		if (data && data.paymentUrl) {
+			return res.json({ ok: true, paymentUrl: data.paymentUrl }); 
 		} else {
 			return res.status(400).json({ ok: false, message: "Failed to get payment link" });
 		}
@@ -53,7 +53,8 @@ app.post("/payments/lava", async (req, res) => {
 
 	const eventType = webhookData.event;
 	const paymentStatus = webhookData.status;
-	const userId = webhookData.order_id;
+	const userId = Number(webhookData.email?.split("@")[0]); // Extract userId from the fake email
+	if (!userId || isNaN(userId)) return res.status(200).json({ ok: true, error: "ok" });
 	const index = await storage.getIndex();
 	const user = getUserIndexData(index, userId);
 	if (!user || user.role === "dashteam") return res.status(200).json({ ok: true, message: "ok" });
