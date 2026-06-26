@@ -131,7 +131,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 
 app.get("/session", verifyAuth, securityCheck, async (req, res) => {
 	const index = await storage.getIndex();
-	const metadata = getUserIndexData(index, req.user.userId);
+	const metadata = index.users[req.user.username.toLowerCase()];
 	res.json({
 		ok: true,
 		user: {
@@ -149,7 +149,7 @@ app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
 	offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
 	const index = await storage.getIndex();
-	const metadata = getUserIndexData(index, req.user.userId);
+	const metadata = index.users[req.user.username.toLowerCase()];
 	const messages = (metadata?.messages || []).slice(offset, offset + limit);
 	res.json({ ok: true, messages });
 });
@@ -162,7 +162,7 @@ app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
 		const index = await storage.getIndex();
-		const user = getUserIndexData(index, req.user.userId);
+		const user = index.users[req.user.username.toLowerCase()];
 
 		const activity = [];
 		for (const followed of (user.following || [])) {
