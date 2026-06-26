@@ -1,5 +1,5 @@
 import app from "../app.js";
-import * as vars from "./vars";
+import * as vars from "./vars.js";
 import { getUserIndexData, securityCheck, verifyAuth } from "./helpers.js";
 import * as storage from "./storage.js";
 
