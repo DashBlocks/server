@@ -23,7 +23,7 @@ app.post(
 		if (!index.featuredProjects) index.featuredProjects = [];
 
 		const projectReq = await fetch(
-			`https://dashblocks-server.vercel.app/projects/${projectId}`
+			`https://api.dashblocks.org/projects/${projectId}`
 		);
 		if (!projectReq.ok)
 			return res.status(404).json({ ok: false, error: "Project not found" });
