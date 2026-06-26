@@ -124,10 +124,6 @@ async function thumbnailFileExists(thumbnailId) {
 	}
 }
 
-function findUserById(index, userId) {
-	return Object.values(index.users).find((user) => String(user.id) === String(userId));
-}
-
 function findProjectById(index, projectId) {
 	for (const author of Object.values(index.users)) {
 		const project = (author.projects || []).find((entry) => String(entry.id) === String(projectId));
@@ -155,6 +151,5 @@ export {
 	deleteThumbnailFile,
 	avatarFileExists,
 	thumbnailFileExists,
-	findUserById,
 	findProjectById
 };

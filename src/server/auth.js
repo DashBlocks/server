@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 
 import app from "../app.js";
 import * as vars from "./vars.js";
-import { isValidUsername, generateUserObject, securityCheck, verifyAuth, authLimiter, registerLimiter } from "./helpers.js";
+import { isValidUsername, generateUserObject, securityCheck, verifyAuth, authLimiter, registerLimiter, getUserIndexData } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (req, res) => {
@@ -62,7 +62,12 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 				thumbnailId: 1
 			},
 			links: [],
-			achievements: []
+			achievements: [],
+			subscription: {
+				status: "none",
+				startDate: null,
+				endDate: null
+			}
 		};
 
 		const userData = { username, password: hashedPassword, ip: userIp };
@@ -94,12 +99,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 		const { userId, password } = req.body;
 		const index = await storage.getIndex();
         
-		let user;
-		if (/^\d+$/.test(userId)) {
-			user = storage.findUserById(index, userId);
-		} else {
-			user = index.users[userId.toLowerCase()];
-		}
+		const user = getUserIndexData(index, userId);
 		if (!user) throw new Error();
 
 		const storedUser = await storage.readUserJson(user.id);
@@ -123,7 +123,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 
 app.get("/session", verifyAuth, securityCheck, async (req, res) => {
 	const index = await storage.getIndex();
-	const metadata = index.users[req.user.username.toLowerCase()];
+	const metadata = getUserIndexData(index, req.user.userId);
 	res.json({
 		ok: true,
 		user: { ...generateUserObject(metadata), firedProjects: metadata?.firedProjects || null }
