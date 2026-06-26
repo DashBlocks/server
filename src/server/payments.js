@@ -67,18 +67,18 @@ app.post("/payments/lava", async (req, res) => {
 	if (requestKey !== vars.LAVA_API_KEY)
 		return res.status(401).json({ ok: false, error: "Unauthorized" });
 
-	const eventType = webhookData.event;
+	const eventType = webhookData.eventType;
 	const paymentStatus = webhookData.status;
-	const paidOfferId = webhookData.offerId;
-	const userId = Number(webhookData.email?.split("@")[0]);
-	// Status 200 because we must respond to lava.top's backend that everything is correct
+	const paidOfferId = webhookData.product?.id;
+	const buyerEmail = webhookData.buyer?.email;
+	const userId = Number(buyerEmail?.split("@")[0]);
 	if (!userId || isNaN(userId)) return res.status(200).json({ ok: false, error: "User ID not found" });
     
 	const index = await storage.getIndex();
 	const user = getUserIndexData(index, userId);
 	if (!user || user.role === "dashteam") return res.status(200).json({ ok: false, error: "User not found / User's role is Dash Team" });
 
-	if (eventType === "payment_result" && paymentStatus === "success") {
+	if (eventType === "payment.success" && paymentStatus === "completed") {
 		const daysToGive = vars.PLANS_DAYS[paidOfferId] || 30; 
 		const now = Date.now();
 		let baseTime = now;
