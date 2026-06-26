@@ -3,7 +3,15 @@ import bcrypt from "bcrypt";
 
 import app from "../app.js";
 import * as vars from "./vars.js";
-import { isValidUsername, generateUserObject, securityCheck, verifyAuth, authLimiter, registerLimiter, getUserIndexData } from "./helpers.js";
+import {
+	isValidUsername,
+	generateUserObject,
+	getUserIndexData,
+	securityCheck,
+	verifyAuth,
+	authLimiter,
+	registerLimiter
+} from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (req, res) => {
@@ -126,7 +134,11 @@ app.get("/session", verifyAuth, securityCheck, async (req, res) => {
 	const metadata = getUserIndexData(index, req.user.userId);
 	res.json({
 		ok: true,
-		user: { ...generateUserObject(metadata), firedProjects: metadata?.firedProjects || null }
+		user: {
+			...generateUserObject(metadata),
+			firedProjects: metadata?.firedProjects || null,
+			subscription: metadata?.subscription || { status: "none", startDate: null, endDate: null }
+		}
 	});
 });
 
@@ -137,7 +149,7 @@ app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
 	offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
 	const index = await storage.getIndex();
-	const metadata = index.users[req.user.username.toLowerCase()];
+	const metadata = getUserIndexData(index, req.user.userId);
 	const messages = (metadata?.messages || []).slice(offset, offset + limit);
 	res.json({ ok: true, messages });
 });
@@ -150,7 +162,7 @@ app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
 		const index = await storage.getIndex();
-		const user = index.users[req.user.username.toLowerCase()];
+		const user = getUserIndexData(index, req.user.userId);
 
 		const activity = [];
 		for (const followed of (user.following || [])) {
