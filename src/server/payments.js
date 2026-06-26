@@ -32,11 +32,8 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 			})
 		});
 
-		if (!response.ok) {
-			return res.status(400).json({ ok: false, message: "Failed to get payment link" });
-		}
-
 		const data = await response.json();
+		console.log(data);
 		if (data && data.url) {
 			return res.json({ ok: true, url: data.url }); 
 		} else {
