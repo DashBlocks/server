@@ -32,15 +32,19 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 			})
 		});
 
-		const data = await response.json();
-		if (data && data.url) {
-			res.json({ ok: true, url: data.url }); 
-		} else {
-			res.status(400).json({ ok: false, message: "Failed to get payment link" });
+		if (!response.ok) {
+			return res.status(400).json({ ok: false, message: "Failed to get payment link" });
 		}
 
-	} catch (_) {
-		res.status(500).json({ ok: false, message: "Failed :((" });
+		const data = await response.json();
+		if (data && data.url) {
+			return res.json({ ok: true, url: data.url }); 
+		} else {
+			return res.status(400).json({ ok: false, message: "Failed to get payment link" });
+		}
+	} catch (error) {
+		console.error("Payment creation error:", error);
+		res.status(500).json({ ok: false, message: "Failed to create payment" });
 	}
 });
 
