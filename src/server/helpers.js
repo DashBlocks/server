@@ -39,6 +39,7 @@ const generateUserObject = (user) => {
 		profile: {
 			avatarId: 1,
 			scratchUsername: null,
+			gradient: null,
 			description: "",
 			recommendedProject: {
 				id: null,
@@ -58,6 +59,7 @@ const generateUserObject = (user) => {
 		profile: {
 			avatarId: user.id || 1,
 			scratchUsername: user.scratchUsername || null,
+			gradient: user.gradient || null,
 			description: user.description || "",
 			recommendedProject: {
 				id: user.recommendedProject?.id || null,

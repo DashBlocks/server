@@ -71,6 +71,7 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 			},
 			links: [],
 			achievements: [],
+			gradient: null,
 			subscription: {
 				status: "none",
 				startDate: null,

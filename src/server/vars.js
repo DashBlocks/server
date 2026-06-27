@@ -24,6 +24,7 @@ const FORBIDDEN_USERNAMES = [
 	"upload-avatar",
 	"avatars",
 	"set-description",
+	"set-gradient",
 	"set-recommended-project",
 	"add-link",
 	"update-link",

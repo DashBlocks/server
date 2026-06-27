@@ -296,6 +296,64 @@ app.post(
 );
 
 app.post(
+	"/users/set-gradient",
+	verifyAuth,
+	securityCheck,
+	async (req, res) => {
+		if (req.userRole === "dasher")
+			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
+
+		const gradientValue = req.body.gradient;
+		let normalizedGradient = null;
+
+		if (gradientValue === "" || gradientValue === null || gradientValue === undefined) {
+			normalizedGradient = null;
+		} else if (typeof gradientValue !== "object" || Array.isArray(gradientValue)) {
+			return res.status(400).json({ ok: false, error: "Gradient must be an object or null" });
+		} else {
+			const { type, angle, stops } = gradientValue;
+			if (type !== "linear") {
+				return res.status(400).json({ ok: false, error: "Gradient type must be 'linear'" });
+			}
+			if (typeof angle !== "number" || angle < 0 || angle > 360) {
+				return res.status(400).json({ ok: false, error: "Angle must be a number between 0 and 360" });
+			}
+			if (!Array.isArray(stops) || stops.length < 2 || stops.length > 6) {
+				return res.status(400).json({ ok: false, error: "Gradient stops must be an array of 2 to 6 stops" });
+			}
+			const colorRegex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+			const positionRegex = /^(?:100|[1-9]?\d)%$/;
+			for (const stop of stops) {
+				if (!stop || typeof stop !== "object") {
+					return res.status(400).json({ ok: false, error: "Each gradient stop must be an object" });
+				}
+				if (!colorRegex.test(stop.color)) {
+					return res.status(400).json({ ok: false, error: "Each gradient stop color must be a valid hex code" });
+				}
+				if (!positionRegex.test(stop.position)) {
+					return res.status(400).json({ ok: false, error: "Each gradient stop position must be a percentage between 0% and 100%" });
+				}
+			}
+			normalizedGradient = {
+				type: "linear",
+				angle,
+				stops: stops.map((stop) => ({ color: stop.color.toLowerCase(), position: stop.position }))
+			};
+		}
+
+		const index = req.usersIndex;
+		const user = index.users[req.user.username.toLowerCase()];
+
+		user.gradient = normalizedGradient;
+		user.lastActive = new Date().toISOString();
+
+		await storage.updateIndex(index);
+
+		res.json({ ok: true, user: generateUserObject(user) });
+	}
+);
+
+app.post(
 	"/users/set-recommended-project",
 	verifyAuth,
 	securityCheck,

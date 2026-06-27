@@ -29,8 +29,8 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 	} else if (action === "unban-ip") {
 		index.bannedIps = index.bannedIps.filter((ip) => ip !== target.ip);
 	} else if (action === "promote" && role) {
-		if (role !== "dasher" && role !== "dasher+")
-			return res.status(400).json({ ok: false, error: "Invalid role (allowed: dasher, dasher+)" });
+		if (role !== "dasher" && role !== "dasher+" && role !== "dash-supporter")
+			return res.status(400).json({ ok: false, error: "Invalid role (allowed: dasher, dasher+, dash-supporter)" });
 		if (target.role === "dashteam")
 			return res.status(400).json({ ok: false, error: "You can't demote Dash Team" });
 		target.role = role;
