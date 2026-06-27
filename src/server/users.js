@@ -300,8 +300,8 @@ app.post(
 	verifyAuth,
 	securityCheck,
 	async (req, res) => {
-		if (req.userRole === "dasher")
-			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
+		if (req.userRole !== "dash-supporter" && req.userRole !== "dashteam")
+			return res.status(403).json({ ok: false, error: "Must have Dash Supporter role" });
 
 		const gradientValue = req.body.gradient;
 		let normalizedGradient = null;
