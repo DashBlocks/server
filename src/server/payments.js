@@ -61,24 +61,34 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 });
 
 app.post("/payments/lava", async (req, res) => {
-	const webhookData = req.body;
-	const requestKey = req.headers["authorization"] || req.headers["x-api-key"];
+	try {
+		const webhookData = req.body;
+		const requestKey = req.headers["authorization"] || req.headers["x-api-key"];
 
-	if (requestKey !== vars.LAVA_API_KEY)
-		return res.status(401).json({ ok: false, error: "Unauthorized" });
+		if (requestKey !== vars.LAVA_API_KEY)
+			return res.status(401).json({ ok: false, error: "Unauthorized" });
 
-	const eventType = webhookData.eventType;
-	const paymentStatus = webhookData.status;
-	const paidOfferId = webhookData.product?.id;
-	const buyerEmail = webhookData.buyer?.email;
-	const userId = Number(buyerEmail?.split("@")[0]);
-	if (!userId || isNaN(userId)) return res.status(200).json({ ok: false, error: "User ID not found" });
-    
-	const index = await storage.getIndex();
-	const user = getUserIndexData(index, userId);
-	if (!user || user.role === "dashteam") return res.status(200).json({ ok: false, error: "User not found / User's role is Dash Team" });
+		const eventType = webhookData.eventType;
+		const paymentStatus = webhookData.status;
 
-	if (eventType === "payment.success" && paymentStatus === "completed") {
+		if (eventType !== "payment.success" || paymentStatus !== "completed")
+			return res.status(200).json({ ok: true, message: "ok" });
+
+		const paidOfferId = webhookData.product?.id;
+		const buyerEmail = webhookData.buyer?.email;
+
+		const userId = buyerEmail ? Number(buyerEmail.split("@")[0]) : null;
+		if (!userId || isNaN(userId)) {
+			return res.status(200).json({ ok: false, error: "User ID not found or invalid" });
+		}
+		
+		const index = await storage.getIndex();
+		const user = getUserIndexData(index, userId);
+		
+		if (!user || user.role === "dashteam") {
+			return res.status(200).json({ ok: false, error: "User not found / User's role is Dash Team" });
+		}
+
 		const daysToGive = vars.PLANS_DAYS[paidOfferId] || 30; 
 		const now = Date.now();
 		let baseTime = now;
@@ -110,7 +120,9 @@ app.post("/payments/lava", async (req, res) => {
 		];
 
 		await storage.updateIndex(index);
-	}
 
-	res.status(200).json({ ok: true, message: "yay" });
+		res.status(200).json({ ok: true, message: "yay" });
+	} catch (_) {
+		res.status(500).json({ ok: false, error: "Something went wrong :(" });
+	}
 });
