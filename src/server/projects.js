@@ -3,7 +3,7 @@ import path from "path";
 
 import app, { upload } from "../app.js";
 import * as vars from "./vars.js";
-import { validateId, isTrustedUrl, securityCheck, verifyAuth, uploadLimiter, uploadTimeout } from "./helpers.js";
+import { validateId, isTrustedUrl, securityCheck, verifyAuth, uploadLimiter, uploadTimeout, sendEventMessage } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post(
@@ -130,6 +130,7 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, projectId });
+		sendEventMessage(`Project created: <b>${name}</b> (id ${projectId}) by <b>${user.username}</b> (id ${user.id})`);
 	}
 );
 

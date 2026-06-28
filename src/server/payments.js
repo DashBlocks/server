@@ -1,6 +1,6 @@
 import app from "../app.js";
 import * as vars from "./vars.js";
-import { getUserIndexData, securityCheck, verifyAuth } from "./helpers.js";
+import { getUserIndexData, securityCheck, verifyAuth, sendEventMessage } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
@@ -133,6 +133,8 @@ app.post("/payments/lava", async (req, res) => {
 		];
 
 		await storage.updateIndex(index);
+
+		sendEventMessage(`Subscription purchased: <b>${user.username}</b> (id ${user.id}) - for ${daysToGive} days, ends ${endDate}`);
 
 		res.status(200).json({ ok: true, message: "yay" });
 	} catch (_) {

@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 
 import app, { upload } from "../app.js";
 import * as vars from "./vars.js";
-import { generateUserObject, getUserIndexData, securityCheck, verifyAuth } from "./helpers.js";
+import { generateUserObject, getUserIndexData, securityCheck, verifyAuth, sendEventMessage } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.get("/users/:target", securityCheck, async (req, res) => {
@@ -250,6 +250,7 @@ app.post(
 			await storage.updateIndex(index);
 
 			res.json({ ok: true, avatarId });
+			sendEventMessage(`Avatar changed: <b>${user.username}</b> (id ${user.id}) - avatar ${avatarId}`);
 		} catch (_) {
 			res.status(500).json({ ok: false, error: "Upload failed" });
 		}
@@ -292,6 +293,7 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
+		sendEventMessage(`Description updated: <b>${user.username}</b> (id ${user.id})`);
 	}
 );
 
@@ -408,6 +410,7 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
+		sendEventMessage(`Link added: <b>${user.username}</b> (id ${user.id}) - ${link}`);
 	}
 );
 
@@ -438,6 +441,7 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
+		sendEventMessage(`Link updated: <b>${user.username}</b> (id ${user.id}) - ${link}`);
 	}
 );
 
@@ -464,5 +468,6 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
+		sendEventMessage(`Link removed: <b>${user.username}</b> (id ${user.id}) - index ${linkIndex}`);
 	}
 );

@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 
-import { JWT_SECRET } from "./vars.js";
+import { JWT_SECRET, TG_BOT_TOKEN, TG_EVENTS_GROUP_ID } from "./vars.js";
 import { getIndex } from "./storage.js";
 
 const isValidUsername = (username) => {
@@ -161,3 +161,21 @@ export {
 	uploadLimiter,
 	uploadTimeout
 };
+
+const sendEventMessage = async (text) => {
+	try {
+		await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify({
+				chat_id: TG_EVENTS_GROUP_ID,
+				text,
+				parse_mode: "HTML"
+			})
+		});
+	} catch (_) {/* ignore */}
+};
+
+export { sendEventMessage };

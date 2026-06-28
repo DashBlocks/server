@@ -1,5 +1,5 @@
 import app from "../app.js";
-import { securityCheck, verifyAuth } from "./helpers.js";
+import { securityCheck, verifyAuth, sendEventMessage } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
@@ -49,6 +49,7 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 	try {
 		await storage.updateIndex(index);
 		res.json({ ok: true });
+		sendEventMessage(`Admin action: <b>${req.user.username}</b> performed <b>${action}</b> on <b>${target.username}</b>`);
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to update user index" });
 	}
@@ -96,6 +97,7 @@ app.post("/admin/delete-account", verifyAuth, securityCheck, async (req, res) =>
 	try {
 		await storage.updateIndex(index);
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
+		sendEventMessage(`Admin deleted account: <b>${req.user.username}</b> deleted <b>${username}</b> (id ${userIndexData.id})`);
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to delete account" });
 	}
