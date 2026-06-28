@@ -18,7 +18,8 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 	const body = {
 		offerId,
 		currency: currency.toUpperCase(),
-		email: fakeEmail
+		email: fakeEmail,
+		promoCode: "NEW50"
 	};
 
 	if (method) {
@@ -37,7 +38,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
     }
 
 	try {
-		const response = await fetch("https://gate.lava.top/api/v3/invoice", {
+		let response = await fetch("https://gate.lava.top/api/v3/invoice", {
 			method: "POST",
 			headers: {
 				"Accept": "application/json",
@@ -47,8 +48,20 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 			body: JSON.stringify(body)
 		});
 
-		if (!response.ok)
-			return res.status(400).json({ ok: false, error: "Failed to get payment link" });
+		if (!response.ok) {
+			delete body.promoCode;
+			response = await fetch("https://gate.lava.top/api/v3/invoice", {
+				method: "POST",
+				headers: {
+					"Accept": "application/json",
+					"Content-Type": "application/json",
+					"X-Api-Key": vars.LAVA_API_KEY
+				},
+				body: JSON.stringify(body)
+			});
+			if (!response.ok)
+				return res.status(400).json({ ok: false, error: "Failed to get payment link" });
+		}
 
 		const data = await response.json();
 		if (data && data.paymentUrl)
