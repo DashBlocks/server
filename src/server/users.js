@@ -304,6 +304,7 @@ app.post(
 			return res.status(403).json({ ok: false, error: "Must have Dash Supporter role" });
 
 		const gradientValue = req.body.gradient;
+		// eslint-disable-next-line
 		let normalizedGradient = null;
 
 		if (gradientValue === "" || gradientValue === null || gradientValue === undefined) {

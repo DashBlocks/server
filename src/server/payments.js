@@ -22,19 +22,19 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 	};
 
 	if (method) {
-        switch (method) {
-            case "SBP": {
-                body.paymentMethod = "SBP";
-                break;
-            }
-            case "CARD": {
-                body.paymentMethod = "CARD";
-                break;
-            }
-            default:
-                return res.status(400).json({ ok: false, message: `Invalid payment method` });
-        }
-    }
+		switch (method) {
+		case "SBP": {
+			body.paymentMethod = "SBP";
+			break;
+		}
+		case "CARD": {
+			body.paymentMethod = "CARD";
+			break;
+		}
+		default:
+			return res.status(400).json({ ok: false, message: "Invalid payment method" });
+		}
+	}
 
 	try {
 		const response = await fetch("https://gate.lava.top/api/v3/invoice", {
