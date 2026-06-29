@@ -71,6 +71,7 @@ app.post(
 			featuredAt: p?.featuredAt || null
 		}));
 		res.json({ ok: true, projects });
+		sendEventMessage(`New featured project: <b>${projectData.name}</b> (id ${projectData.id}), project by ${index.users[authorUsername].username} (id ${index.users[authorUsername].id}), featured by ${req.user.username} (id ${req.user.userId})`);
 	}
 );
 
@@ -124,6 +125,7 @@ app.delete(
 			featuredAt: p?.featuredAt || null
 		}));
 		res.json({ ok: true, projects });
+		sendEventMessage(`Unfeatured project: <b>${projectData.name}</b> (id ${projectData.id}), project by ${index.users[authorUsername].username} (id ${index.users[authorUsername].id}), unfeatured by ${req.user.username} (id ${req.user.userId})`);
 	}
 );
 
