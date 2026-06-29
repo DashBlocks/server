@@ -83,6 +83,7 @@ function getUserIndexData(index, target) {
 
 const sendEventMessage = async (text) => {
 	try {
+		// eslint-disable-next-line no-console
 		console.log(text);
 		await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
 			method: "POST",
