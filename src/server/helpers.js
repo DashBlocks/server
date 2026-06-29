@@ -81,6 +81,23 @@ function getUserIndexData(index, target) {
 	return index.users[target.toLowerCase()];
 }
 
+const sendEventMessage = async (text) => {
+	try {
+		console.log(text);
+		await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify({
+				chat_id: TG_EVENTS_GROUP_ID,
+				text,
+				parse_mode: "HTML"
+			})
+		});
+	} catch (_) {/* ignore */}
+};
+
 const verifyAuth = (req, res, next) => {
 	const token = req.cookies.auth_token;
 	if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
@@ -154,28 +171,13 @@ export {
 	isTrustedUrl,
 	generateUserObject,
 	getUserIndexData,
+	sendEventMessage,
 	verifyAuth,
 	securityCheck,
 	authLimiter,
 	registerLimiter,
 	uploadLimiter,
 	uploadTimeout
-};
-
-const sendEventMessage = async (text) => {
-	try {
-		await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json"
-			},
-			body: JSON.stringify({
-				chat_id: TG_EVENTS_GROUP_ID,
-				text,
-				parse_mode: "HTML"
-			})
-		});
-	} catch (_) {/* ignore */}
 };
 
 export { sendEventMessage };
