@@ -1,5 +1,5 @@
 import app from "../app.js";
-import { validateId, securityCheck, verifyAuth } from "./helpers.js";
+import { validateId, securityCheck, verifyAuth, sendEventMessage } from "./helpers.js";
 import { updateIndex } from "./storage.js";
 
 app.post(
