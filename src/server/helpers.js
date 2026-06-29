@@ -180,5 +180,3 @@ export {
 	uploadLimiter,
 	uploadTimeout
 };
-
-export { sendEventMessage };
