@@ -9,7 +9,7 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 			error: "Only Dash Team can do this, what did you expect?"
 		});
 
-	const { targetUsername, action, role } = req.body;
+	const { targetUsername, action, role, endDate } = req.body;
 	const index = req.usersIndex;
 	const target = index.users[targetUsername.toLowerCase()];
 
@@ -34,6 +34,12 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 		if (target.role === "dashteam")
 			return res.status(400).json({ ok: false, error: "You can't demote Dash Team" });
 		target.role = role;
+		if (role === "dash-supporter")
+			target.subscription = {
+				status: "active",
+				startDate: new Date().toISOString(),
+				endDate: new Date(endDate).toISOString()
+			};
 		target.messages = [
 			{
 				type: "promoted",
