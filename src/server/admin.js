@@ -38,7 +38,7 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 			target.subscription = {
 				status: "active",
 				startDate: new Date().toISOString(),
-				endDate: new Date(endDate).toISOString()
+				endDate: endDate ? new Date(endDate).toISOString() : "9999-01-01T00:00:00.000Z"
 			};
 		target.messages = [
 			{
