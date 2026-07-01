@@ -95,7 +95,7 @@ app.post("/payments/lava", async (req, res) => {
 			return res.status(200).json({ ok: false, error: "User ID not found or invalid" });
 		
 		const index = await storage.getIndex();
-		const user = getUserIndexData(index, userId);
+		const user = getUserIndexData(index, String(userId));
 		
 		if (!user || user.role === "dashteam")
 			return res.status(200).json({ ok: false, error: "User not found / User's role is Dash Team" });
