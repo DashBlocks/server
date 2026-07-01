@@ -91,16 +91,14 @@ app.post("/payments/lava", async (req, res) => {
 		const buyerEmail = webhookData.buyer?.email;
 
 		const userId = buyerEmail ? Number(buyerEmail.split("@")[0]) : null;
-		if (!userId || isNaN(userId)) {
+		if (!userId || isNaN(userId))
 			return res.status(200).json({ ok: false, error: "User ID not found or invalid" });
-		}
 		
 		const index = await storage.getIndex();
 		const user = getUserIndexData(index, userId);
 		
-		if (!user || user.role === "dashteam") {
+		if (!user || user.role === "dashteam")
 			return res.status(200).json({ ok: false, error: "User not found / User's role is Dash Team" });
-		}
 
 		const daysToGive = vars.PLANS_DAYS[paidOfferId] || 30; 
 		const now = Date.now();
@@ -137,7 +135,8 @@ app.post("/payments/lava", async (req, res) => {
 		sendEventMessage(`Subscription purchased: <b>${user.username}</b> (id ${user.id}) - for ${daysToGive} days, ends ${endDate}`);
 
 		res.status(200).json({ ok: true, message: "yay" });
-	} catch (_) {
+	} catch (error) {
+		sendEventMessage(`${error?.message ? error.message : error}`)
 		res.status(500).json({ ok: false, error: "Something went wrong :(" });
 	}
 });
