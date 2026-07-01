@@ -44,6 +44,9 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 			{
 				type: "promoted",
 				role,
+				...(role === "dash-supporter" && {
+					endDate: endDate || "9999-01-01T00:00:00.000Z"
+				}),
 				date: new Date().toISOString()
 			},
 			...(target.messages || [])
