@@ -10,6 +10,7 @@ const __dirname = path.dirname(__filename);
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const LAVA_API_KEY = process.env.LAVA_API_KEY;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN;
 const TG_EVENTS_GROUP_ID = process.env.TG_EVENTS_GROUP_ID;
@@ -46,6 +47,7 @@ export {
 	JWT_SECRET,
 
 	LAVA_API_KEY,
+	RESEND_API_KEY,
 
 	TG_BOT_TOKEN,
 	TG_EVENTS_GROUP_ID,

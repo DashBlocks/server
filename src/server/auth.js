@@ -1,10 +1,12 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
-import app from "../app.js";
+import app, { resend } from "../app.js";
 import * as vars from "./vars.js";
 import {
 	isValidUsername,
+	isValidEmail,
+	generateVerificationCode,
 	generateUserObject,
 	getUserIndexData,
 	securityCheck,
@@ -15,9 +17,72 @@ import {
 } from "./helpers.js";
 import * as storage from "./storage.js";
 
+const verificationCodes = new Map();
+const VERIFICATION_CODE_EXPIRY_MS = 10 * 60 * 1000;
+
+const storeVerificationCode = (email, code, metadata = {}) => {
+	const normalizedEmail = email.toLowerCase();
+	verificationCodes.set(normalizedEmail, {
+		code,
+		expiresAt: Date.now() + VERIFICATION_CODE_EXPIRY_MS,
+		...metadata
+	});
+};
+
+const getStoredVerificationCode = (email) => {
+	const normalizedEmail = email.toLowerCase();
+	const record = verificationCodes.get(normalizedEmail);
+	if (!record) return null;
+	if (Date.now() > record.expiresAt) {
+		verificationCodes.delete(normalizedEmail);
+		return null;
+	}
+	return record;
+};
+
+const clearStoredVerificationCode = (email) => {
+	verificationCodes.delete(email.toLowerCase());
+};
+
+const sendVerificationEmail = async (email, code) => {
+	const { data, error } = await resend.emails.send({
+		from: "DashBlocks Verification <verify@noreply.dashblocks.org>",
+		to: [email],
+		subject: "Your DashBlocks verification code",
+		html: `<p>Your verification code is <strong>${code}</strong></p><p>It expires in 10 minutes</p>`
+	});
+	if (error) throw new Error(error.message || "Failed to send verification email");
+	return data;
+};
+
+const setAuthCookie = (res, token) => {
+	res.cookie("auth_token", token, {
+		httpOnly: true,
+		secure: true,
+		sameSite: "none",
+		maxAge: 7 * 24 * 60 * 60 * 1000,
+		path: "/"
+	});
+};
+
+app.post("/auth/send-verification", authLimiter, async (req, res) => {
+	try {
+		const email = req.body?.email?.trim();
+		if (!email || !isValidEmail(email))
+			return res.status(400).json({ ok: false, error: "Invalid email address" });
+
+		const code = generateVerificationCode();
+		storeVerificationCode(email, code, { purpose: req.body?.purpose || "register" });
+		await sendVerificationEmail(email, code);
+		res.json({ ok: true, message: "Verification code sent to your email" });
+	} catch (error) {
+		res.status(500).json({ ok: false, error: error.message });
+	}
+});
+
 app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (req, res) => {
 	try {
-		const { username, password } = req.body;
+		const { username, password, email, verificationCode } = req.body;
 
 		if (!isValidUsername(username))
 			return res.status(400).json({
@@ -33,10 +98,21 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 			return res
 				.status(400)
 				.json({ ok: false, error: "Password must be 8-100 characters long" });
+		if (!email || !isValidEmail(email))
+			return res.status(400).json({ ok: false, error: "Invalid email address" });
 
 		const index = await storage.getIndex();
 		if (index.users[username.toLowerCase()])
 			return res.status(400).json({ ok: false, error: "Username taken" });
+		if (!verificationCode)
+			return res.status(400).json({ ok: false, error: "Verification code is required" });
+
+		const storedCode = getStoredVerificationCode(email);
+		if (!storedCode || storedCode.code !== verificationCode)
+			return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
+
+		if (Object.values(index.users).some((user) => user.email?.toLowerCase() === email.toLowerCase()))
+			return res.status(400).json({ ok: false, error: "Email already in use" });
 
 		const hashedPassword = await bcrypt.hash(password, 12);
 		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
@@ -46,6 +122,8 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 		const newUserMetadata = {
 			id: userId,
 			username,
+			email,
+			emailVerified: true,
 			scratchUsername: null,
 			role: "dasher",
 			banned: false,
@@ -80,23 +158,18 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 			}
 		};
 
-		const userData = { username, password: hashedPassword, ip: userIp };
+		const userData = { username, password: hashedPassword, ip: userIp, email };
 		await storage.createUserJson(userId, userData);
 
 		index.users[username.toLowerCase()] = newUserMetadata;
 		index.nextUserId++;
 		await storage.updateIndex(index);
+		clearStoredVerificationCode(email);
 
 		const token = jwt.sign({ userId, username }, vars.JWT_SECRET, {
 			expiresIn: "7d"
 		});
-		res.cookie("auth_token", token, {
-			httpOnly: true,
-			secure: true,
-			sameSite: "none",
-			maxAge: 7 * 24 * 60 * 60 * 1000,
-			path: "/"
-		});
+		setAuthCookie(res, token);
 
 		res.json({ ok: true, userId, username });
 		sendEventMessage(`New account: <b>${username}</b> (id ${userId})`);
@@ -109,26 +182,68 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 	try {
 		const { userId, password } = req.body;
 		const index = await storage.getIndex();
-        
+		
 		const user = getUserIndexData(index, userId);
 		if (!user) throw new Error();
 
 		const storedUser = await storage.readUserJson(user.id);
 
 		if (await bcrypt.compare(password, storedUser.password)) {
+			if (storedUser.email) {
+				const code = generateVerificationCode();
+				storeVerificationCode(storedUser.email, code, { purpose: "login", userId: user.id });
+				await sendVerificationEmail(storedUser.email, code);
+				return res.json({
+					ok: true,
+					requiresVerification: true,
+					userId: user.id,
+					username: user.username,
+					message: "Verification code sent to your email"
+				});
+			}
+
 			user.ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 			user.lastActive = new Date().toISOString();
 			await storage.updateIndex(index);
-            
+
 			const token = jwt.sign({ userId: user.id, username: user.username }, vars.JWT_SECRET, { expiresIn: "7d" });
-            
-			res.cookie("auth_token", token, { httpOnly: true, secure: true, sameSite: "none", maxAge: 7 * 24 * 60 * 60 * 1000, path: "/" });
+			setAuthCookie(res, token);
 			res.json({ ok: true, userId: user.id, username: user.username });
 		} else {
 			throw new Error();
 		}
 	} catch (_) {
 		res.status(401).json({ ok: false, error: "Invalid target or password" });
+	}
+});
+
+app.post("/auth/verify-login", authLimiter, securityCheck, async (req, res) => {
+	try {
+		const { userId, verificationCode } = req.body;
+		const index = await storage.getIndex();
+		const user = getUserIndexData(index, userId);
+		if (!user) return res.status(404).json({ ok: false, error: "User not found" });
+
+		const storedUser = await storage.readUserJson(user.id);
+		if (!storedUser.email) {
+			return res.status(400).json({ ok: false, error: "No email address is associated with this account" });
+		}
+
+		const storedCode = getStoredVerificationCode(storedUser.email);
+		if (!storedCode || storedCode.purpose !== "login" || storedCode.userId !== user.id || storedCode.code !== verificationCode) {
+			return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
+		}
+
+		clearStoredVerificationCode(storedUser.email);
+		user.ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+		user.lastActive = new Date().toISOString();
+		await storage.updateIndex(index);
+
+		const token = jwt.sign({ userId: user.id, username: user.username }, vars.JWT_SECRET, { expiresIn: "7d" });
+		setAuthCookie(res, token);
+		res.json({ ok: true, userId: user.id, username: user.username });
+	} catch (error) {
+		res.status(500).json({ ok: false, error: error.message });
 	}
 });
 

@@ -9,6 +9,8 @@ const isValidUsername = (username) => {
 	return regex.test(username) && username.length <= 20 && username.length >= 3;
 };
 
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
 const validateId = (req, res, next) => {
 	const id = req.params.id;
 	if (!id || !/^s?\d+$/.test(id) || id.startsWith("0") || id.startsWith("s0")) {
@@ -30,6 +32,9 @@ const isTrustedUrl = (url) =>
     url.toLowerCase().startsWith("https://extensions.penguinmod.com") ||
     // For development
     url.toLowerCase().startsWith("http://localhost:");
+
+const generateVerificationCode = () =>
+	Math.floor(100000 + Math.random() * 900000).toString();
 
 const generateUserObject = (user) => {
 	if (!user || typeof user !== "object") return {
@@ -74,12 +79,12 @@ const generateUserObject = (user) => {
 	};
 };
 
-function getUserIndexData(index, target) {
+const getUserIndexData = (index, target) => {
 	if (/^s?\d+$/.test(target) && !target.startsWith("0") && !target.startsWith("s0")) {
 		return Object.values(index.users).find((u) => String(u.id) === String(target));
 	}
 	return index.users[target.toLowerCase()];
-}
+};
 
 const sendEventMessage = async (text) => {
 	try {
@@ -150,7 +155,7 @@ const authLimiter = rateLimit({
 
 const registerLimiter = rateLimit({
 	windowMs: 24 * 60 * 60 * 1000,
-	max: 3,
+	max: 5,
 	message: { ok: false, error: "Too many attempts, try again later" }
 });
 
@@ -168,8 +173,10 @@ const uploadTimeout = rateLimit({
 
 export {
 	isValidUsername,
+	isValidEmail,
 	validateId,
 	isTrustedUrl,
+	generateVerificationCode,
 	generateUserObject,
 	getUserIndexData,
 	sendEventMessage,

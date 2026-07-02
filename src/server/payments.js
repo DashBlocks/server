@@ -136,7 +136,7 @@ app.post("/payments/lava", async (req, res) => {
 
 		res.status(200).json({ ok: true, message: "yay" });
 	} catch (error) {
-		sendEventMessage(`${error?.message ? error.message : error}`)
+		sendEventMessage(`${error?.message ? error.message : error}`);
 		res.status(500).json({ ok: false, error: "Something went wrong :(" });
 	}
 });
