@@ -254,7 +254,8 @@ app.get("/session", verifyAuth, securityCheck, async (req, res) => {
 		ok: true,
 		user: {
 			...generateUserObject(metadata),
-			firedProjects: metadata?.firedProjects || null,
+			email: metadata?.email || null,
+			firedProjects: metadata?.firedProjects || [],
 			subscription: metadata?.subscription || { status: "none", startDate: null, endDate: null }
 		}
 	});
