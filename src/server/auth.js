@@ -123,7 +123,6 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 			id: userId,
 			username,
 			email,
-			emailVerified: true,
 			scratchUsername: null,
 			role: "dasher",
 			banned: false,
@@ -193,7 +192,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 				const code = generateVerificationCode();
 				storeVerificationCode(storedUser.email, code, { purpose: "login", userId: user.id });
 				await sendVerificationEmail(storedUser.email, code);
-				return res.json({
+				return res.status(201).json({
 					ok: true,
 					requiresVerification: true,
 					userId: user.id,
