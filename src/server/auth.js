@@ -65,24 +65,12 @@ const setAuthCookie = (res, token) => {
 	});
 };
 
-app.post("/auth/send-verification", authLimiter, async (req, res) => {
-	try {
-		const email = req.body?.email?.trim();
-		if (!email || !isValidEmail(email))
-			return res.status(400).json({ ok: false, error: "Invalid email address" });
-
-		const code = generateVerificationCode();
-		storeVerificationCode(email, code, { purpose: req.body?.purpose || "register" });
-		await sendVerificationEmail(email, code);
-		res.json({ ok: true, message: "Verification code sent to your email" });
-	} catch (error) {
-		res.status(500).json({ ok: false, error: error.message });
-	}
-});
-
 app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (req, res) => {
 	try {
-		const { username, password, email, verificationCode } = req.body;
+		const username = req.body?.username?.trim();
+		const password = req.body?.password;
+		const email = req.body?.email?.trim();
+		const verificationCode = req.body?.verificationCode;
 
 		if (!isValidUsername(username))
 			return res.status(400).json({
@@ -104,19 +92,26 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 		const index = await storage.getIndex();
 		if (index.users[username.toLowerCase()])
 			return res.status(400).json({ ok: false, error: "Username taken" });
-		if (!verificationCode)
-			return res.status(400).json({ ok: false, error: "Verification code is required" });
+		if (Object.values(index.users).some((user) => user.email?.toLowerCase() === email.toLowerCase()))
+			return res.status(400).json({ ok: false, error: "Email already in use" });
+
+		if (!verificationCode) {
+			const code = generateVerificationCode();
+			storeVerificationCode(email, code, { purpose: "register" });
+			await sendVerificationEmail(email, code);
+			return res.status(201).json({
+				ok: true,
+				requiresVerification: true,
+				message: "Verification code sent to your email"
+			});
+		}
 
 		const storedCode = getStoredVerificationCode(email);
 		if (!storedCode || storedCode.code !== verificationCode)
 			return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
 
-		if (Object.values(index.users).some((user) => user.email?.toLowerCase() === email.toLowerCase()))
-			return res.status(400).json({ ok: false, error: "Email already in use" });
-
 		const hashedPassword = await bcrypt.hash(password, 12);
 		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-        
 		const userId = index.nextUserId;
 
 		const newUserMetadata = {
@@ -170,7 +165,15 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 		});
 		setAuthCookie(res, token);
 
-		res.json({ ok: true, userId, username });
+		res.json({
+			ok: true,
+			user: {
+				...generateUserObject(newUserMetadata),
+				email: newUserMetadata?.email || null,
+				firedProjects: newUserMetadata?.firedProjects || [],
+				subscription: newUserMetadata?.subscription || { status: "none", startDate: null, endDate: null }
+			}
+		});
 		sendEventMessage(`New account: <b>${username}</b> (id ${userId})`);
 	} catch (error) {
 		res.status(500).json({ ok: false, error: error.message });
@@ -179,7 +182,7 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 
 app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 	try {
-		const { userId, password } = req.body;
+		const { userId, password, verificationCode } = req.body;
 		const index = await storage.getIndex();
 		
 		const user = getUserIndexData(index, userId);
@@ -189,16 +192,24 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 
 		if (await bcrypt.compare(password, storedUser.password)) {
 			if (storedUser.email) {
-				const code = generateVerificationCode();
-				storeVerificationCode(storedUser.email, code, { purpose: "login", userId: user.id });
-				await sendVerificationEmail(storedUser.email, code);
-				return res.status(201).json({
-					ok: true,
-					requiresVerification: true,
-					userId: user.id,
-					username: user.username,
-					message: "Verification code sent to your email"
-				});
+				if (!verificationCode) {
+					const code = generateVerificationCode();
+					storeVerificationCode(storedUser.email, code, { purpose: "login", userId: user.id });
+					await sendVerificationEmail(storedUser.email, code);
+					return res.status(201).json({
+						ok: true,
+						requiresVerification: true,
+						user: generateUserObject(user),
+						message: "Verification code sent to your email"
+					});
+				}
+
+				const storedCode = getStoredVerificationCode(storedUser.email);
+				if (!storedCode || storedCode.purpose !== "login" || storedCode.userId !== user.id || storedCode.code !== verificationCode) {
+					return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
+				}
+
+				clearStoredVerificationCode(storedUser.email);
 			}
 
 			user.ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
@@ -207,42 +218,20 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 
 			const token = jwt.sign({ userId: user.id, username: user.username }, vars.JWT_SECRET, { expiresIn: "7d" });
 			setAuthCookie(res, token);
-			res.json({ ok: true, userId: user.id, username: user.username });
+			res.json({
+				ok: true,
+				user: {
+					...generateUserObject(user),
+					email: user?.email || null,
+					firedProjects: user?.firedProjects || [],
+					subscription: user?.subscription || { status: "none", startDate: null, endDate: null }
+				}
+			});
 		} else {
 			throw new Error();
 		}
 	} catch (_) {
 		res.status(401).json({ ok: false, error: "Invalid target or password" });
-	}
-});
-
-app.post("/auth/verify-login", authLimiter, securityCheck, async (req, res) => {
-	try {
-		const { userId, verificationCode } = req.body;
-		const index = await storage.getIndex();
-		const user = getUserIndexData(index, userId);
-		if (!user) return res.status(404).json({ ok: false, error: "User not found" });
-
-		const storedUser = await storage.readUserJson(user.id);
-		if (!storedUser.email) {
-			return res.status(400).json({ ok: false, error: "No email address is associated with this account" });
-		}
-
-		const storedCode = getStoredVerificationCode(storedUser.email);
-		if (!storedCode || storedCode.purpose !== "login" || storedCode.userId !== user.id || storedCode.code !== verificationCode) {
-			return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
-		}
-
-		clearStoredVerificationCode(storedUser.email);
-		user.ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-		user.lastActive = new Date().toISOString();
-		await storage.updateIndex(index);
-
-		const token = jwt.sign({ userId: user.id, username: user.username }, vars.JWT_SECRET, { expiresIn: "7d" });
-		setAuthCookie(res, token);
-		res.json({ ok: true, userId: user.id, username: user.username });
-	} catch (error) {
-		res.status(500).json({ ok: false, error: error.message });
 	}
 });
 
