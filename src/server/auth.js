@@ -49,7 +49,31 @@ const sendVerificationEmail = async (email, code) => {
 		from: "DashBlocks Verification <verify@noreply.dashblocks.org>",
 		to: [email],
 		subject: "Your DashBlocks verification code",
-		html: `<p>Your verification code is <strong>${code}</strong></p><p>It expires in 10 minutes</p>`
+		html: `
+			<div style="
+    				font-family: sans-serif;
+    				padding: 20px;
+  				"
+			>
+  				<p>Hello,</p>
+  				<h2>Verify your email address</h2>
+  				<p>Please use the verification code below to complete your verification in Dash. This code is valid for ~10 minutes</p>
+  				<div style="
+      					padding: 1rem;
+      					font-size: 2rem;
+      					font-weight: bold;
+      					letter-spacing: 0.35rem;
+      					text-align: center;
+    				"
+  				>${code}</div>
+  				<p>If you didn't request this code, you can just ignore this email</p>
+  				<p>
+    				Best regards,
+    				<br />
+    				Dash Verification
+  				</p>
+			</div>
+		`
 	});
 	if (error) throw new Error(error.message || "Failed to send verification email");
 	return data;
