@@ -47,9 +47,9 @@ app.post(
 				.json({ ok: false, error: "Custom extensions require Dasher+ role" });
 		}
 
-		const maxProjectSize = req.userRole === "dash-supporter" ? 200 * 1024 * 1024 : 50 * 1024 * 1024;
+		const maxProjectSize = req.userRole === "dash-supporter" ? 500 * 1024 * 1024 : 100 * 1024 * 1024;
 		if (file.size > maxProjectSize) {
-			return res.status(400).json({ ok: false, error: `Project size limit is ${req.userRole === "dash-supporter" ? "200MB" : "50MB"}` });
+			return res.status(400).json({ ok: false, error: `Project size limit is ${req.userRole === "dash-supporter" ? "500MB" : "100MB (become Dash Supporter to increase limit up to 500MB: https://dashblocks.org/donate)"}` });
 		}
 
 		const index = req.usersIndex;
