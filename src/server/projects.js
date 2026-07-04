@@ -416,7 +416,11 @@ app.delete(
 
 app.get("/search/projects", securityCheck, async (req, res) => {
 	try {
-		const { q, author, limit = 20, offset = 0 } = req.query;
+		const { q, author } = req.query;
+		let limit = parseInt(req.query.limit, 10);
+		let offset = parseInt(req.query.offset, 10);
+		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
+		offset = isNaN(offset) ? 0 : Math.max(0, offset);
 		const index = req.usersIndex;
 
 		if (!q || typeof q !== "string" || q.trim().length === 0)
@@ -471,10 +475,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 			return dateB - dateA;
 		});
 
-		const finalResults = results.slice(
-			Number(offset) || 0,
-			(Number(offset) || 0) + (Number(limit) || 20)
-		);
+		const finalResults = results.slice(offset, offset + limit);
 
 		res.json({
 			ok: true,
