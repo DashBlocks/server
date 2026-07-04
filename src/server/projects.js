@@ -3,7 +3,15 @@ import path from "path";
 
 import app, { upload } from "../app.js";
 import * as vars from "./vars.js";
-import { validateId, isTrustedUrl, securityCheck, verifyAuth, uploadLimiter, uploadTimeout, sendEventMessage } from "./helpers.js";
+import {
+	validateId,
+	isTrustedUrl,
+	securityCheck,
+	verifyAuth,
+	uploadLimiter,
+	uploadTimeout,
+	sendEventMessage
+} from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.post(
@@ -47,9 +55,9 @@ app.post(
 				.json({ ok: false, error: "Custom extensions require Dasher+ role" });
 		}
 
-		const maxProjectSize = req.userRole === "dash-supporter" ? 500 * 1024 * 1024 : 75 * 1024 * 1024;
+		const maxProjectSize = req.userRole === "dash-supporter" ? 200 * 1024 * 1024 : 50 * 1024 * 1024;
 		if (file.size > maxProjectSize) {
-			return res.status(400).json({ ok: false, error: `Project size limit is ${req.userRole === "dash-supporter" ? "500MB" : "75MB (become Dash Supporter to increase limit up to 500MB: https://dashblocks.org/donate)"}` });
+			return res.status(400).json({ ok: false, error: `Project size limit is ${req.userRole === "dash-supporter" ? "200MB" : "50MB"}` });
 		}
 
 		const index = req.usersIndex;
@@ -405,3 +413,75 @@ app.delete(
 		res.json({ ok: true, fires: project.stats.fires });
 	}
 );
+
+app.get("/search/projects", securityCheck, async (req, res) => {
+	try {
+		const { q, author, limit = 20, offset = 0 } = req.query;
+		const index = req.usersIndex;
+
+		if (!q || typeof q !== "string" || q.trim().length === 0)
+			return res.status(400).json({ ok: false, error: "IDK what to search :P" });
+
+		const searchTerm = q.trim().toLowerCase();
+		const results = [];
+
+		Object.values(index.users).forEach((userProfile) => {
+			if (!userProfile.projects || userProfile.projects.length === 0) return;
+
+			if (author && userProfile.username.toLowerCase() !== author.toLowerCase()) {
+				return;
+			}
+
+			userProfile.projects.forEach((project) => {
+				const projectName = (project.name || "").toLowerCase();
+				const projectDescription = (project.description || "").toLowerCase();
+				const authorUsername = (userProfile.username || "").toLowerCase();
+
+				const nameMatch = projectName.includes(searchTerm);
+				const descriptionMatch = projectDescription.includes(searchTerm);
+				const authorMatch = authorUsername.includes(searchTerm) && !author;
+
+				if (nameMatch || descriptionMatch || authorMatch) {
+					results.push({
+						id: project.id || null,
+						name: project.name || "Untitled",
+						description: project.description || "",
+						thumbnailId: project.thumbnailId || 1,
+						stats: {
+							fires: project.stats?.fires || 0
+						},
+						author: {
+							id: userProfile.id || null,
+							username: userProfile.username || "Unknown",
+							role: userProfile.role || "dasher",
+							profile: { avatarId: userProfile.id || 1 },
+							joinedAt: userProfile.joinedAt || null,
+							lastActive: userProfile.lastActive || null
+						},
+						uploadedAt: project.uploadedAt || null
+					});
+				}
+			});
+		});
+
+		// Newest first
+		results.sort((a, b) => {
+			const dateA = new Date(a.uploadedAt || 0).getTime();
+			const dateB = new Date(b.uploadedAt || 0).getTime();
+			return dateB - dateA;
+		});
+
+		const finalResults = results.slice(
+			Number(offset) || 0,
+			(Number(offset) || 0) + (Number(limit) || 20)
+		);
+
+		res.json({
+			ok: true,
+			total: results.length,
+			results: finalResults
+		});
+	} catch (_) {
+		res.status(500).json({ ok: false, error: "Failed to search projects" });
+	}
+});
