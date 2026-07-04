@@ -432,7 +432,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 		Object.values(index.users).forEach((userProfile) => {
 			if (!userProfile.projects || userProfile.projects.length === 0) return;
 
-			if (author && (userProfile.username.toLowerCase() !== author.toLowerCase() || userProfile.id !== Number(author))) {
+			if (author && (userProfile.username.toLowerCase() !== author.toLowerCase() && userProfile.id !== Number(author))) {
 				return;
 			}
 
