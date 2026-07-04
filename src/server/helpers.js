@@ -72,7 +72,12 @@ const generateUserObject = (user) => {
 				thumbnailId: user.recommendedProject?.id || 1
 			},
 			links: user.links || [],
-			achievements: user.achievements || []
+			achievements: user.achievements || [],
+			stats: {
+				projects: user.projects?.length || 0,
+				followers: user.followers?.length || 0,
+				following: user.following?.length || 0
+			}
 		},
 		joinedAt: user.joinedAt || null,
 		lastActive: user.lastActive || null
