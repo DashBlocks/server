@@ -10,6 +10,7 @@ import {
 	verifyAuth,
 	uploadLimiter,
 	uploadTimeout,
+	escapeHTML,
 	sendEventMessage
 } from "./helpers.js";
 import * as storage from "./storage.js";
