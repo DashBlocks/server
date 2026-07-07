@@ -158,6 +158,7 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 					date: new Date().toISOString()
 				}
 			],
+			unreadMessages: 1,
 			joinedAt: new Date().toISOString(),
 			lastActive: new Date().toISOString(),
 			actions: [],
@@ -283,6 +284,14 @@ app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
 	const metadata = index.users[req.user.username.toLowerCase()];
 	const messages = (metadata?.messages || []).slice(offset, offset + limit);
 	res.json({ ok: true, messages });
+});
+
+app.post("/session/messages/mark-all-as-read", verifyAuth, securityCheck, async (req, res) => {
+	const index = await storage.getIndex();
+	const metadata = index.users[req.user.username.toLowerCase()];
+	metadata?.unreadMessages = 0;
+	await storage.updateIndex(index);
+	res.json({ ok: true });
 });
 
 app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {

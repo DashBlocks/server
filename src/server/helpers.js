@@ -52,7 +52,13 @@ const generateUserObject = (user) => {
 				thumbnailId: 1
 			},
 			links: [],
-			achievements: []
+			achievements: [],
+			stats: {
+				projects: 0,
+				followers: 0,
+				following: 0
+			},
+			unreadMessages: 0
 		},
 		joinedAt: null,
 		lastActive: null
@@ -77,7 +83,8 @@ const generateUserObject = (user) => {
 				projects: user.projects?.length || 0,
 				followers: user.followers?.length || 0,
 				following: user.following?.length || 0
-			}
+			},
+			unreadMessages: user.unreadMessages || 0
 		},
 		joinedAt: user.joinedAt || null,
 		lastActive: user.lastActive || null

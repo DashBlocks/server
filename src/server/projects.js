@@ -133,6 +133,7 @@ app.post(
 				},
 				...(user.messages || [])
 			];
+			user.unreadMessages = (user.unreadMessages || 0) + 1;
 		}
 
 		await storage.updateIndex(index);
@@ -359,6 +360,7 @@ app.post(
 				},
 				...(authorProfile.messages || [])
 			];
+			authorProfile.unreadMessages = (authorProfile.unreadMessages || 0) + 1;
 		}
 
 		user.lastActive = new Date().toISOString();
@@ -407,6 +409,7 @@ app.delete(
 		authorProfile.messages = authorProfile.messages?.filter(
 			(m) => !(m.type === "fired" && String(m.id) === String(projectId) && m.user?.id === user.id)
 		) || [];
+		authorProfile.unreadMessages = (authorProfile.unreadMessages || 1) - 1;
         
 		user.lastActive = new Date().toISOString();
 		await storage.updateIndex(index);

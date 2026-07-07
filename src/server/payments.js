@@ -129,6 +129,7 @@ app.post("/payments/lava", async (req, res) => {
 			},
 			...(user.messages || [])
 		];
+		user.unreadMessages = (user.unreadMessages || 0) + 1;
 
 		await storage.updateIndex(index);
 

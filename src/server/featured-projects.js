@@ -49,6 +49,7 @@ app.post(
 				},
 				...(index.users[authorUsername].messages || [])
 			];
+			index.users[authorUsername].unreadMessages = (index.users[authorUsername].unreadMessages || 0) + 1;
 		}
 
 		await updateIndex(index);
@@ -103,6 +104,7 @@ app.delete(
         
 		if (authorProfile) {
 			authorProfile.messages = authorProfile.messages?.filter((m) => !(m.type === "featured" && String(m.id) === String(projectId))) || [];
+			authorProfile.unreadMessages = (authorProfile.unreadMessages || 1) - 1;
 		}
         
 		await updateIndex(index);

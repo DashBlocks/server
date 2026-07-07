@@ -188,6 +188,7 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 			},
 			...(targetIndexData.messages || [])
 		];
+		targetIndexData.unreadMessages = (targetIndexData.unreadMessages || 0) + 1;
         
 		await storage.updateIndex(index);
 
@@ -218,6 +219,7 @@ app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) 
 			targetIndexData.messages = targetIndexData.messages.filter(
 				m => !(m.type === "new-follower" && String(m.user?.id) === String(user.id))
 			);
+			targetIndexData.unreadMessages = (targetIndexData.unreadMessages || 1) - 1;
 		}
         
 		await storage.updateIndex(index);

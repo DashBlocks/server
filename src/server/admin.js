@@ -51,6 +51,7 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 			},
 			...(target.messages || [])
 		];
+		target.unreadMessages = (target.unreadMessages || 0) + 1;
 	} else {
 		return res.status(400).json({ ok: false, error: "Action not found" });
 	}
