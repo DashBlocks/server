@@ -100,7 +100,7 @@ const getUserIndexData = (index, target) => {
 
 const escapeHTML = (unsafe) => {
     if (!unsafe) return "";
-    return str.replace(/[&<>"'`]/g, (match) => {
+    return unsafe.replace(/[&<>"'`]/g, (match) => {
         const map = {
             "&": "&amp;",
             "<": "&lt;",
