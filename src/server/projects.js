@@ -453,7 +453,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 						id: project.id || null,
 						name: project.name || "Untitled",
 						description: project.description || "",
-						thumbnailId: project.thumbnailId || 1,
+						thumbnailId: project.id || 1,
 						stats: {
 							fires: project.stats?.fires || 0
 						},
