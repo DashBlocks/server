@@ -139,7 +139,7 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, projectId });
-		sendEventMessage(`Project created: <b>${name}</b> (id ${projectId}) by <b>${user.username}</b> (id ${user.id})`);
+		sendEventMessage(`Project created: <b>${escapeHTML(name)}</b> (id ${projectId}) by <b>${user.username}</b> (id ${user.id})`);
 	}
 );
 

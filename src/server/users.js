@@ -412,7 +412,7 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
-		sendEventMessage(`Link added: <b>${user.username}</b> (id ${user.id}) - ${link}`);
+		sendEventMessage(`Link added: <b>${user.username}</b> (id ${user.id}) - ${escapeHTML(link)}`);
 	}
 );
 
@@ -443,7 +443,7 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
-		sendEventMessage(`Link updated: <b>${user.username}</b> (id ${user.id}) - ${link}`);
+		sendEventMessage(`Link updated: <b>${user.username}</b> (id ${user.id}) - ${escapeHTML(link)}`);
 	}
 );
 

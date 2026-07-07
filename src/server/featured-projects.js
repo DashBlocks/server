@@ -1,5 +1,5 @@
 import app from "../app.js";
-import { validateId, securityCheck, verifyAuth, sendEventMessage } from "./helpers.js";
+import { validateId, securityCheck, verifyAuth, escapeHTML, sendEventMessage } from "./helpers.js";
 import { updateIndex } from "./storage.js";
 
 app.post(
@@ -72,7 +72,7 @@ app.post(
 			featuredAt: p?.featuredAt || null
 		}));
 		res.json({ ok: true, projects });
-		sendEventMessage(`New featured project: <b>${projectData.name}</b> (id ${projectData.id}), project by ${index.users[authorUsername].username} (id ${index.users[authorUsername].id}), featured by ${req.user.username} (id ${req.user.userId})`);
+		sendEventMessage(`New featured project: <b>${escapeHTML(projectData.name)}</b> (id ${projectData.id}), project by ${index.users[authorUsername].username} (id ${index.users[authorUsername].id}), featured by ${req.user.username} (id ${req.user.userId})`);
 	}
 );
 
@@ -127,7 +127,7 @@ app.delete(
 			featuredAt: p?.featuredAt || null
 		}));
 		res.json({ ok: true, projects });
-		sendEventMessage(`Unfeatured project: <b>${featuredProject.name}</b> (id ${featuredProject.id}), project by ${authorProfile.username} (id ${authorProfile.id}), unfeatured by ${req.user.username} (id ${req.user.userId})`);
+		sendEventMessage(`Unfeatured project: <b>${escapeHTML(featuredProject.name)}</b> (id ${featuredProject.id}), project by ${authorProfile.username} (id ${authorProfile.id}), unfeatured by ${req.user.username} (id ${req.user.userId})`);
 	}
 );
 

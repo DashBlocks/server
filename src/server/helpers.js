@@ -122,7 +122,7 @@ const sendEventMessage = async (text) => {
 			},
 			body: JSON.stringify({
 				chat_id: TG_EVENTS_GROUP_ID,
-				text: escapeHTML(text),
+				text,
 				parse_mode: "HTML"
 			})
 		});
@@ -204,6 +204,7 @@ export {
 	generateVerificationCode,
 	generateUserObject,
 	getUserIndexData,
+	escapeHTML,
 	sendEventMessage,
 	verifyAuth,
 	securityCheck,
