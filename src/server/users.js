@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 
 import app, { upload } from "../app.js";
 import * as vars from "./vars.js";
-import { generateUserObject, getUserIndexData, securityCheck, verifyAuth, sendEventMessage } from "./helpers.js";
+import { generateUserObject, getUserIndexData, securityCheck, verifyAuth, escapeHTML, sendEventMessage } from "./helpers.js";
 import * as storage from "./storage.js";
 
 app.get("/users/:target", securityCheck, async (req, res) => {
