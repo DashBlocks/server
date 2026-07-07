@@ -289,7 +289,7 @@ app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
 app.post("/session/messages/mark-all-as-read", verifyAuth, securityCheck, async (req, res) => {
 	const index = await storage.getIndex();
 	const metadata = index.users[req.user.username.toLowerCase()];
-	metadata?.unreadMessages = 0;
+	if (metadata) metadata.unreadMessages = 0;
 	await storage.updateIndex(index);
 	res.json({ ok: true });
 });
