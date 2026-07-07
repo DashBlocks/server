@@ -98,10 +98,23 @@ const getUserIndexData = (index, target) => {
 	return index.users[target.toLowerCase()];
 };
 
+const escapeHTML = (unsafe) => {
+    if (!unsafe) return "";
+    return str.replace(/[&<>"'`]/g, (match) => {
+        const map = {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            "\"": "&quot;",
+            "'": "&#x27;",
+            "`": "&#x60;"
+        };
+        return map[match];
+    });
+};
+
 const sendEventMessage = async (text) => {
 	try {
-		// eslint-disable-next-line no-console
-		console.log(text);
 		await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
 			method: "POST",
 			headers: {
@@ -109,7 +122,7 @@ const sendEventMessage = async (text) => {
 			},
 			body: JSON.stringify({
 				chat_id: TG_EVENTS_GROUP_ID,
-				text,
+				text: escapeHTML(text),
 				parse_mode: "HTML"
 			})
 		});
