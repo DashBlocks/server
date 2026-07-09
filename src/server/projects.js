@@ -358,13 +358,14 @@ app.post("/projects/:id/view", async (req, res) => {
         const authorProfile = Object.values(index.users).find((u) =>
             u.projects?.some((p) => String(p.id) === String(projectId))
         );
+		let project;
         if (authorProfile) {
-            const project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
+            project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
             project.stats = project.stats || {};
             project.stats.views = (project.stats.views || 0) + 1;
             await storage.updateIndex(index);
         }
-        res.json({ ok: true, message: "View counted" });
+        res.json({ ok: true, views: project?.stats.views || 0 });
     } catch (_) {
         res.status(500).json({ ok: false, error: "Failed to count view" });
     }
