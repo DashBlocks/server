@@ -80,6 +80,7 @@ app.post(
 			description: description || "",
 			thumbnailId: 1,
 			stats: {
+				views: 0,
 				fires: 0
 			},
 			uploadedAt: new Date().toISOString()
@@ -183,8 +184,8 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 				description: projectInIndex.description || "",
 				thumbnailId: Number(req.params.id) || 1,
 				stats: {
+					views: projectInIndex.stats?.views || 0,
 					fires: projectInIndex.stats?.fires || 0
-					// TODO: Views, remixes, etc
 				},
 				author: {
 					id: authorProfile?.id || null,
@@ -456,6 +457,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 						description: project.description || "",
 						thumbnailId: project.id || 1,
 						stats: {
+							views: project.stats?.views || 0,
 							fires: project.stats?.fires || 0
 						},
 						author: {
