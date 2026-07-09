@@ -52,6 +52,7 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 			name: p?.name || "Unknown",
 			description: p?.description || "",
 			stats: {
+				views: p?.stats?.views || 0,
 				fires: p?.stats?.fires || 0
 			},
 			thumbnailId: p?.id || 1
