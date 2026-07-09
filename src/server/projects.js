@@ -347,7 +347,7 @@ app.post("/projects/:id/view", async (req, res) => {
         viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
     }
 
-    const key = `${projectId}_${viewerIdentifier}`;
+    const key = `${projectId}_${viewerId}`;
     if (views.has(key)) {
         return res.json({ ok: true, message: "View already counted recently" });
     }
