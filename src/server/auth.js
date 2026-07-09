@@ -289,9 +289,13 @@ app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
 app.post("/session/messages/mark-all-as-read", verifyAuth, securityCheck, async (req, res) => {
 	const index = await storage.getIndex();
 	const metadata = index.users[req.user.username.toLowerCase()];
-	if (metadata) metadata.unreadMessages = 0;
+	if (metadata) {
+		metadata.unreadMessages = 0;
+		metadata.lastActive = new Date().toISOString();
+	} else
+		res.status(400).json({ ok: false, error: "User not found" })
 	await storage.updateIndex(index);
-	res.json({ ok: true });
+	res.json({ ok: true, unreadMessages: 0 });
 });
 
 app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {
