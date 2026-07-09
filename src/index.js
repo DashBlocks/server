@@ -29,7 +29,7 @@ function checkSubs() {
 						user.messages = [
 							{
 								type: "demoted",
-								role: "user",
+								role: "dasher+",
 								date: new Date().toISOString()
 							},
 							...(user.messages || [])
@@ -38,9 +38,7 @@ function checkSubs() {
 					}
 				}
 			}
-			if (isUpdated) {
-				await storage.updateIndex(index);
-			}
+			if (isUpdated) await storage.updateIndex(index);
 		} catch (_) {/* ignore */}
 	}, 1000 * 60 * 60);
 }
