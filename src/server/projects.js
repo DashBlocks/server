@@ -15,6 +15,16 @@ import {
 } from "./helpers.js";
 import * as storage from "./storage.js";
 
+const views = new Map();
+setInterval(() => {
+	const oneHourAgo = Date.now() - (60 * 60 * 1000);
+	for (const [key, timestamp] of views.entries()) {
+		if (timestamp < oneHourAgo) {
+			views.delete(key);
+		}
+	}
+}, 15 * 60 * 1000);
+
 app.post(
 	"/save-project",
 	verifyAuth,
@@ -319,6 +329,45 @@ app.get("/projects/thumbnails/:id", validateId, async (req, res) => {
 		res.setHeader("Content-Type", "image/png");
 		res.sendFile(path.join(vars.ASSETS_PATH, "dasher-icon.png"));
 	}
+});
+
+app.post("/projects/:id/view", async (req, res) => {
+    const projectId = req.params.id;
+    let viewerId;
+    const token = req.cookies?.auth_token;
+    
+    if (token) {
+        try {
+            const decoded = jwt.verify(token, vars.JWT_SECRET);
+            viewerId = `user_${decoded.userId}`;
+        } catch (_) {
+            viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
+        }
+    } else {
+        viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
+    }
+
+    const key = `${projectId}_${viewerIdentifier}`;
+    if (views.has(key)) {
+        return res.json({ ok: true, message: "View already counted recently" });
+    }
+    views.set(key, Date.now());
+
+    try {
+        const index = await storage.getIndex();
+        const authorProfile = Object.values(index.users).find((u) =>
+            u.projects?.some((p) => String(p.id) === String(projectId))
+        );
+        if (authorProfile) {
+            const project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
+            project.stats = project.stats || {};
+            project.stats.views = (project.stats.views || 0) + 1;
+            await storage.updateIndex(index);
+        }
+        res.json({ ok: true, message: "View counted" });
+    } catch (_) {
+        res.status(500).json({ ok: false, error: "Failed to count view" });
+    }
 });
 
 app.post(
