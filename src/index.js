@@ -34,6 +34,7 @@ function checkSubs() {
 							},
 							...(user.messages || [])
 						];
+						user.unreadMessages = (user.unreadMessages || 0) + 1;
 						isUpdated = true;
 					}
 				}
