@@ -348,10 +348,6 @@ app.post("/projects/:id/view", async (req, res) => {
     }
 
     const key = `${projectId}_${viewerId}`;
-    if (views.has(key)) {
-        return res.json({ ok: true, message: "View already counted recently" });
-    }
-    views.set(key, Date.now());
 
     try {
         const index = await storage.getIndex();
@@ -362,12 +358,16 @@ app.post("/projects/:id/view", async (req, res) => {
         if (authorProfile) {
             project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
             project.stats = project.stats || {};
+			if (views.has(key)) {
+        		return res.json({ ok: true, message: "View already counted recently", views: project.stats.views || 0 });
+    		}
+    		views.set(key, Date.now());
             project.stats.views = (project.stats.views || 0) + 1;
             await storage.updateIndex(index);
         }
         res.json({ ok: true, views: project?.stats.views || 0 });
     } catch (_) {
-        res.status(500).json({ ok: false, error: "Failed to count view" });
+        res.status(500).json({ ok: false, error: "Failed to count view", views: 0 });
     }
 });
 
