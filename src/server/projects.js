@@ -66,9 +66,9 @@ app.post(
 				.json({ ok: false, error: "Custom extensions require Dasher+ role" });
 		}
 
-		const maxProjectSize = req.userRole === "dash-supporter" ? 200 * 1024 * 1024 : 50 * 1024 * 1024;
+		const maxProjectSize = req.userRole === "dash-supporter" ? 250 * 1024 * 1024 : 75 * 1024 * 1024;
 		if (file.size > maxProjectSize) {
-			return res.status(400).json({ ok: false, error: `Project size limit is ${req.userRole === "dash-supporter" ? "200MB" : "50MB"}` });
+			return res.status(400).json({ ok: false, error: `Project size limit is ${req.userRole === "dash-supporter" ? "250MB" : "75MB"}` });
 		}
 
 		const index = req.usersIndex;
