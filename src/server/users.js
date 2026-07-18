@@ -350,7 +350,7 @@ app.post(
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
 
-		user.gradient = normalizedGradient;
+		user.profile.gradient = normalizedGradient;
 		user.lastActive = new Date().toISOString();
 
 		await storage.updateIndex(index);
