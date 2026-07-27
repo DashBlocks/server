@@ -26,6 +26,7 @@ const FORBIDDEN_USERNAMES = [
 	"user",
 	"unknown",
 	"dashteam",
+	"__proto__",
 	"upload-avatar",
 	"avatars",
 	"set-description",
