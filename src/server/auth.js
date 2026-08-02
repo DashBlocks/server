@@ -261,7 +261,6 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 });
 
 app.get("/session", verifyAuth, securityCheck, async (req, res) => {
-	try {
 	const index = await storage.getIndex();
 	const metadata = index.users[req.user.username.toLowerCase()];
 	res.json({
@@ -273,9 +272,6 @@ app.get("/session", verifyAuth, securityCheck, async (req, res) => {
 			subscription: metadata?.subscription || { status: "none", startDate: null, endDate: null }
 		}
 	});
-	} catch (error) {
-		console.error(error);
-	}
 });
 
 app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
