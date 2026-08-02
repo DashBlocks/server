@@ -68,7 +68,10 @@ app.post(
 
 		const maxProjectSize = req.userRole === "dash-supporter" ? 250 * 1024 * 1024 : 75 * 1024 * 1024;
 		if (file.size > maxProjectSize) {
-			return res.status(400).json({ ok: false, error: `Project size limit is ${req.userRole === "dash-supporter" ? "250MB" : "75MB"}` });
+			return res.status(400).json({
+				ok: false,
+				error: `Project size limit is ${req.userRole === "dash-supporter" ? "250MB" : "75MB - donate Dash to increase it up to 250MB! https://dashblocks.org/donate"}`
+			});
 		}
 
 		const index = req.usersIndex;
