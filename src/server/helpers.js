@@ -232,6 +232,7 @@ export {
 	isValidEmail,
 	validateId,
 	isTrustedUrl,
+	validateProjectZip,
 	generateVerificationCode,
 	generateUserObject,
 	getUserIndexData,
