@@ -34,7 +34,7 @@ const isTrustedUrl = (url) =>
     // For development
     url.toLowerCase().startsWith("http://localhost:");
 
-const validateProjectZip = (file, userRole) => {
+const validateProjectZip = async (file, userRole) => {
 	if (!file)
 		return { ok: false, error: "No file uploaded" };
  
@@ -130,18 +130,18 @@ const getUserIndexData = (index, target) => {
 };
 
 const escapeHTML = (unsafe) => {
-    if (!unsafe) return "";
-    return unsafe.replace(/[&<>"'`]/g, (match) => {
-        const map = {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            "\"": "&quot;",
-            "'": "&#x27;",
-            "`": "&#x60;"
-        };
-        return map[match];
-    });
+	if (!unsafe) return "";
+	return unsafe.replace(/[&<>"'`]/g, (match) => {
+		const map = {
+			"&": "&amp;",
+			"<": "&lt;",
+			">": "&gt;",
+			"\"": "&quot;",
+			"'": "&#x27;",
+			"`": "&#x60;"
+		};
+		return map[match];
+	});
 };
 
 const sendEventMessage = async (text) => {

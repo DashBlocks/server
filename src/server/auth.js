@@ -292,7 +292,7 @@ app.post("/session/messages/mark-all-as-read", verifyAuth, securityCheck, async 
 	if (metadata && ((metadata.unreadMessages || 0) > 0))
 		metadata.unreadMessages = 0;
 	else
-		res.status(400).json({ ok: false, error: "No unread messages" })
+		res.status(400).json({ ok: false, error: "No unread messages" });
 	metadata.lastActive = new Date().toISOString();
 	await storage.updateIndex(index);
 	res.json({ ok: true, unreadMessages: 0 });

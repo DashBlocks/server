@@ -187,7 +187,7 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 				},
 				fileSize: fileSize,
 				uploadedAt: projectInIndex.uploadedAt || null,
-				updatedAt: projectInIndex.updatedAt || null,
+				updatedAt: projectInIndex.updatedAt || null
 			}
 		});
 	} catch (_) {
@@ -463,43 +463,43 @@ app.get("/projects/thumbnails/:id", validateId, async (req, res) => {
 });
 
 app.post("/projects/:id/view", async (req, res) => {
-    const projectId = req.params.id;
-    let viewerId;
-    const token = req.cookies?.auth_token;
+	const projectId = req.params.id;
+	let viewerId;
+	const token = req.cookies?.auth_token;
     
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, vars.JWT_SECRET);
-            viewerId = `user_${decoded.userId}`;
-        } catch (_) {
-            viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
-        }
-    } else {
-        viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
-    }
+	if (token) {
+		try {
+			const decoded = jwt.verify(token, vars.JWT_SECRET);
+			viewerId = `user_${decoded.userId}`;
+		} catch (_) {
+			viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
+		}
+	} else {
+		viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
+	}
 
-    const key = `${projectId}_${viewerId}`;
+	const key = `${projectId}_${viewerId}`;
 
-    try {
-        const index = await storage.getIndex();
-        const authorProfile = Object.values(index.users).find((u) =>
-            u.projects?.some((p) => String(p.id) === String(projectId))
-        );
+	try {
+		const index = await storage.getIndex();
+		const authorProfile = Object.values(index.users).find((u) =>
+			u.projects?.some((p) => String(p.id) === String(projectId))
+		);
 		let project;
-        if (authorProfile) {
-            project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
-            project.stats = project.stats || {};
+		if (authorProfile) {
+			project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
+			project.stats = project.stats || {};
 			if (views.has(key)) {
         		return res.json({ ok: true, message: "View already counted recently", views: project.stats.views || 0 });
     		}
     		views.set(key, Date.now());
-            project.stats.views = (project.stats.views || 0) + 1;
-            await storage.updateIndex(index);
-        }
-        res.json({ ok: true, views: project?.stats.views || 0 });
-    } catch (_) {
-        res.status(500).json({ ok: false, error: "Failed to count view", views: 0 });
-    }
+			project.stats.views = (project.stats.views || 0) + 1;
+			await storage.updateIndex(index);
+		}
+		res.json({ ok: true, views: project?.stats.views || 0 });
+	} catch (_) {
+		res.status(500).json({ ok: false, error: "Failed to count view", views: 0 });
+	}
 });
 
 app.post(
