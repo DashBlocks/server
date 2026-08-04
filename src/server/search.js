@@ -91,6 +91,10 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 			.toLowerCase();
 		searchParams.sort(([paramName1], [paramName2]) =>
 			SEARCH_PARAMS_DEFS[paramName1].priority - SEARCH_PARAMS_DEFS[paramName2].priority);
+		if (req.userRole === "dashteam") console.log(
+			`searchTerm - ${searchTerm}\n` +
+			`searchParams - ${JSON.stringify(searchParams)}`
+		);
 		const priorGetterParam = searchParams.find(([paramName]) => SEARCH_PARAMS_DEFS[paramName].get);
 		const userMatchParams = searchParams.filter(([paramName]) => SEARCH_PARAMS_DEFS[paramName].userMatch);
 
