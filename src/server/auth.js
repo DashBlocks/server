@@ -261,7 +261,6 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 });
 
 app.get("/session", verifyAuth, securityCheck, async (req, res) => {
-	try {
 	const index = await storage.getIndex();
 	const metadata = index.users[req.user.username.toLowerCase()];
 	res.json({
@@ -273,9 +272,6 @@ app.get("/session", verifyAuth, securityCheck, async (req, res) => {
 			subscription: metadata?.subscription || { status: "none", startDate: null, endDate: null }
 		}
 	});
-	} catch (error) {
-		console.error(error);
-	}
 });
 
 app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
@@ -296,7 +292,7 @@ app.post("/session/messages/mark-all-as-read", verifyAuth, securityCheck, async 
 	if (metadata && ((metadata.unreadMessages || 0) > 0))
 		metadata.unreadMessages = 0;
 	else
-		res.status(400).json({ ok: false, error: "No unread messages" })
+		res.status(400).json({ ok: false, error: "No unread messages" });
 	metadata.lastActive = new Date().toISOString();
 	await storage.updateIndex(index);
 	res.json({ ok: true, unreadMessages: 0 });

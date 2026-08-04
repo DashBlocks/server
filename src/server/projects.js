@@ -1,11 +1,11 @@
-import JSZip from "jszip";
+import jwt from "jsonwebtoken";
 import path from "path";
 
 import app, { upload } from "../app.js";
 import * as vars from "./vars.js";
 import {
 	validateId,
-	isTrustedUrl,
+	validateProjectZip,
 	securityCheck,
 	verifyAuth,
 	uploadLimiter,
@@ -35,41 +35,20 @@ app.post(
 	async (req, res) => {
 		// Save project
 		const { name, description } = req.body;
-		if (typeof name !== "string" || typeof description !== "string")
-			return res.status(400).json({ ok: false, error: "Name and description are required" });
-		if (name.length > 100)
-			return res.status(400).json({ ok: false, error: "Project name is too long (maximum length 100)" });
-		if (description.length > 1000)
+		if (typeof name !== "string")
+			return res.status(400).json({ ok: false, error: "Name is required" });
+		if (name.length < 1 || name.length > 100)
+			return res.status(400).json({ ok: false, error: "Project name is too short or too long (minimum length 1, maximum length 100)" });
+		if (description?.length > 1000)
 			return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
 
 		const file = req.file;
 		if (!file)
 			return res.status(400).json({ ok: false, error: "No file uploaded" });
 
-		const zip = await JSZip.loadAsync(file.buffer);
-		const projectData = await zip.file("project.json")?.async("string");
-		if (!projectData)
-			return res
-				.status(400)
-				.json({ ok: false, error: "project.json not found" });
-		const projectJson = JSON.parse(projectData);
-		const hasCustomExtensions = Object.values(
-			projectJson.extensionURLs || {}
-		).some(
-			(ext) =>
-				(ext.startsWith("http") || ext.startsWith("data")) &&
-                !isTrustedUrl(ext)
-		);
-		if (hasCustomExtensions && req.userRole === "dasher") {
-			return res
-				.status(403)
-				.json({ ok: false, error: "Custom extensions require Dasher+ role" });
-		}
-
-		const maxProjectSize = req.userRole === "dash-supporter" ? 250 * 1024 * 1024 : 75 * 1024 * 1024;
-		if (file.size > maxProjectSize) {
-			return res.status(400).json({ ok: false, error: `Project size limit is ${req.userRole === "dash-supporter" ? "250MB" : "75MB"}` });
-		}
+		const validation = await validateProjectZip(file, req.userRole);
+		if (!validation.ok)
+			return res.status(400).json({ ok: false, error: validation.error });
 
 		const index = req.usersIndex;
 
@@ -93,7 +72,8 @@ app.post(
 				views: 0,
 				fires: 0
 			},
-			uploadedAt: new Date().toISOString()
+			uploadedAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString()
 		});
 
 		index.nextProjectId++;
@@ -206,13 +186,164 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 					lastActive: authorProfile?.lastActive || null
 				},
 				fileSize: fileSize,
-				uploadedAt: projectInIndex.uploadedAt || null
+				uploadedAt: projectInIndex.uploadedAt || null,
+				updatedAt: projectInIndex.updatedAt || null
 			}
 		});
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to fetch project metadata" });
 	}
 });
+
+app.patch(
+	"/projects/:id",
+	verifyAuth,
+	securityCheck,
+	validateId,
+	async (req, res) => {
+		const projectId = req.params.id;
+		const { name, description } = req.body;
+ 
+		if (name === undefined && description === undefined)
+			return res.status(400).json({ ok: false, error: "Nothing to update" });
+ 
+		if (name !== undefined) {
+			if (typeof name !== "string" || name.trim().length === 0)
+				return res.status(400).json({ ok: false, error: "Project name cannot be empty" });
+			if (name.length > 100)
+				return res.status(400).json({ ok: false, error: "Project name is too long (maximum length 100)" });
+		}
+		if (description !== undefined) {
+			if (typeof description !== "string")
+				return res.status(400).json({ ok: false, error: "Invalid description" });
+			if (description.length > 1000)
+				return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
+		}
+ 
+		const index = req.usersIndex;
+		const isDashTeam = req.userRole === "dashteam";
+ 
+		const userKey = isDashTeam && req.body?.targetUsername
+			? req.body.targetUsername.toLowerCase()
+			: req.user.username.toLowerCase();
+ 
+		let userProfile = index.users[userKey];
+ 
+		if (isDashTeam && !req.body?.targetUsername) {
+			userProfile = Object.values(index.users).find((profile) =>
+				profile.projects?.some((project) => String(project.id) === String(projectId))
+			);
+		}
+ 
+		const project = userProfile?.projects?.find(
+			(p) => String(p.id) === String(projectId)
+		);
+ 
+		if (!isDashTeam && !project) {
+			return res.status(403).json({ ok: false, error: "Project not found in your profile" });
+		}
+		if (!project) {
+			return res.status(404).json({ ok: false, error: "Project not found" });
+		}
+ 
+		if (name !== undefined) project.name = name.trim();
+		if (description !== undefined) project.description = description;
+		project.updatedAt = new Date().toISOString();
+		userProfile.lastActive = new Date().toISOString();
+ 
+		await storage.updateIndex(index);
+ 
+		res.json({
+			ok: true,
+			project: {
+				id: project.id,
+				name: project.name,
+				description: project.description
+			}
+		});
+ 
+		sendEventMessage(
+			`Project metadata edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.userId})`
+		);
+	}
+);
+
+app.put(
+	"/projects/:id",
+	verifyAuth,
+	securityCheck,
+	uploadLimiter,
+	uploadTimeout,
+	validateId,
+	upload.single("file"),
+	async (req, res) => {
+		const projectId = req.params.id;
+		const { name, description } = req.body;
+		const file = req.file;
+ 
+		if (name !== undefined) {
+			if (typeof name !== "string" || name.trim().length === 0)
+				return res.status(400).json({ ok: false, error: "Project name cannot be empty" });
+			if (name.length > 100)
+				return res.status(400).json({ ok: false, error: "Project name is too long (maximum length 100)" });
+		}
+		if (description !== undefined) {
+			if (typeof description !== "string")
+				return res.status(400).json({ ok: false, error: "Invalid description" });
+			if (description.length > 1000)
+				return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
+		}
+ 
+		const validation = await validateProjectZip(file, req.userRole);
+		if (!validation.ok)
+			return res.status(400).json({ ok: false, error: validation.error });
+ 
+		const index = req.usersIndex;
+		const isDashTeam = req.userRole === "dashteam";
+ 
+		const userKey = isDashTeam && req.body?.targetUsername
+			? req.body.targetUsername.toLowerCase()
+			: req.user.username.toLowerCase();
+ 
+		let userProfile = index.users[userKey];
+ 
+		if (isDashTeam && !req.body?.targetUsername) {
+			userProfile = Object.values(index.users).find((profile) =>
+				profile.projects?.some((project) => String(project.id) === String(projectId))
+			);
+		}
+ 
+		const project = userProfile?.projects?.find(
+			(p) => String(p.id) === String(projectId)
+		);
+ 
+		if (!isDashTeam && !project) {
+			return res.status(403).json({ ok: false, error: "Project not found in your profile" });
+		}
+		if (!project) {
+			return res.status(404).json({ ok: false, error: "Project not found" });
+		}
+ 
+		try {
+			await storage.saveProjectFile(projectId, file.buffer);
+		} catch (_) {
+			return res.status(500).json({ ok: false, error: "Failed to save project file" });
+		}
+ 
+		if (name !== undefined) project.name = name.trim();
+		if (description !== undefined) project.description = description;
+		project.updatedAt = new Date().toISOString();
+		userProfile.lastActive = new Date().toISOString();
+ 
+		await storage.updateIndex(index);
+ 
+		res.json({ ok: true });
+ 
+		sendEventMessage(
+			`Project edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.userId})`
+		);
+	}
+);
 
 app.delete(
 	"/projects/:id",
@@ -270,6 +401,10 @@ app.delete(
 		}
 
 		return res.json({ ok: true, projects: userProfile?.projects || [] });
+
+		sendEventMessage(
+			`Project deleted: <b>${escapeHTML(project.name)}</b> (id ${project.id}) by <b>${req.user.username}</b> (id ${req.user.userId})`
+		);
 	}
 );
 
@@ -332,43 +467,43 @@ app.get("/projects/thumbnails/:id", validateId, async (req, res) => {
 });
 
 app.post("/projects/:id/view", async (req, res) => {
-    const projectId = req.params.id;
-    let viewerId;
-    const token = req.cookies?.auth_token;
+	const projectId = req.params.id;
+	let viewerId;
+	const token = req.cookies?.auth_token;
     
-    if (token) {
-        try {
-            const decoded = jwt.verify(token, vars.JWT_SECRET);
-            viewerId = `user_${decoded.userId}`;
-        } catch (_) {
-            viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
-        }
-    } else {
-        viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
-    }
+	if (token) {
+		try {
+			const decoded = jwt.verify(token, vars.JWT_SECRET);
+			viewerId = `user_${decoded.userId}`;
+		} catch (_) {
+			viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
+		}
+	} else {
+		viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
+	}
 
-    const key = `${projectId}_${viewerId}`;
+	const key = `${projectId}_${viewerId}`;
 
-    try {
-        const index = await storage.getIndex();
-        const authorProfile = Object.values(index.users).find((u) =>
-            u.projects?.some((p) => String(p.id) === String(projectId))
-        );
+	try {
+		const index = await storage.getIndex();
+		const authorProfile = Object.values(index.users).find((u) =>
+			u.projects?.some((p) => String(p.id) === String(projectId))
+		);
 		let project;
-        if (authorProfile) {
-            project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
-            project.stats = project.stats || {};
+		if (authorProfile) {
+			project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
+			project.stats = project.stats || {};
 			if (views.has(key)) {
         		return res.json({ ok: true, message: "View already counted recently", views: project.stats.views || 0 });
     		}
     		views.set(key, Date.now());
-            project.stats.views = (project.stats.views || 0) + 1;
-            await storage.updateIndex(index);
-        }
-        res.json({ ok: true, views: project?.stats.views || 0 });
-    } catch (_) {
-        res.status(500).json({ ok: false, error: "Failed to count view", views: 0 });
-    }
+			project.stats.views = (project.stats.views || 0) + 1;
+			await storage.updateIndex(index);
+		}
+		res.json({ ok: true, views: project?.stats.views || 0 });
+	} catch (_) {
+		res.status(500).json({ ok: false, error: "Failed to count view", views: 0 });
+	}
 });
 
 app.post(

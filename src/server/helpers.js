@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import JSZip from "jszip";
 import rateLimit from "express-rate-limit";
 
 import { JWT_SECRET, TG_BOT_TOKEN, TG_EVENTS_GROUP_ID } from "./vars.js";
@@ -32,6 +33,36 @@ const isTrustedUrl = (url) =>
     url.toLowerCase().startsWith("https://extensions.penguinmod.com") ||
     // For development
     url.toLowerCase().startsWith("http://localhost:");
+
+const validateProjectZip = async (file, userRole) => {
+	if (!file)
+		return { ok: false, error: "No file uploaded" };
+ 
+	const zip = await JSZip.loadAsync(file.buffer);
+	const projectData = await zip.file("project.json")?.async("string");
+	if (!projectData)
+		return { ok: false, error: "project.json not found" };
+ 
+	const projectJson = JSON.parse(projectData);
+	const hasCustomExtensions = Object.values(
+		projectJson.extensionURLs || {}
+	).some(
+		(ext) =>
+			(ext.startsWith("http") || ext.startsWith("data")) &&
+			!isTrustedUrl(ext)
+	);
+	if (hasCustomExtensions && userRole === "dasher")
+		return { ok: false, error: "Custom extensions require Dasher+ role" };
+ 
+	const maxProjectSize = userRole === "dash-supporter" ? 250 * 1024 * 1024 : 75 * 1024 * 1024;
+	if (file.size > maxProjectSize)
+		return {
+			ok: false,
+			error: `Project size limit is ${userRole === "dash-supporter" ? "250MB" : "75MB - donate Dash to increase it up to 250MB! https://dashblocks.org/donate"}`
+		};
+ 
+	return { ok: true };
+};
 
 const generateVerificationCode = () =>
 	Math.floor(100000 + Math.random() * 900000).toString();
@@ -99,18 +130,18 @@ const getUserIndexData = (index, target) => {
 };
 
 const escapeHTML = (unsafe) => {
-    if (!unsafe) return "";
-    return unsafe.replace(/[&<>"'`]/g, (match) => {
-        const map = {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            "\"": "&quot;",
-            "'": "&#x27;",
-            "`": "&#x60;"
-        };
-        return map[match];
-    });
+	if (!unsafe) return "";
+	return unsafe.replace(/[&<>"'`]/g, (match) => {
+		const map = {
+			"&": "&amp;",
+			"<": "&lt;",
+			">": "&gt;",
+			"\"": "&quot;",
+			"'": "&#x27;",
+			"`": "&#x60;"
+		};
+		return map[match];
+	});
 };
 
 const sendEventMessage = async (text) => {
@@ -201,6 +232,7 @@ export {
 	isValidEmail,
 	validateId,
 	isTrustedUrl,
+	validateProjectZip,
 	generateVerificationCode,
 	generateUserObject,
 	getUserIndexData,
