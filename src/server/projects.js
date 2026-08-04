@@ -35,11 +35,11 @@ app.post(
 	async (req, res) => {
 		// Save project
 		const { name, description } = req.body;
-		if (typeof name !== "string" || typeof description !== "string")
-			return res.status(400).json({ ok: false, error: "Name and description are required" });
+		if (typeof name !== "string")
+			return res.status(400).json({ ok: false, error: "Name is required" });
 		if (name.length < 1 || name.length > 100)
 			return res.status(400).json({ ok: false, error: "Project name is too short or too long (minimum length 1, maximum length 100)" });
-		if (description.length > 1000)
+		if (description?.length > 1000)
 			return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
 
 		const file = req.file;
