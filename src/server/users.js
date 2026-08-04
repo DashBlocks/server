@@ -253,7 +253,11 @@ app.post(
 			await storage.updateIndex(index);
 
 			res.json({ ok: true, avatarId });
-			sendEventMessage(`Avatar changed: <b>${user.username}</b> (id ${user.id}) - avatar ${avatarId}`);
+			sendEventMessage([
+				"<b>AVATAR UPDATED</b>",
+				`user: <b>${user.username}</b> (id ${user.id})`,
+				`avatar: <b>${avatarId}</b>`
+			]);
 		} catch (_) {
 			res.status(500).json({ ok: false, error: "Upload failed" });
 		}
@@ -296,7 +300,10 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
-		sendEventMessage(`Description updated: <b>${user.username}</b> (id ${user.id})`);
+		sendEventMessage([
+			"<b>DESCRIPTION UPDATED</b>",
+			`user: <b>${user.username}</b> (id ${user.id})`
+		]);
 	}
 );
 
@@ -413,7 +420,11 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
-		sendEventMessage(`Link added: <b>${user.username}</b> (id ${user.id}) - ${escapeHTML(link)}`);
+		sendEventMessage([
+			"<b>LINK ADDED</b>",
+			`user: <b>${user.username}</b> (id ${user.id})`,
+			`link: <b>${escapeHTML(label)}</b> (<a href="${escapeHTML(link)}">link...</a>)`
+		]);
 	}
 );
 
@@ -444,7 +455,12 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
-		sendEventMessage(`Link updated: <b>${user.username}</b> (id ${user.id}) - ${escapeHTML(link)}`);
+		sendEventMessage([
+			"<b>LINK UPDATED</b>",
+			`user: <b>${user.username}</b> (id ${user.id})`,
+			`idx: ${linkIndex + 1}`,
+			`link: <b>${escapeHTML(label)}</b> (<a href="${escapeHTML(link)}">link...</a>)`
+		]);
 	}
 );
 
@@ -471,6 +487,10 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
-		sendEventMessage(`Link removed: <b>${user.username}</b> (id ${user.id}) - index ${linkIndex}`);
+		sendEventMessage([
+			"<b>LINK REMOVED</b>",
+			`user: <b>${user.username}</b> (id ${user.id})`,
+			`idx: ${linkIndex + 1}`
+		]);
 	}
 );

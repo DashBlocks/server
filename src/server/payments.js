@@ -111,20 +111,20 @@ app.post("/payments/lava", async (req, res) => {
 			}
 		}
 
-		const endDate = new Date(baseTime + daysToGive * 24 * 60 * 60 * 1000).toISOString();
+		const endDate = new Date(baseTime + daysToGive * 24 * 60 * 60 * 1000);
 
 		user.role = "dash-supporter";
 		user.subscription = {
 			status: "active",
 			startDate: new Date().toISOString(),
-			endDate
+			endDate: endDate.toISOString()
 		};
 
 		user.messages = [
 			{
 				type: "promoted",
 				role: "dash-supporter",
-				endDate,
+				endDate: endDate.toISOString(),
 				date: new Date().toISOString()
 			},
 			...(user.messages || [])
@@ -133,11 +133,18 @@ app.post("/payments/lava", async (req, res) => {
 
 		await storage.updateIndex(index);
 
-		sendEventMessage(`Subscription purchased: <b>${user.username}</b> (id ${user.id}) - for ${daysToGive} days, ends ${endDate}`);
-
 		res.status(200).json({ ok: true, message: "yay" });
+		sendEventMessage([
+			"<b>SUBSCRIPTION PURCHASED</b>",
+			`user: <b>${user.username}</b> (id ${user.id})`,
+			`days: <b>${daysToGive}</b>`,
+			`ends: <b><tg-time unix="${endDate.getTime()}" format="dT"></tg-time></b>`
+		]);
 	} catch (error) {
-		sendEventMessage(`${error?.message ? error.message : error}`);
+		sendEventMessage([
+			"<b>SUBSCRIPTION ERROR</b>",
+			`error: ${error?.message ? error.message : error}`
+		]);
 		res.status(500).json({ ok: false, error: "Something went wrong :(" });
 	}
 });

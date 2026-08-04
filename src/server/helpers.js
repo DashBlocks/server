@@ -144,7 +144,7 @@ const escapeHTML = (unsafe) => {
 	});
 };
 
-const sendEventMessage = async (text) => {
+const sendEventMessage = async (message) => {
 	try {
 		await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
 			method: "POST",
@@ -153,8 +153,9 @@ const sendEventMessage = async (text) => {
 			},
 			body: JSON.stringify({
 				chat_id: TG_EVENTS_GROUP_ID,
-				text,
-				parse_mode: "HTML"
+				text: Array.isArray(message) ? message.join("\n") : message,
+				parse_mode: "HTML",
+				link_preview_options: { is_disabled: true }
 			})
 		});
 	} catch (_) {/* ignore */}

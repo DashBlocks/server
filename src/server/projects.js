@@ -131,7 +131,11 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, projectId });
-		sendEventMessage(`Project created: <b>${escapeHTML(name)}</b> (id ${projectId}) by <b>${user.username}</b> (id ${user.id})`);
+		sendEventMessage([
+			"<b>PROJECT CREATED</b>",
+			`project: <b>${escapeHTML(name)}</b> (id ${projectId})`,
+			`author: <b>${user.username}</b> (id ${user.id})`
+		]);
 	}
 );
 
@@ -223,19 +227,20 @@ app.patch(
 		const index = req.usersIndex;
 		const isDashTeam = req.userRole === "dashteam";
  
-		const userKey = isDashTeam && req.body?.targetUsername
+		const authorKey = isDashTeam && req.body?.targetUsername
 			? req.body.targetUsername.toLowerCase()
 			: req.user.username.toLowerCase();
  
-		let userProfile = index.users[userKey];
+		const userProfile = index.users[req.user.username.toLowerCase()];
+		let authorProfile = index.users[authorKey];
  
 		if (isDashTeam && !req.body?.targetUsername) {
-			userProfile = Object.values(index.users).find((profile) =>
+			authorProfile = Object.values(index.users).find((profile) =>
 				profile.projects?.some((project) => String(project.id) === String(projectId))
 			);
 		}
  
-		const project = userProfile?.projects?.find(
+		const project = authorProfile?.projects?.find(
 			(p) => String(p.id) === String(projectId)
 		);
  
@@ -256,15 +261,25 @@ app.patch(
 		res.json({
 			ok: true,
 			project: {
-				id: project.id,
+				id: projectId,
 				name: project.name,
 				description: project.description
 			}
 		});
- 
-		sendEventMessage(
-			`Project metadata edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.userId})`
-		);
+		if (isDashTeam) {
+			sendEventMessage([
+				"<b>ADMIN EDITED PROJECT METADATA</b>",
+				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`
+				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
+				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
+			]);
+		} else {
+			sendEventMessage([
+				"<b>PROJECT METADATA EDITED</b>",
+				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
+				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
+			]);
+		}
 	}
 );
 
@@ -301,19 +316,20 @@ app.put(
 		const index = req.usersIndex;
 		const isDashTeam = req.userRole === "dashteam";
  
-		const userKey = isDashTeam && req.body?.targetUsername
+		const authorKey = isDashTeam && req.body?.targetUsername
 			? req.body.targetUsername.toLowerCase()
 			: req.user.username.toLowerCase();
  
-		let userProfile = index.users[userKey];
+		const userProfile = index.users[req.user.username.toLowerCase()];
+		let authorProfile = index.users[authorKey];
  
 		if (isDashTeam && !req.body?.targetUsername) {
-			userProfile = Object.values(index.users).find((profile) =>
+			authorProfile = Object.values(index.users).find((profile) =>
 				profile.projects?.some((project) => String(project.id) === String(projectId))
 			);
 		}
  
-		const project = userProfile?.projects?.find(
+		const project = authorProfile?.projects?.find(
 			(p) => String(p.id) === String(projectId)
 		);
  
@@ -338,10 +354,20 @@ app.put(
 		await storage.updateIndex(index);
  
 		res.json({ ok: true });
- 
-		sendEventMessage(
-			`Project edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.userId})`
-		);
+		if (isDashTeam) {
+			sendEventMessage([
+				"<b>ADMIN EDITED PROJECT</b>",
+				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`
+				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
+				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
+			]);
+		} else {
+			sendEventMessage([
+				"<b>PROJECT EDITED</b>",
+				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
+				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
+			]);
+		}
 	}
 );
 
@@ -355,25 +381,26 @@ app.delete(
 		const index = req.usersIndex;
 		const isDashTeam = req.userRole === "dashteam";
 
-		const userKey = isDashTeam && req.body?.targetUsername
+		const authorKey = isDashTeam && req.body?.targetUsername
 			? req.body.targetUsername.toLowerCase()
 			: req.user.username.toLowerCase();
-
-		let userProfile = index.users[userKey];
+ 
+		const userProfile = index.users[req.user.username.toLowerCase()];
+		let authorProfile = index.users[authorKey];
 
 		if (isDashTeam && !req.body?.targetUsername) {
-			userProfile = Object.values(index.users).find((profile) =>
+			authorProfile = Object.values(index.users).find((profile) =>
 				profile.projects?.some((project) => String(project.id) === String(projectId))
 			);
 		}
 
 		if (!isDashTeam) {
-			if (!userProfile?.projects?.some((p) => String(p.id) === String(projectId))) {
+			if (!authorProfile?.projects?.some((p) => String(p.id) === String(projectId))) {
 				return res.status(403).json({ ok: false, error: "Project not found in your profile" });
 			}
 		}
 
-		const project = userProfile?.projects?.find(
+		const project = authorProfile?.projects?.find(
 			(p) => String(p.id) === String(projectId)
 		) || null;
 
@@ -386,25 +413,35 @@ app.delete(
 			return res.status(500).json({ ok: false, error: "Failed to delete project files" });
 		}
 
-		if (userProfile) {
-			userProfile.projects = (userProfile.projects || []).filter(
+		if (authorProfile) {
+			authorProfile.projects = (authorProfile.projects || []).filter(
 				(p) => String(p.id) !== String(projectId)
 			);
-			userProfile.lastActive = new Date().toISOString();
-			if (String(userProfile.recommendedProject?.id) === String(projectId))
-				userProfile.recommendedProject = {
+			if (String(authorProfile.recommendedProject?.id) === String(projectId))
+				authorProfile.recommendedProject = {
 					id: null,
 					name: "Unknown",
 					thumbnailId: 1
 				};
+			userProfile.lastActive = new Date().toISOString();
 			await storage.updateIndex(index);
 		}
 
-		return res.json({ ok: true, projects: userProfile?.projects || [] });
-
-		sendEventMessage(
-			`Project deleted: <b>${escapeHTML(project.name)}</b> (id ${project.id}) by <b>${req.user.username}</b> (id ${req.user.userId})`
-		);
+		return res.json({ ok: true, projects: authorProfile?.projects || [] });
+		if (isDashTeam) {
+			sendEventMessage([
+				"<b>ADMIN DELETED PROJECT</b>",
+				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`
+				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
+				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
+			]);
+		} else {
+			sendEventMessage([
+				"<b>PROJECT DELETED</b>",
+				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
+				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
+			]);
+		}
 	}
 );
 

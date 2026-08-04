@@ -199,7 +199,10 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 				subscription: newUserMetadata?.subscription || { status: "none", startDate: null, endDate: null }
 			}
 		});
-		sendEventMessage(`New account: <b>${username}</b> (id ${userId})`);
+		sendEventMessage([
+			"<b>NEW ACCOUNT</b>",
+			`user: <b>${username}</b> (id ${userId})`
+		]);
 	} catch (error) {
 		res.status(500).json({ ok: false, error: error.message });
 	}
@@ -368,7 +371,10 @@ app.post("/auth/change-password", verifyAuth, securityCheck, authLimiter, async 
 		});
 
 		res.json({ ok: true, message: "Password changed. Log in now" });
-		sendEventMessage(`Password changed: <b>${req.user.username}</b> (id ${req.user.userId})`);
+		sendEventMessage([
+			"<b>PASSWORD CHANGED</b>",
+			`user: <b>${req.user.username}</b> (id ${req.user.userId})`
+		]);
 	} catch (error) {
 		res.status(500).json({ ok: false, error: error.message });
 	}
@@ -407,7 +413,10 @@ app.post("/auth/delete-account", verifyAuth, securityCheck, authLimiter, async (
 		});
 
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
-		sendEventMessage(`Account deleted: <b>${userIndexData.username}</b> (id ${userIndexData.id})`);
+		sendEventMessage([
+			"<b>ACCOUNT DELETED</b>",
+			`user: <b>${userIndexData.username}</b> (id ${userIndexData.id})`
+		]);
 	} catch (error) {
 		res.status(500).json({ ok: false, error: error.message });
 	}

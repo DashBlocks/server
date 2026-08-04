@@ -72,7 +72,12 @@ app.post(
 			featuredAt: p?.featuredAt || null
 		}));
 		res.json({ ok: true, projects });
-		sendEventMessage(`New featured project: <b>${escapeHTML(projectData.name)}</b> (id ${projectData.id}), project by ${index.users[authorUsername].username} (id ${index.users[authorUsername].id}), featured by ${req.user.username} (id ${req.user.userId})`);
+		sendEventMessage([
+			"<b>FEATURED PROJECT</b>",
+			`admin: <b>${req.user.username}</b> (id ${req.user.userId})`
+			`project: <b>${escapeHTML(projectData.name)}</b> (id ${projectData.id})`,
+			`author: <b>${index.users[authorUsername].username}</b> (id ${index.users[authorUsername].id})`
+		]);
 	}
 );
 
@@ -127,7 +132,12 @@ app.delete(
 			featuredAt: p?.featuredAt || null
 		}));
 		res.json({ ok: true, projects });
-		sendEventMessage(`Unfeatured project: <b>${escapeHTML(featuredProject.name)}</b> (id ${featuredProject.id}), project by ${authorProfile.username} (id ${authorProfile.id}), unfeatured by ${req.user.username} (id ${req.user.userId})`);
+		sendEventMessage([
+			"<b>UNFEATURED PROJECT</b>",
+			`admin: <b>${req.user.username}</b> (id ${req.user.userId})`
+			`project: <b>${escapeHTML(featuredProject.name)}</b> (id ${featuredProject.id})`,
+			`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
+		]);
 	}
 );
 
