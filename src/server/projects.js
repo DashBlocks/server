@@ -195,6 +195,79 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 	}
 });
 
+app.patch(
+	"/projects/:id",
+	verifyAuth,
+	securityCheck,
+	validateId,
+	async (req, res) => {
+		const projectId = req.params.id;
+		const { name, description } = req.body;
+ 
+		if (name === undefined && description === undefined)
+			return res.status(400).json({ ok: false, error: "Nothing to update" });
+ 
+		if (name !== undefined) {
+			if (typeof name !== "string" || name.trim().length === 0)
+				return res.status(400).json({ ok: false, error: "Project name cannot be empty" });
+			if (name.length > 100)
+				return res.status(400).json({ ok: false, error: "Project name is too long (maximum length 100)" });
+		}
+		if (description !== undefined) {
+			if (typeof description !== "string")
+				return res.status(400).json({ ok: false, error: "Invalid description" });
+			if (description.length > 1000)
+				return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
+		}
+ 
+		const index = req.usersIndex;
+		const isDashTeam = req.userRole === "dashteam";
+ 
+		const userKey = isDashTeam && req.body?.targetUsername
+			? req.body.targetUsername.toLowerCase()
+			: req.user.username.toLowerCase();
+ 
+		let userProfile = index.users[userKey];
+ 
+		if (isDashTeam && !req.body?.targetUsername) {
+			userProfile = Object.values(index.users).find((profile) =>
+				profile.projects?.some((project) => String(project.id) === String(projectId))
+			);
+		}
+ 
+		const project = userProfile?.projects?.find(
+			(p) => String(p.id) === String(projectId)
+		);
+ 
+		if (!isDashTeam && !project) {
+			return res.status(403).json({ ok: false, error: "Project not found in your profile" });
+		}
+		if (!project) {
+			return res.status(404).json({ ok: false, error: "Project not found" });
+		}
+ 
+		if (name !== undefined) project.name = name.trim();
+		if (description !== undefined) project.description = description;
+		project.updatedAt = new Date().toISOString();
+		userProfile.lastActive = new Date().toISOString();
+ 
+		await storage.updateIndex(index);
+ 
+		res.json({
+			ok: true,
+			project: {
+				id: project.id,
+				name: project.name,
+				description: project.description
+			}
+		});
+ 
+		sendEventMessage(
+			`Project metadata edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.id})`
+		);
+	}
+);
+
 app.put(
 	"/projects/:id",
 	verifyAuth,
