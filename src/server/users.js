@@ -284,7 +284,7 @@ app.post(
 			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
             
 		const description = req.body.description?.toString();
-		if (!description) return res.status(400).json({ ok: false, error: "No description provided" });
+		if (typeof description !== "string") return res.status(400).json({ ok: false, error: "No description provided" });
 		if (description.length > 1000) return res.status(400).json({ ok: false, error: "Max length is 1000" });
 
 		const index = req.usersIndex;
