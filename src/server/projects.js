@@ -37,8 +37,8 @@ app.post(
 		const { name, description } = req.body;
 		if (typeof name !== "string" || typeof description !== "string")
 			return res.status(400).json({ ok: false, error: "Name and description are required" });
-		if (name.length > 100)
-			return res.status(400).json({ ok: false, error: "Project name is too long (maximum length 100)" });
+		if (name.length < 1 || name.length > 100)
+			return res.status(400).json({ ok: false, error: "Project name is too short or too long (minimum length 1, maximum length 100)" });
 		if (description.length > 1000)
 			return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
 
