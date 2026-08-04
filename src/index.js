@@ -2,6 +2,7 @@ import app from "./app.js";
 import * as storage from "./server/storage.js";
 import "./server/auth.js";
 import "./server/projects.js";
+import "./server/search.js";
 import "./server/users.js";
 import "./server/admin.js";
 import "./server/featured-projects.js";
