@@ -269,7 +269,7 @@ app.patch(
 		if (isDashTeam) {
 			sendEventMessage([
 				"<b>ADMIN EDITED PROJECT METADATA</b>",
-				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`
+				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`,
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
@@ -357,7 +357,7 @@ app.put(
 		if (isDashTeam) {
 			sendEventMessage([
 				"<b>ADMIN EDITED PROJECT</b>",
-				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`
+				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`,
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
@@ -431,7 +431,7 @@ app.delete(
 		if (isDashTeam) {
 			sendEventMessage([
 				"<b>ADMIN DELETED PROJECT</b>",
-				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`
+				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`,
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
