@@ -263,7 +263,7 @@ app.patch(
 		});
  
 		sendEventMessage(
-			`Project metadata edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.id})`
+			`Project metadata edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.userId})`
 		);
 	}
 );
@@ -340,7 +340,7 @@ app.put(
 		res.json({ ok: true });
  
 		sendEventMessage(
-			`Project edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.id})`
+			`Project edited: <b>${escapeHTML(project.name)}</b> (id ${projectId}) by <b>${req.user.username}</b> (id ${req.user.userId})`
 		);
 	}
 );
@@ -401,6 +401,10 @@ app.delete(
 		}
 
 		return res.json({ ok: true, projects: userProfile?.projects || [] });
+
+		sendEventMessage(
+			`Project deleted: <b>${escapeHTML(project.name)}</b> (id ${project.id}) by <b>${req.user.username}</b> (id ${req.user.userId})`
+		);
 	}
 );
 
