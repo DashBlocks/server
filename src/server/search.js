@@ -1,24 +1,20 @@
 import app from "../app.js";
 import { securityCheck } from "./helpers.js";
 
+// "d-*" - descending sort methods
+// "a-*" - ascending sort methods
+const SORT_METHODS = {
+	"d-upload": (p1, p2) => (
+		new Date(p2.uploadedAt || 0).getTime() -
+			new Date(p1.uploadedAt || 0).getTime()
+	),
+	"d-views": (p1, p2) => (p2.stats?.views || 0) - (p1.stats?.views || 0),
+	"d-fires": (p1, p2) => (p2.stats?.fires || 0) - (p1.stats?.fires || 0)
+};
+
 const SEARCH_PARAMS_DEFS = {
-	featured: {
-		priority: 1,
-		get: (index, paramValue) => ({
-			projects: index.featuredProjects,
-			userless: false
-		}),
-		userlessFilterFn: (project, _, index) => (
-			index.featuredProjects &&
-			index.featuredProjects.some((featuredProject) => featuredProject.id === project.id)
-		),
-		filterFn: (project, index) => (
-			index.featuredProjects &&
-			index.featuredProjects.some((featuredProject) => featuredProject.id === project.id)
-		)
-	},
 	author: {
-		priority: 2,
+		priority: 1,
 		get: (index, paramValue) => {
 			const userProfile = Object.values(index.users).find((userProfile) => (
 				(userProfile.username || "").toLowerCase() === paramValue.toLowerCase() ||
@@ -26,26 +22,24 @@ const SEARCH_PARAMS_DEFS = {
 			));
 			return {
 				projects: userProfile?.projects,
-				userless: true,
 				userProfile
 			};
 		},
-		userlessFilterFn: (_, userProfile, __, paramValue) => (
+		filterFn: (_, userProfile, __, paramValue) => (
 			(userProfile.username || "").toLowerCase() === paramValue.toLowerCase() ||
 			userProfile.id === Number(paramValue)
-		),
-		filterFn: (project, _, paramValue) => (
-			project.author.username.toLowerCase() === paramValue.toLowerCase() ||
-			project.author.id === Number(paramValue)
+		)
+	},
+	featured: {
+		priority: 2,
+		filterFn: (project, _, index) => (
+			index.featuredProjects &&
+			index.featuredProjects.some((featuredProject) => featuredProject.id === project.id)
 		)
 	},
 	"-featured": {
 		priority: 3,
-		userlessFilterFn: (project, _, index) => (
-			!index.featuredProjects ||
-			index.featuredProjects.every((featuredProject) => featuredProject.id !== project.id)
-		),
-		filterFn: (project, index) => (
+		filterFn: (project, _, index) => (
 			!index.featuredProjects ||
 			index.featuredProjects.every((featuredProject) => featuredProject.id !== project.id)
 		)
@@ -56,13 +50,9 @@ const SEARCH_PARAMS_DEFS = {
 			(userProfile.username || "").toLowerCase() !== paramValue.toLowerCase() &&
 			userProfile.id !== Number(paramValue)
 		),
-		userlessFilterFn: (_, userProfile, __, paramValue) => (
+		filterFn: (_, userProfile, __, paramValue) => (
 			(userProfile.username || "").toLowerCase() !== paramValue.toLowerCase() &&
 			userProfile.id !== Number(paramValue)
-		),
-		filterFn: (project, _, paramValue) => (
-			project.author.username.toLowerCase() !== paramValue.toLowerCase() &&
-			project.author.id !== Number(paramValue)
 		)
 	}
 };
@@ -82,44 +72,43 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 			return res.status(400).json({ ok: false, error: "Query is too long (maximum length 200, excluding trimmed white spaces)" });
 
 		const paramRegex = /\s*(-?[a-z]+):(\S*)\s*/gi;
+		let sortMethod = null;
 		const searchParams = [];
 		const searchTerm = q.trim()
-			.replace(paramRegex, (_, paramName, paramValue) => {
-				if (paramName in SEARCH_PARAMS_DEFS) searchParams.push([paramName, paramValue]);
-				return "";
+			.replace(paramRegex, (substr, paramName, paramValue) => {
+				if (paramName === "sort" && paramValue in SORT_METHODS) {
+					sortMethod = paramValue;
+					return "";
+				} else if (paramName in SEARCH_PARAMS_DEFS) {
+					searchParams.push([paramName, paramValue]);
+					return "";
+				} else {
+					return substr;
+				}
 			})
 			.toLowerCase();
+		if (!sortMethod) sortMethod = "d-upload"
 		searchParams.sort(([paramName1], [paramName2]) =>
 			SEARCH_PARAMS_DEFS[paramName1].priority - SEARCH_PARAMS_DEFS[paramName2].priority);
-		if (req.userRole === "dashteam") console.log(
-			`searchTerm - ${searchTerm}\n` +
-			`searchParams - ${JSON.stringify(searchParams)}`
-		);
 		const priorGetterParam = searchParams.find(([paramName]) => SEARCH_PARAMS_DEFS[paramName].get);
 		const userMatchParams = searchParams.filter(([paramName]) => SEARCH_PARAMS_DEFS[paramName].userMatch);
 
 		const results = [];
 
 		if (priorGetterParam) {
-			const { projects, userless, userProfile } =
+			const { projects, userProfile } =
 				SEARCH_PARAMS_DEFS[priorGetterParam[0]].get(index, priorGetterParam[1]);
 			if (projects.length > 0) {
 				const filterParams = searchParams.filter((param) => param !== priorGetterParam);
 
-				let userlessAuthorUsernameMatch = false;
-				if (userless) {
-					const authorUsername = (userProfile.username || "").toLowerCase();
-					userlessAuthorUsernameMatch = authorUsername.includes(searchTerm);
-				}
+				const authorUsername = (userProfile.username || "").toLowerCase();
+				const authorUsernameMatch = authorUsername.includes(searchTerm);
 
 				projects.forEach((project) => {
 					let projectMatch = true;
 					for (let i = 0; i < filterParams.length && projectMatch; i++) {
-						projectMatch = userless
-							? SEARCH_PARAMS_DEFS[filterParams[i][0]]
-								.userlessFilterFn(project, userProfile, index, filterParams[i][1])
-							: SEARCH_PARAMS_DEFS[filterParams[i][0]]
-								.filterFn(project, index, filterParams[i][1]);
+						projectMatch = SEARCH_PARAMS_DEFS[filterParams[i][0]]
+							.filterFn(project, userProfile, index, filterParams[i][1]);
 					}
 					if (!projectMatch) return;
 
@@ -129,18 +118,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 					const nameMatch = projectName.includes(searchTerm);
 					const descriptionMatch = projectDescription.includes(searchTerm);
 
-					let authorUsernameMatch = false;
-					if (!userless) {
-						const authorUsername = (project.author.username || "").toLowerCase();
-						authorUsernameMatch = authorUsername.includes(searchTerm);
-					}
-
-					if (
-						nameMatch ||
-						descriptionMatch ||
-						userlessAuthorUsernameMatch ||
-						authorUsernameMatch
-					) {
+					if (nameMatch || descriptionMatch || authorUsernameMatch) {
 						results.push({
 							id: project.id || null,
 							name: project.name || "Untitled",
@@ -151,10 +129,10 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 								fires: project.stats?.fires || 0
 							},
 							author: {
-								id: (userless ? userProfile.id : project.author.id) || null,
-								username: (userless ? userProfile.username : project.author.username) || "Unknown",
-								profile: { avatarId: (userless ? userProfile.id : project.author.id) || 1 },
-								joinedAt: (userless ? userProfile.joinedAt : project.author.joinedAt) || null
+								id: userProfile.id || null,
+								username: userProfile.username || "Unknown",
+								profile: { avatarId: userProfile.id || 1 },
+								joinedAt: userProfile.joinedAt || null
 							},
 							uploadedAt: project.uploadedAt || null
 						});
@@ -164,7 +142,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 		} else {
 			const filterParams = searchParams.filter((param) => (
 				param !== priorGetterParam &&
-				!userMatchParams.includes(param)
+				!SEARCH_PARAMS_DEFS[param[0]].userMatch
 			));
 			Object.values(index.users).forEach((userProfile) => {
 				if (!userProfile.projects || userProfile.projects.length === 0) return;
@@ -183,7 +161,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 					let projectMatch = true;
 					for (let i = 0; i < filterParams.length && projectMatch; i++) {
 						projectMatch = SEARCH_PARAMS_DEFS[filterParams[i][0]]
-							.filterFn(project, index, filterParams[i][1]);
+							.filterFn(project, userProfile, index, filterParams[i][1]);
 					}
 					if (!projectMatch) return;
 
@@ -216,13 +194,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 			});
 		}
 
-		// Newest first
-		results.sort((a, b) => {
-			const dateA = new Date(a.uploadedAt || 0).getTime();
-			const dateB = new Date(b.uploadedAt || 0).getTime();
-			return dateB - dateA;
-		});
-
+		results.sort(SORT_METHODS[sortMethod]);
 		const finalResults = results.slice(offset, offset + limit);
 
 		res.json({
