@@ -292,7 +292,8 @@ app.post(
 		if (description.length > 1000) return res.status(400).json({ ok: false, error: "Max length is 1000" });
 
 		const index = req.usersIndex;
-		const user = req.userRole === "dashteam" && req.query?.target ? index.users[req.query.target.toLowerCase()] : index.users[req.user.username.toLowerCase()];
+		const isDashTeam = req.userRole === "dashteam";
+		const user = isDashTeam && req.query?.target ? index.users[req.query.target.toLowerCase()] : index.users[req.user.username.toLowerCase()];
 		if (!user)
 			return res.status(404).json({ ok: false, error: "User not found" });
         
@@ -302,10 +303,18 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user) });
-		sendEventMessage([
-			"<b>DESCRIPTION UPDATED</b>",
-			`user: <b>${user.username}</b> (id ${user.id})`
-		]);
+		if (isDashTeam) {
+			sendEventMessage([
+				"<b>ADMIN UPDATED DESCRIPTION</b>",
+				`admin: <b>${req.user.username}</b> (id ${req.user.userId})`,
+				`user: <b>${user.username}</b> (id ${user.id})`
+			]);
+		} else {
+			sendEventMessage([
+				"<b>DESCRIPTION UPDATED</b>",
+				`user: <b>${user.username}</b> (id ${user.id})`
+			]);
+		}
 	}
 );
 
