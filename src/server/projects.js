@@ -458,19 +458,34 @@ app.post(
 
 		const index = req.usersIndex;
 		const userKey = req.user.username.toLowerCase();
-		const user = index.users[userKey];
-		const userProjects = user?.projects;
+		const isDashTeam = req.userRole === "dashteam";
+		let user = index.users[userKey];
 
-		const project = userProjects?.find(
-			(p) => String(p.id) === String(projectId)
-		);
-		if (!project)
+		if (isDashTeam) {
+			user = Object.values(index.users).find((profile) =>
+				profile.projects?.some((project) => String(project.id) === String(projectId))
+			);
+			if (!user)
+				return res.status(404).json({ ok: false, error: "Project not found" });
+		}
+		if (!user?.projects?.find((p) => String(p.id) === String(projectId)) && !isDashTeam)
 			return res
 				.status(404)
 				.json({ ok: false, error: "Project not found in your profile" });
 
+		const userProjects = user?.projects;
+		const project = userProjects?.find(
+			(p) => String(p.id) === String(projectId)
+		) || null;
+		if (!project)
+			return res.status(404).json({ ok: false, error: "Project not found" });
+
 		if (project.thumbnailId > 1) {
-			await storage.deleteThumbnailFile(project.thumbnailId);
+			try {
+				await storage.deleteThumbnailFile(project.thumbnailId);
+			} catch (_) {
+				return res.status(500).json({ ok: false, error: "Failed to delete prev thumbnail" });
+			}
 		}
 
 		const thumbnailId = project.id;
