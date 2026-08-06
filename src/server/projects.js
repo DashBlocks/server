@@ -423,6 +423,10 @@ app.delete(
 					name: "Unknown",
 					thumbnailId: 1
 				};
+			if (index.featuredProjects?.find((p) => String(p.id) === String(projectId)))
+				index.featuredProjects = index.featuredProjects.filter(
+					(p) => String(p.id) !== String(projectId)
+				);
 			userProfile.lastActive = new Date().toISOString();
 			await storage.updateIndex(index);
 		}
