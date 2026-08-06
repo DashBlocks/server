@@ -431,7 +431,7 @@ app.delete(
 			await storage.updateIndex(index);
 		}
 
-		return res.json({ ok: true, projects: authorProfile?.projects || [] });
+		res.json({ ok: true, projects: authorProfile?.projects || [] });
 		if (isDashTeam) {
 			sendEventMessage([
 				"<b>ADMIN DELETED PROJECT</b>",
