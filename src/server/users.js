@@ -47,7 +47,7 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
         
-		const projects = (indexData.projects || []).slice(offset, offset + limit).map(p => ({
+		const projects = (indexData.projects?.toReversed() || []).slice(offset, offset + limit).map(p => ({
 			id: p?.id || null,
 			name: p?.name || "Unknown",
 			description: p?.description || "",
