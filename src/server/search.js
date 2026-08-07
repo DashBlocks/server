@@ -8,6 +8,9 @@ const SORT_METHODS = {
 		new Date(p2.uploadedAt || 0).getTime() -
 			new Date(p1.uploadedAt || 0).getTime()
 	),
+	"a-upload": function(p1, p2) {
+		return this["d-upload"](p1, p2) * -1;
+	},
 	"d-views": (p1, p2) => (p2.stats?.views || 0) - (p1.stats?.views || 0),
 	"d-fires": (p1, p2) => (p2.stats?.fires || 0) - (p1.stats?.fires || 0)
 };
