@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import path from "path";
 
-import app, { upload } from "../app.js";
+import app, { upload, imageUpload } from "../app.js";
 import * as vars from "./vars.js";
 import {
 	validateId,
@@ -13,6 +13,7 @@ import {
 	escapeHTML,
 	sendEventMessage
 } from "./helpers.js";
+import { formatThumbnailImage } from "./image-processing.js";
 import * as storage from "./storage.js";
 
 const views = new Map();
@@ -454,7 +455,9 @@ app.post(
 	verifyAuth,
 	securityCheck,
 	validateId,
-	upload.single("thumbnail"),
+	uploadLimiter,
+	uploadTimeout,
+	imageUpload.single("thumbnail"),
 	async (req, res) => {
 		const projectId = req.params.id;
 		if (!req.file)
@@ -495,8 +498,12 @@ app.post(
 		const thumbnailId = project.id;
 
 		try {
-			await storage.saveThumbnailFile(thumbnailId, req.file.buffer);
-		} catch (_) {
+			const formatted = await formatThumbnailImage(req.file.buffer);
+			await storage.saveThumbnailFile(thumbnailId, formatted);
+		} catch (error) {
+			if (error?.message === "Invalid image file" || error?.message === "Format not supported") {
+				return res.status(400).json({ ok: false, error: error.message });
+			}
 			return res.status(500).json({ ok: false, error: "Upload failed" });
 		}
 

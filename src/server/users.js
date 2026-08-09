@@ -1,9 +1,19 @@
 import path from "path";
 import jwt from "jsonwebtoken";
 
-import app, { upload } from "../app.js";
+import app, { imageUpload } from "../app.js";
 import * as vars from "./vars.js";
-import { generateUserObject, getUserIndexData, securityCheck, verifyAuth, escapeHTML, sendEventMessage } from "./helpers.js";
+import {
+	generateUserObject,
+	getUserIndexData,
+	securityCheck,
+	verifyAuth,
+	uploadLimiter,
+	uploadTimeout,
+	escapeHTML,
+	sendEventMessage
+} from "./helpers.js";
+import { formatAvatarImage } from "./image-processing.js";
 import * as storage from "./storage.js";
 
 app.get("/users/:target", securityCheck, async (req, res) => {
@@ -235,7 +245,9 @@ app.post(
 	"/users/upload-avatar",
 	verifyAuth,
 	securityCheck,
-	upload.single("avatar"),
+	uploadLimiter,
+	uploadTimeout,
+	imageUpload.single("avatar"),
 	async (req, res) => {
 		if (!req.file)
 			return res.status(400).json({ ok: false, error: "No image provided" });
@@ -243,13 +255,14 @@ app.post(
 		try {
 			const index = req.usersIndex;
 			const user = index.users[req.user.username.toLowerCase()];
-			const avatarId = user.id; 
-            
-			await storage.saveAvatarFile(avatarId, req.file.buffer);
+			const avatarId = user.id;
+			const formatted = await formatAvatarImage(req.file.buffer);
+
+			await storage.saveAvatarFile(avatarId, formatted);
 
 			user.avatarId = avatarId;
 			user.lastActive = new Date().toISOString();
-            
+
 			await storage.updateIndex(index);
 
 			res.json({ ok: true, avatarId });
@@ -258,7 +271,10 @@ app.post(
 				`user: <b>${user.username}</b> (id ${user.id})`,
 				`avatar: <b>${avatarId}</b>`
 			]);
-		} catch (_) {
+		} catch (error) {
+			if (error?.message === "Invalid image file" || error?.message === "Format not supported") {
+				return res.status(400).json({ ok: false, error: error.message });
+			}
 			res.status(500).json({ ok: false, error: "Upload failed" });
 		}
 	}

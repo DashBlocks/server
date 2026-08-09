@@ -8,6 +8,16 @@ import * as vars from "./server/vars.js";
 
 const app = express();
 const upload = multer();
+const imageUpload = multer({
+	limits: { fileSize: 5 * 1024 * 1024 },
+	fileFilter: (req, file, cb) => {
+		if (file.mimetype && file.mimetype.startsWith("image/")) {
+			cb(null, true);
+		} else {
+			cb(new Error("Format not supported"));
+		}
+	}
+});
 const resend = new Resend(vars.RESEND_API_KEY);
 
 app.use(
@@ -25,5 +35,6 @@ app.set("trust proxy", 1);
 export {
 	app as default,
 	upload,
+	imageUpload,
 	resend
 };

@@ -25,7 +25,8 @@
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
     "multer": "^2.0.2",
-    "resend": "^6.16.0"
+    "resend": "^6.16.0",
+    "sharp": "^0.33.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0"

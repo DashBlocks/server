@@ -90,7 +90,7 @@ app.get("/search/projects", securityCheck, async (req, res) => {
 				}
 			})
 			.toLowerCase();
-		if (!sortMethod) sortMethod = "d-upload"
+		if (!sortMethod) sortMethod = "d-upload";
 		searchParams.sort(([paramName1], [paramName2]) =>
 			SEARCH_PARAMS_DEFS[paramName1].priority - SEARCH_PARAMS_DEFS[paramName2].priority);
 		const priorGetterParam = searchParams.find(([paramName]) => SEARCH_PARAMS_DEFS[paramName].get);
