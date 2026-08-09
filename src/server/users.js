@@ -9,7 +9,7 @@ import {
 	securityCheck,
 	verifyAuth,
 	uploadLimiter,
-	uploadTimeout,
+	avatarUploadTimeout,
 	escapeHTML,
 	sendEventMessage
 } from "./helpers.js";
@@ -246,7 +246,7 @@ app.post(
 	verifyAuth,
 	securityCheck,
 	uploadLimiter,
-	uploadTimeout,
+	avatarUploadTimeout,
 	imageUpload.single("avatar"),
 	async (req, res) => {
 		if (!req.file)

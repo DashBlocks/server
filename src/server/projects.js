@@ -9,7 +9,8 @@ import {
 	securityCheck,
 	verifyAuth,
 	uploadLimiter,
-	uploadTimeout,
+	projectUploadTimeout,
+	thumbnailUploadTimeout,
 	escapeHTML,
 	sendEventMessage
 } from "./helpers.js";
@@ -31,7 +32,7 @@ app.post(
 	verifyAuth,
 	securityCheck,
 	uploadLimiter,
-	uploadTimeout,
+	projectUploadTimeout,
 	upload.single("file"),
 	async (req, res) => {
 		// Save project
@@ -289,7 +290,7 @@ app.put(
 	verifyAuth,
 	securityCheck,
 	uploadLimiter,
-	uploadTimeout,
+	projectUploadTimeout,
 	validateId,
 	upload.single("file"),
 	async (req, res) => {
@@ -456,7 +457,7 @@ app.post(
 	securityCheck,
 	validateId,
 	uploadLimiter,
-	uploadTimeout,
+	thumbnailUploadTimeout,
 	imageUpload.single("thumbnail"),
 	async (req, res) => {
 		const projectId = req.params.id;

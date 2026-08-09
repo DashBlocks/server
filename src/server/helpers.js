@@ -222,7 +222,19 @@ const uploadLimiter = rateLimit({
 	message: { ok: false, error: "Upload limit reached, try again later" }
 });
 
-const uploadTimeout = rateLimit({
+const projectUploadTimeout = rateLimit({
+	windowMs: 15 * 1000,
+	max: 1,
+	message: { ok: false, error: "Upload timeout, retry in a short moment" }
+});
+
+const thumbnailUploadTimeout = rateLimit({
+	windowMs: 15 * 1000,
+	max: 1,
+	message: { ok: false, error: "Upload timeout, retry in a short moment" }
+});
+
+const avatarUploadTimeout = rateLimit({
 	windowMs: 15 * 1000,
 	max: 1,
 	message: { ok: false, error: "Upload timeout, retry in a short moment" }
@@ -244,5 +256,7 @@ export {
 	authLimiter,
 	registerLimiter,
 	uploadLimiter,
-	uploadTimeout
+	projectUploadTimeout,
+	thumbnailUploadTimeout,
+	avatarUploadTimeout
 };
