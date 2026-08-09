@@ -223,7 +223,7 @@ const uploadLimiter = rateLimit({
 });
 
 const uploadTimeout = rateLimit({
-	windowMs: 30 * 1000,
+	windowMs: 15 * 1000,
 	max: 1,
 	message: { ok: false, error: "Upload timeout, retry in a short moment" }
 });
