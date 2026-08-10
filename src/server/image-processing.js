@@ -1,6 +1,6 @@
 import sharp from "sharp";
 
-const AVATAR_SIZE = 64;
+const AVATAR_SIZE = 80;
 const THUMBNAIL_WIDTH = 480;
 const THUMBNAIL_HEIGHT = 360;
 const MAX_INPUT_PIXELS = 50_000_000;
@@ -52,7 +52,7 @@ const createProcessedBuffer = async (buffer, width, height) => {
 				fastShrinkOnLoad: true
 			})
 			.png({
-				compressionLevel: 6,
+				compressionLevel: 5,
 				adaptiveFiltering: true
 			})
 			.toBuffer(),
