@@ -1,5 +1,5 @@
 import app from "../app.js";
-import { securityCheck } from "./helpers.js";
+import { securityCheck, searchLimiter, searchTimeout } from "./helpers.js";
 
 // "d-*" - descending sort methods
 // "a-*" - ascending sort methods
@@ -60,7 +60,7 @@ const SEARCH_PARAMS_DEFS = {
 	}
 };
 
-app.get("/search/projects", securityCheck, async (req, res) => {
+app.get("/search/projects", searchLimiter, searchTimeout, securityCheck, async (req, res) => {
 	try {
 		const { q } = req.query;
 		let limit = parseInt(req.query.limit, 10);
