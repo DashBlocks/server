@@ -222,6 +222,12 @@ const uploadLimiter = rateLimit({
 	message: { ok: false, error: "Upload limit reached, try again later" }
 });
 
+const searchLimiter = rateLimit({
+	windowMs: 15 * 60 * 1000,
+	max: 25,
+	message: { ok: false, error: "Search limit reached, try again in 15 minutes" }
+});
+
 const projectUploadTimeout = rateLimit({
 	windowMs: 15 * 1000,
 	max: 1,
@@ -236,6 +242,12 @@ const thumbnailUploadTimeout = rateLimit({
 
 const avatarUploadTimeout = rateLimit({
 	windowMs: 15 * 1000,
+	max: 1,
+	message: { ok: false, error: "Upload timeout, retry in a short moment" }
+});
+
+const searchTimeout = rateLimit({
+	windowMs: 5 * 1000,
 	max: 1,
 	message: { ok: false, error: "Upload timeout, retry in a short moment" }
 });
@@ -256,7 +268,9 @@ export {
 	authLimiter,
 	registerLimiter,
 	uploadLimiter,
+	searchLimiter,
 	projectUploadTimeout,
 	thumbnailUploadTimeout,
-	avatarUploadTimeout
+	avatarUploadTimeout,
+	searchTimeout
 };
