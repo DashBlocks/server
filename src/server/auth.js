@@ -200,7 +200,7 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 			}
 		});
 		sendEventMessage([
-			"<b>NEW ACCOUNT</b>",
+			"<b>#NEW_ACCOUNT</b>",
 			`user: <b>${username}</b> (id ${userId})`
 		]);
 	} catch (error) {
@@ -372,7 +372,7 @@ app.post("/auth/change-password", verifyAuth, securityCheck, authLimiter, async 
 
 		res.json({ ok: true, message: "Password changed. Log in now" });
 		sendEventMessage([
-			"<b>PASSWORD CHANGED</b>",
+			"<b>#PASSWORD_CHANGED</b>",
 			`user: <b>${req.user.username}</b> (id ${req.user.userId})`
 		]);
 	} catch (error) {
@@ -414,7 +414,7 @@ app.post("/auth/delete-account", verifyAuth, securityCheck, authLimiter, async (
 
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
 		sendEventMessage([
-			"<b>ACCOUNT DELETED</b>",
+			"<b>#ACCOUNT_DELETED</b>",
 			`user: <b>${userIndexData.username}</b> (id ${userIndexData.id})`
 		]);
 	} catch (error) {

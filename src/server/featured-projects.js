@@ -73,7 +73,7 @@ app.post(
 		}));
 		res.json({ ok: true, projects });
 		sendEventMessage([
-			"<b>FEATURED PROJECT</b>",
+			"<b>#FEATURED_PROJECT</b>",
 			`admin: <b>${req.user.username}</b> (id ${req.user.userId})`,
 			`project: <b>${escapeHTML(projectData.name)}</b> (id ${projectData.id})`,
 			`author: <b>${index.users[authorUsername].username}</b> (id ${index.users[authorUsername].id})`
@@ -133,7 +133,7 @@ app.delete(
 		}));
 		res.json({ ok: true, projects });
 		sendEventMessage([
-			"<b>UNFEATURED PROJECT</b>",
+			"<b>#UNFEATURED_PROJECT</b>",
 			`admin: <b>${req.user.username}</b> (id ${req.user.userId})`,
 			`project: <b>${escapeHTML(featuredProject.name)}</b> (id ${featuredProject.id})`,
 			`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`

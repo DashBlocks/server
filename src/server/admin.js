@@ -60,7 +60,7 @@ app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
 		await storage.updateIndex(index);
 		res.json({ ok: true });
 		sendEventMessage([
-			"<b>ADMIN ACTION</b>",
+			"<b>#ADMIN #ADMIN_ACTION</b>",
 			`admin: <b>${req.user.username}</b> (id ${req.user.userId})`,
 			`action: <b>${action}</b>`,
 			`target: <b>${target.username}</b> (id ${target.id})`
@@ -113,7 +113,7 @@ app.post("/admin/delete-account", verifyAuth, securityCheck, async (req, res) =>
 		await storage.updateIndex(index);
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
 		sendEventMessage([
-			"<b>ADMIN DELETED ACCOUNT</b>",
+			"<b>#ADMIN #ACCOUNT_DELETED</b>",
 			`admin: <b>${req.user.username}</b> (id ${req.user.userId})`,
 			`target: <b>${username}</b> (id ${userIndexData.id})`
 		]);

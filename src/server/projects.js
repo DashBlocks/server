@@ -134,7 +134,7 @@ app.post(
 
 		res.json({ ok: true, projectId });
 		sendEventMessage([
-			"<b>PROJECT CREATED</b>",
+			"<b>#PROJECT_CREATED</b>",
 			`project: <b>${escapeHTML(name)}</b> (id ${projectId})`,
 			`author: <b>${user.username}</b> (id ${user.id})`
 		]);
@@ -268,16 +268,16 @@ app.patch(
 				description: project.description
 			}
 		});
-		if (isDashTeam) {
+		if (isDashTeam && userProfile.id !== authorProfile.id) {
 			sendEventMessage([
-				"<b>ADMIN EDITED PROJECT METADATA</b>",
+				"<b>#ADMIN #PROJECT_METADATA_EDITED</b>",
 				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`,
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
 		} else {
 			sendEventMessage([
-				"<b>PROJECT METADATA EDITED</b>",
+				"<b>#PROJECT_METADATA_EDITED</b>",
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
@@ -356,16 +356,16 @@ app.put(
 		await storage.updateIndex(index);
  
 		res.json({ ok: true });
-		if (isDashTeam) {
+		if (isDashTeam && userProfile.id !== authorProfile.id) {
 			sendEventMessage([
-				"<b>ADMIN EDITED PROJECT</b>",
+				"<b>#ADMIN #PROJECT_EDITED</b>",
 				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`,
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
 		} else {
 			sendEventMessage([
-				"<b>PROJECT EDITED</b>",
+				"<b>#PROJECT_EDITED</b>",
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
@@ -434,16 +434,16 @@ app.delete(
 		}
 
 		res.json({ ok: true, projects: authorProfile?.projects || [] });
-		if (isDashTeam) {
+		if (isDashTeam && userProfile.id !== authorProfile.id) {
 			sendEventMessage([
-				"<b>ADMIN DELETED PROJECT</b>",
+				"<b>#ADMIN #PROJECT_DELETED</b>",
 				`admin: <b>${userProfile.username}</b> (id ${userProfile.id})`,
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
 		} else {
 			sendEventMessage([
-				"<b>PROJECT DELETED</b>",
+				"<b>#PROJECT_DELETED</b>",
 				`project: <b>${escapeHTML(project.name)}</b> (id ${projectId})`,
 				`author: <b>${authorProfile.username}</b> (id ${authorProfile.id})`
 			]);
