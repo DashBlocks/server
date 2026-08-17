@@ -23,7 +23,7 @@ const resend = new Resend(vars.RESEND_API_KEY);
 app.use(
 	express.json({ limit: "2mb" }),
 	cors({
-		origin: ["https://dashblocks.org", "http://localhost:3000"],
+		origin: ["https://dashblocks.org", "https://www.dashblocks.org", "http://localhost:3000"],
 		credentials: true
 	}),
 	cookieParser()
