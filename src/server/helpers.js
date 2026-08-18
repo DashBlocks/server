@@ -223,9 +223,9 @@ const uploadLimiter = rateLimit({
 });
 
 const searchLimiter = rateLimit({
-	windowMs: 15 * 60 * 1000,
+	windowMs: 10 * 60 * 1000,
 	max: 25,
-	message: { ok: false, error: "Search limit reached, try again in 15 minutes" }
+	message: { ok: false, error: "Search limit reached, try again in 10 minutes" }
 });
 
 const projectUploadTimeout = rateLimit({
