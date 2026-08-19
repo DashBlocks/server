@@ -166,7 +166,7 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 			id: user.id
 		});
 
-		if ([1, 25, 50, 100].includes(targetIndexData.followers.length)) {
+		if ([1, 25, 50, 100, 250, 500, 1000, 5000, 10000].includes(targetIndexData.followers.length)) {
 			targetIndexData.achievements = targetIndexData.achievements || [];
 			targetIndexData.achievements.push({
 				type: "reached-followers-count",
