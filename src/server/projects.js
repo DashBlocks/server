@@ -81,13 +81,14 @@ app.post(
 		index.nextProjectId++;
 
 		if (!user.achievements) user.achievements = [];
-		if (user.projects.length === 1)
+		if ([1, 25, 50, 100, 250, 500, 1000, 1500, 10000].includes(user.projects.length))
 			user.achievements.push({
-				type: "first-project",
+				type: "reached-projects-count",
 				project: {
 					id: projectId,
 					name: name || "Untitled"
 				},
+				count: user.projects.length,
 				date: new Date().toISOString()
 			});
 
