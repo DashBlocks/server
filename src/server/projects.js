@@ -81,7 +81,7 @@ app.post(
 		index.nextProjectId++;
 
 		if (!user.achievements) user.achievements = [];
-		if ([1, 25, 50, 100, 250, 500, 1000, 1500, 10000].includes(user.projects.length))
+		if ([1, 25, 50, 100, 250, 500, 1000, 5000, 10000].includes(user.projects.length))
 			user.achievements.push({
 				type: "reached-projects-count",
 				project: {
