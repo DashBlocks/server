@@ -129,7 +129,8 @@ app.get("/search/projects", searchLimiter, searchTimeout, securityCheck, async (
 							thumbnailId: project.id || 1,
 							stats: {
 								views: project.stats?.views || 0,
-								fires: project.stats?.fires || 0
+								fires: project.stats?.fires || 0,
+								forks: project.stats?.forks || 0
 							},
 							author: {
 								id: userProfile.id || null,
@@ -182,7 +183,8 @@ app.get("/search/projects", searchLimiter, searchTimeout, securityCheck, async (
 							thumbnailId: project.id || 1,
 							stats: {
 								views: project.stats?.views || 0,
-								fires: project.stats?.fires || 0
+								fires: project.stats?.fires || 0,
+								forks: project.stats?.forks || 0
 							},
 							author: {
 								id: userProfile.id || null,

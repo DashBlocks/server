@@ -1,6 +1,34 @@
 import app from "../app.js";
 import { validateId, securityCheck, verifyAuth, escapeHTML, sendEventMessage } from "./helpers.js";
-import { updateIndex } from "./storage.js";
+import * as storage from "./storage.js";
+
+function formatFeaturedProjects(index, featuredProjects = index.featuredProjects || []) {
+	return featuredProjects.flatMap((featuredProject) => {
+		const project = storage.findProjectById(index, featuredProject.id);
+		if (!project) return [];
+
+		const author = Object.values(index.users).find((user) =>
+			user.projects?.some((entry) => String(entry.id) === String(project.id))
+		);
+
+		return [{
+			id: project.id || null,
+			name: project.name || "Unknown",
+			author: {
+				id: author?.id || null,
+				username: author?.username || "Unknown",
+				profile: {
+					avatarId: author?.id || 1
+				},
+				joinedAt: author?.joinedAt || null
+			},
+			thumbnailId: project.id || 1,
+			fileSize: project.fileSize || null,
+			uploadedAt: project.uploadedAt || null,
+			featuredAt: featuredProject.featuredAt || null
+		}];
+	});
+}
 
 app.post(
 	"/featured-projects/:id",
@@ -52,25 +80,9 @@ app.post(
 			index.users[authorUsername].unreadMessages = (index.users[authorUsername].unreadMessages || 0) + 1;
 		}
 
-		await updateIndex(index);
+		await storage.updateIndex(index);
 
-		let projects = index.featuredProjects || [];
-		projects = projects.map((p) => ({
-			id: p?.id || null,
-			name: p?.name || "Unknown",
-			author: {
-				id: p.author?.id || null,
-				username: p.author?.username || "Unknown",
-				profile: {
-					avatarId: p.author?.id || 1
-				},
-				joinedAt: p.author?.joinedAt || null
-			},
-			thumbnailId: p?.id || 1,
-			fileSize: p?.fileSize || null,
-			uploadedAt: p?.uploadedAt || null,
-			featuredAt: p?.featuredAt || null
-		}));
+		const projects = formatFeaturedProjects(index);
 		res.json({ ok: true, projects });
 		sendEventMessage([
 			"<b>#FEATURED_PROJECT</b>",
@@ -112,25 +124,9 @@ app.delete(
 			authorProfile.unreadMessages = (authorProfile.unreadMessages || 1) - 1;
 		}
         
-		await updateIndex(index);
+		await storage.updateIndex(index);
 
-		let projects = index.featuredProjects || [];
-		projects = projects.map((p) => ({
-			id: p?.id || null,
-			name: p?.name || "Unknown",
-			author: {
-				id: p.author?.id || null,
-				username: p.author?.username || "Unknown",
-				profile: {
-					avatarId: p.author?.id || 1
-				},
-				joinedAt: p.author?.joinedAt || null
-			},
-			thumbnailId: p?.id || 1,
-			fileSize: p?.fileSize || null,
-			uploadedAt: p?.uploadedAt || null,
-			featuredAt: p?.featuredAt || null
-		}));
+		const projects = formatFeaturedProjects(index);
 		res.json({ ok: true, projects });
 		sendEventMessage([
 			"<b>#UNFEATURED_PROJECT</b>",
@@ -146,25 +142,7 @@ app.get("/featured-projects", securityCheck, (req, res) => {
 	let offset = parseInt(req.query.offset, 10);
 	limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
 	offset = isNaN(offset) ? 0 : Math.max(0, offset);
-	let projects = (req.usersIndex.featuredProjects || []).slice(offset, offset + limit);
-	// Not showing all the data here since it would be
-	// redundant and we can just fetch it when needed,
-	// also prevents stale data
-	projects = projects.map((p) => ({
-		id: p?.id || null,
-		name: p?.name || "Unknown",
-		author: {
-			id: p.author?.id || null,
-			username: p.author?.username || "Unknown",
-			profile: {
-				avatarId: p.author?.id || 1
-			},
-			joinedAt: p.author?.joinedAt || null
-		},
-		thumbnailId: p?.id || 1,
-		fileSize: p?.fileSize || null,
-		uploadedAt: p?.uploadedAt || null,
-		featuredAt: p?.featuredAt || null
-	}));
+	const featuredProjects = (req.usersIndex.featuredProjects || []).slice(offset, offset + limit);
+	const projects = formatFeaturedProjects(req.usersIndex, featuredProjects);
 	res.json({ ok: true, projects });
 });

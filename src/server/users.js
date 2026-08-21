@@ -63,7 +63,8 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 			description: p?.description || "",
 			stats: {
 				views: p?.stats?.views || 0,
-				fires: p?.stats?.fires || 0
+				fires: p?.stats?.fires || 0,
+				forks: p?.stats?.forks || 0
 			},
 			thumbnailId: p?.id || 1
 		}));

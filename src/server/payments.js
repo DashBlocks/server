@@ -12,7 +12,6 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 	const userId = req.user.userId;
 	if (!userId) return res.status(400).json({ ok: false, error: "User ID not found" });
 
-	// We don't store emails in users' accounts, so to idenify user we fake email with user's ID
 	const fakeEmail = `${userId}@dashblocks.org`; 
 
 	const body = {

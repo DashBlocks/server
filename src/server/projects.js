@@ -36,7 +36,7 @@ app.post(
 	upload.single("file"),
 	async (req, res) => {
 		// Save project
-		const { name, description } = req.body;
+		const { name, description, parentId } = req.body;
 		if (typeof name !== "string")
 			return res.status(400).json({ ok: false, error: "Name is required" });
 		if (name.length < 1 || name.length > 100)
@@ -53,6 +53,12 @@ app.post(
 			return res.status(400).json({ ok: false, error: validation.error });
 
 		const index = req.usersIndex;
+		let parentProject = null;
+		if (parentId !== undefined && parentId !== null && parentId !== "") {
+			parentProject = storage.findProjectById(index, parentId);
+			if (!parentProject)
+				return res.status(404).json({ ok: false, error: "Parent project not found" });
+		}
 
 		const projectId = index.nextProjectId;
         
@@ -69,16 +75,34 @@ app.post(
 			id: projectId,
 			name: name || "Untitled",
 			description: description || "",
+			parentId: parentProject?.id || null,
 			thumbnailId: 1,
 			stats: {
 				views: 0,
-				fires: 0
+				fires: 0,
+				forks: 0
 			},
+			forks: [],
 			uploadedAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString()
 		});
 
 		index.nextProjectId++;
+
+		if (parentProject) {
+			parentProject.stats = {
+				views: parentProject.stats?.views || 0,
+				fires: parentProject.stats?.fires || 0,
+				forks: (parentProject.stats?.forks || 0) + 1
+			};
+			parentProject.forks = parentProject.forks || [];
+			parentProject.forks.push({
+				id: projectId,
+				name: name || "Untitled",
+				parentId: parentProject.id,
+				uploadedAt: user.projects.at(-1).uploadedAt
+			});
+		}
 
 		if (!user.achievements) user.achievements = [];
 		if ([1, 25, 50, 100, 250, 500, 1000, 5000, 10000].includes(user.projects.length))
@@ -182,7 +206,8 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 				thumbnailId: Number(req.params.id) || 1,
 				stats: {
 					views: projectInIndex.stats?.views || 0,
-					fires: projectInIndex.stats?.fires || 0
+					fires: projectInIndex.stats?.fires || 0,
+					forks: projectInIndex.stats?.forks || 0
 				},
 				author: {
 					id: authorProfile?.id || null,
@@ -194,12 +219,44 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 				},
 				fileSize: fileSize,
 				uploadedAt: projectInIndex.uploadedAt || null,
-				updatedAt: projectInIndex.updatedAt || null
+				updatedAt: projectInIndex.updatedAt || null,
+				parentId: projectInIndex.parentId || null
 			}
 		});
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to fetch project metadata" });
 	}
+});
+
+app.get("/projects/:id/forks", securityCheck, validateId, (req, res) => {
+	const project = storage.findProjectById(req.usersIndex, req.params.id);
+	if (!project)
+		return res.status(404).json({ ok: false, error: "Project not found" });
+
+	let limit = parseInt(req.query.limit, 10);
+	let offset = parseInt(req.query.offset, 10);
+	limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40);
+	offset = isNaN(offset) ? 0 : Math.max(0, offset);
+
+	const forks = (project.forks || []).slice(offset, offset + limit).flatMap((fork) => {
+		const forkProject = storage.findProjectById(req.usersIndex, fork.id);
+		if (!forkProject) return [];
+
+		return [{
+			id: forkProject.id || null,
+			name: forkProject.name || "Unknown",
+			description: forkProject.description || "",
+			stats: {
+				views: forkProject.stats?.views || 0,
+				fires: forkProject.stats?.fires || 0,
+				forks: forkProject.stats?.forks || 0
+			},
+			thumbnailId: forkProject.id || 1,
+			uploadedAt: forkProject.uploadedAt || null
+		}];
+	});
+
+	res.json({ ok: true, forks });
 });
 
 app.patch(
@@ -406,6 +463,9 @@ app.delete(
 		const project = authorProfile?.projects?.find(
 			(p) => String(p.id) === String(projectId)
 		) || null;
+		const parentProject = project?.parentId
+			? storage.findProjectById(index, project.parentId)
+			: null;
 
 		try {
 			await storage.deleteProjectFile(projectId);
@@ -420,6 +480,16 @@ app.delete(
 			authorProfile.projects = (authorProfile.projects || []).filter(
 				(p) => String(p.id) !== String(projectId)
 			);
+			if (parentProject) {
+				parentProject.stats = {
+					views: parentProject.stats?.views || 0,
+					fires: parentProject.stats?.fires || 0,
+					forks: Math.max(0, (parentProject.stats?.forks || 0) - 1)
+				};
+				parentProject.forks = (parentProject.forks || []).filter(
+					(fork) => String(fork.id) !== String(projectId)
+				);
+			}
 			if (String(authorProfile.recommendedProject?.id) === String(projectId))
 				authorProfile.recommendedProject = {
 					id: null,
