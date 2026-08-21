@@ -192,27 +192,27 @@ app.post(
 				uploadedAt: now
 			});
 
-			parentProject.updatedAt = now;
-
-			parentAuthor.messages = [
-				{
-					type: "project-remixed",
-					project: {
-						id: parentProject.id,
-						name: parentProject.name
+			if (parentAuthor.id !== user.id) {
+				parentAuthor.messages = [
+					{
+						type: "project-remixed",
+						project: {
+							id: parentProject.id,
+							name: parentProject.name
+						},
+						fork: {
+							id: project.id
+						},
+						user: {
+							id: user.id,
+							username: user.username
+						},
+						date: now
 					},
-					fork: {
-						id: project.id
-					},
-					user: {
-						id: user.id,
-						username: user.username
-					},
-					date: now
-				},
-				...(parentAuthor.messages || [])
-			];
-			parentAuthor.unreadMessages = (parentAuthor.unreadMessages || 0) + 1;
+					...(parentAuthor.messages || [])
+				];
+				parentAuthor.unreadMessages = (parentAuthor.unreadMessages || 0) + 1;
+			}
 		}
 
 		if (!user.achievements)
