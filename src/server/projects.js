@@ -195,7 +195,7 @@ app.post(
 			if (parentAuthor.id !== user.id) {
 				parentAuthor.messages = [
 					{
-						type: "project-remixed",
+						type: "project-forked",
 						project: {
 							id: parentProject.id,
 							name: parentProject.name
