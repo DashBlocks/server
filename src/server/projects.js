@@ -37,43 +37,128 @@ app.post(
 	async (req, res) => {
 		// Save project
 		const { name, description, parentId } = req.body;
+
 		if (typeof name !== "string")
 			return res.status(400).json({ ok: false, error: "Name is required" });
-		if (name.length < 1 || name.length > 100)
-			return res.status(400).json({ ok: false, error: "Project name is too short or too long (minimum length 1, maximum length 100)" });
+
+		const projectName = name.trim();
+
+		if (projectName.length < 1 || projectName.length > 100)
+			return res.status(400).json({
+				ok: false,
+				error:
+					"Project name is too short or too long (minimum length 1, maximum length 100)"
+			});
+
+		if (
+			description !== undefined &&
+			description !== null &&
+			typeof description !== "string"
+		)
+			return res.status(400).json({
+				ok: false,
+				error: "Project description must be a string"
+			});
+
 		if (description?.length > 1000)
-			return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
+			return res.status(400).json({
+				ok: false,
+				error:
+					"Project description is too long (maximum length 1000)"
+			});
 
 		const file = req.file;
+
 		if (!file)
-			return res.status(400).json({ ok: false, error: "No file uploaded" });
+			return res.status(400).json({
+				ok: false,
+				error: "No file uploaded"
+			});
 
 		const validation = await validateProjectZip(file, req.userRole);
+
 		if (!validation.ok)
-			return res.status(400).json({ ok: false, error: validation.error });
+			return res.status(400).json({
+				ok: false,
+				error: validation.error
+			});
 
 		const index = req.usersIndex;
-		let parentProject = null;
-		if (parentId !== undefined && parentId !== null && parentId !== "") {
-			parentProject = storage.findProjectById(index, parentId);
-			if (!parentProject)
-				return res.status(404).json({ ok: false, error: "Parent project not found" });
-		}
 
-		const projectId = index.nextProjectId;
-        
-		try {
-			await storage.saveProjectFile(projectId, file.buffer);
-		} catch (_) {
-			return res.status(500).json({ ok: false, error: "Failed to save project file" });
-		}
+		if (!index || !index.users)
+			return res.status(500).json({
+				ok: false,
+				error: "User index is unavailable"
+			});
 
 		const userKey = req.user.username.toLowerCase();
 		const user = index.users[userKey];
 
-		user.projects.push({
+		if (!user)
+			return res.status(500).json({
+				ok: false,
+				error: "User account not found"
+			});
+
+		user.projects = user.projects || [];
+
+		let parentProject = null;
+		let parentAuthor = null;
+
+		if (parentId !== undefined && parentId !== null && parentId !== "") {
+			parentProject = storage.findProjectById(index, parentId);
+
+			if (!parentProject)
+				return res.status(404).json({
+					ok: false,
+					error: "Parent project not found"
+				});
+
+			for (const author of Object.values(index.users)) {
+				const project = (author.projects || []).find(
+					(entry) =>
+						String(entry.id) === String(parentProject.id)
+				);
+
+				if (project) {
+					parentAuthor = author;
+					break;
+				}
+			}
+
+			if (!parentAuthor)
+				return res.status(500).json({
+					ok: false,
+					error: "Parent project owner not found"
+				});
+		}
+
+		const projectId = index.nextProjectId;
+
+		if (
+			typeof projectId !== "number" ||
+			!Number.isSafeInteger(projectId) ||
+			projectId < 1
+		)
+			return res.status(500).json({
+				ok: false,
+				error: "Invalid project ID"
+			});
+
+		try {
+			await storage.saveProjectFile(projectId, file.buffer);
+		} catch (_) {
+			return res.status(500).json({
+				ok: false,
+				error: "Failed to save project file"
+			});
+		}
+
+		const now = new Date().toISOString();
+
+		const project = {
 			id: projectId,
-			name: name || "Untitled",
+			name: projectName,
 			description: description || "",
 			parentId: parentProject?.id || null,
 			thumbnailId: 1,
@@ -83,9 +168,11 @@ app.post(
 				forks: 0
 			},
 			forks: [],
-			uploadedAt: new Date().toISOString(),
-			updatedAt: new Date().toISOString()
-		});
+			uploadedAt: now,
+			updatedAt: now
+		};
+
+		user.projects.push(project);
 
 		index.nextProjectId++;
 
@@ -95,44 +182,89 @@ app.post(
 				fires: parentProject.stats?.fires || 0,
 				forks: (parentProject.stats?.forks || 0) + 1
 			};
+
 			parentProject.forks = parentProject.forks || [];
+
 			parentProject.forks.push({
 				id: projectId,
-				name: name || "Untitled",
+				name: projectName,
 				parentId: parentProject.id,
-				uploadedAt: user.projects.at(-1).uploadedAt
+				uploadedAt: now
 			});
+
+			parentProject.updatedAt = now;
+
+			parentAuthor.messages = [
+				{
+					type: "project-remixed",
+					project: {
+						id: parentProject.id,
+						name: parentProject.name
+					},
+					fork: {
+						id: project.id
+					},
+					user: {
+						id: user.id,
+						username: user.username
+					},
+					date: now
+				},
+				...(parentAuthor.messages || [])
+			];
+			parentAuthor.unreadMessages = (parentAuthor.unreadMessages || 0) + 1;
 		}
 
-		if (!user.achievements) user.achievements = [];
-		if ([1, 25, 50, 100, 250, 500, 1000, 5000, 10000].includes(user.projects.length))
+		if (!user.achievements)
+			user.achievements = [];
+
+		if (
+			[1, 25, 50, 100, 250, 500, 1000, 5000, 10000].includes(
+				user.projects.length
+			) &&
+			!user.achievements.some(
+				(achievement) =>
+					achievement.type === "reached-projects-count" &&
+					achievement.count === user.projects.length
+			)
+		) {
 			user.achievements.push({
 				type: "reached-projects-count",
 				project: {
 					id: projectId,
-					name: name || "Untitled"
+					name: projectName
 				},
 				count: user.projects.length,
-				date: new Date().toISOString()
+				date: now
 			});
+		}
 
-		const accountAgeMs = Date.now() - new Date(user.joinedAt).getTime();
+		const accountAgeMs =
+			Date.now() - new Date(user.joinedAt).getTime();
+
 		const hasEnoughProjects = user.projects.length >= 3;
-		const isOldEnough = accountAgeMs >= 14 * 24 * 60 * 60 * 1000;
-		const isActive =
-			new Date(user.lastActive).getTime() >
-			Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-		user.lastActive = new Date().toISOString();
+		const isOldEnough =
+			Number.isFinite(accountAgeMs) &&
+			accountAgeMs >= 14 * 24 * 60 * 60 * 1000;
+
+		const isActive =
+			typeof user.lastActive === "string" &&
+			new Date(user.lastActive).getTime() >
+				Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+		user.lastActive = now;
+
 		user.actions = user.actions || [];
+
 		user.actions = [
 			{
 				type: "shared-project",
 				project: {
 					id: projectId,
-					name: name || "Untitled"
+					name: projectName
 				},
-				date: new Date().toISOString()
+				date: now
 			},
 			...user.actions
 		];
@@ -144,25 +276,47 @@ app.post(
 			isActive
 		) {
 			user.role = "dasher+";
+
 			user.messages = [
 				{
 					type: "promoted",
 					role: "dasher+",
-					date: new Date().toISOString()
+					date: now
 				},
 				...(user.messages || [])
 			];
-			user.unreadMessages = (user.unreadMessages || 0) + 1;
+
+			user.unreadMessages =
+				(user.unreadMessages || 0) + 1;
 		}
 
-		await storage.updateIndex(index);
+		try {
+			await storage.updateIndex(index);
+		} catch (_) {
+			return res.status(500).json({
+				ok: false,
+				error: "Failed to save project"
+			});
+		}
+
+		const eventMessage = [
+			parentProject
+				? "<b>#REMIX #PROJECT_CREATED</b>"
+				: "<b>#PROJECT_CREATED</b>",
+			`project: <b>${escapeHTML(projectName)}</b> (id ${projectId})`,
+			`author: <b>${escapeHTML(user.username)}</b> (id ${user.id})`
+		];
+
+		if (parentProject) {
+			eventMessage.push(
+				`parent project: <b>${escapeHTML(parentProject.name)}</b> (id ${parentProject.id})`,
+				`parent author: <b>${escapeHTML(parentAuthor.username)}</b> (id ${parentAuthor.id})`
+			);
+		}
 
 		res.json({ ok: true, projectId });
-		sendEventMessage([
-			"<b>#PROJECT_CREATED</b>",
-			`project: <b>${escapeHTML(name)}</b> (id ${projectId})`,
-			`author: <b>${user.username}</b> (id ${user.id})`
-		]);
+
+		sendEventMessage(eventMessage);
 	}
 );
 
