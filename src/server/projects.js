@@ -301,7 +301,7 @@ app.post(
 
 		const eventMessage = [
 			parentProject
-				? "<b>#REMIX #PROJECT_CREATED</b>"
+				? "<b>#FORK #PROJECT_CREATED</b>"
 				: "<b>#PROJECT_CREATED</b>",
 			`project: <b>${escapeHTML(projectName)}</b> (id ${projectId})`,
 			`author: <b>${escapeHTML(user.username)}</b> (id ${user.id})`
