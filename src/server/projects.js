@@ -84,13 +84,6 @@ app.post(
 			});
 
 		const index = req.usersIndex;
-
-		if (!index || !index.users)
-			return res.status(500).json({
-				ok: false,
-				error: "User index is unavailable"
-			});
-
 		const userKey = req.user.username.toLowerCase();
 		const user = index.users[userKey];
 
@@ -185,12 +178,7 @@ app.post(
 
 			parentProject.forks = parentProject.forks || [];
 
-			parentProject.forks.push({
-				id: projectId,
-				name: projectName,
-				parentId: parentProject.id,
-				uploadedAt: now
-			});
+			parentProject.forks.push(projectId);
 
 			if (parentAuthor.id !== user.id) {
 				parentAuthor.messages = [
@@ -383,7 +371,8 @@ app.get("/projects/:id", securityCheck, validateId, async (req, res) => {
 });
 
 app.get("/projects/:id/forks", securityCheck, validateId, (req, res) => {
-	const project = storage.findProjectById(req.usersIndex, req.params.id);
+	const index = req.usersIndex;
+	const project = storage.findProjectById(index, req.params.id);
 	if (!project)
 		return res.status(404).json({ ok: false, error: "Project not found" });
 
@@ -392,18 +381,41 @@ app.get("/projects/:id/forks", securityCheck, validateId, (req, res) => {
 	limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40);
 	offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
-	const forks = (project.forks || []).slice(offset, offset + limit).flatMap((fork) => {
-		const forkProject = storage.findProjectById(req.usersIndex, fork.id);
+	const forks = (project.forks || []).slice(offset, offset + limit).flatMap((id) => {
+		const forkProject = storage.findProjectById(req.usersIndex, id);
 		if (!forkProject) return [];
+		let parentAuthor = null;
+		for (const author of Object.values(index.users)) {
+			const project = (author.projects || []).find(
+				(entry) =>
+					String(entry.id) === String(forkProject.id)
+			);
+
+			if (project) {
+				parentAuthor = author;
+				break;
+			}
+		}
 
 		return [{
 			id: forkProject.id || null,
 			name: forkProject.name || "Unknown",
 			description: forkProject.description || "",
+			thumbnailId: forkProject.id || 1,
 			stats: {
 				views: forkProject.stats?.views || 0,
 				fires: forkProject.stats?.fires || 0,
 				forks: forkProject.stats?.forks || 0
+			},
+			author: {
+				id: parentAuthor?.id || null,
+				username: parentAuthor?.username || "Unknown",
+				role: parentAuthor?.role || "dasher",
+				profile: {
+					avatarId: parentAuthor?.id || 1
+				},
+				joinedAt: parentAuthor?.joinedAt || null,
+				lastActive: parentAuthor?.lastActive || null
 			},
 			thumbnailId: forkProject.id || 1,
 			uploadedAt: forkProject.uploadedAt || null
