@@ -12,7 +12,8 @@ const SORT_METHODS = {
 		return this["d-upload"](p1, p2) * -1;
 	},
 	"d-views": (p1, p2) => (p2.stats?.views || 0) - (p1.stats?.views || 0),
-	"d-fires": (p1, p2) => (p2.stats?.fires || 0) - (p1.stats?.fires || 0)
+	"d-fires": (p1, p2) => (p2.stats?.fires || 0) - (p1.stats?.fires || 0),
+	"d-forks": (p1, p2) => (p2.stats?.forks || 0) - (p1.stats?.forks || 0)
 };
 
 const SEARCH_PARAMS_DEFS = {
@@ -40,12 +41,9 @@ const SEARCH_PARAMS_DEFS = {
 			index.featuredProjects.some((featuredProject) => featuredProject.id === project.id)
 		)
 	},
-	"-featured": {
-		priority: 3,
-		filterFn: (project, _, index) => (
-			!index.featuredProjects ||
-			index.featuredProjects.every((featuredProject) => featuredProject.id !== project.id)
-		)
+	forksof: {
+		priority: 2,
+		filterFn: (project, _, __, paramValue) => project.parentId === Number(paramValue)
 	},
 	"-author": {
 		priority: 3,
@@ -57,6 +55,21 @@ const SEARCH_PARAMS_DEFS = {
 			(userProfile.username || "").toLowerCase() !== paramValue.toLowerCase() &&
 			userProfile.id !== Number(paramValue)
 		)
+	},
+	"-featured": {
+		priority: 3,
+		filterFn: (project, _, index) => (
+			!index.featuredProjects ||
+			index.featuredProjects.every((featuredProject) => featuredProject.id !== project.id)
+		)
+	},
+	"-forksof": {
+		priority: 3,
+		filterFn: (project, _, __, paramValue) => project.parentId !== Number(paramValue)
+	},
+	"-fork": {
+		priority: 3,
+		filterFn: (project, _, __, paramValue) => !!project.parentId
 	}
 };
 
