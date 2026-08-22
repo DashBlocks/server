@@ -69,7 +69,7 @@ const SEARCH_PARAMS_DEFS = {
 	},
 	"-fork": {
 		priority: 3,
-		filterFn: (project) => !!project.parentId
+		filterFn: (project) => !project.parentId
 	}
 };
 
