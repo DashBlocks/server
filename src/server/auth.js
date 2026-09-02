@@ -44,6 +44,9 @@ const clearStoredVerificationCode = (email) => {
 	verificationCodes.delete(email.toLowerCase());
 };
 
+export const shouldRequireCaptcha = ({ verificationCode, storedCode }) =>
+	!verificationCode && !storedCode;
+
 export async function verifyToken(token, ip) {
 	if (!token) return [false, ["missing-input-response"]];
 
@@ -145,14 +148,18 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 		const verificationCode = req.body?.verificationCode;
 		const captchaToken = req.body?.captchaToken;
 		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+		const storedCode = email ? getStoredVerificationCode(email) : null;
+		const requiresCaptcha = shouldRequireCaptcha({ verificationCode, storedCode });
 
-		if (!captchaToken) {
-			return res.status(400).json({ ok: false, error: "Captcha verification required" });
-		}
+		if (requiresCaptcha) {
+			if (!captchaToken) {
+				return res.status(400).json({ ok: false, error: "Captcha verification required" });
+			}
 
-		const [captchaOk, captchaErrors] = await verifyToken(captchaToken, userIp);
-		if (!captchaOk) {
-			return res.status(400).json({ ok: false, error: "Captcha verification failed", errors: captchaErrors });
+			const [captchaOk, captchaErrors] = await verifyToken(captchaToken, userIp);
+			if (!captchaOk) {
+				return res.status(400).json({ ok: false, error: "Captcha verification failed", errors: captchaErrors });
+			}
 		}
 
 		if (!isValidUsername(username))
@@ -189,7 +196,6 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 			});
 		}
 
-		const storedCode = getStoredVerificationCode(email);
 		if (!storedCode || storedCode.code !== verificationCode)
 			return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
 
@@ -269,20 +275,23 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 		const captchaToken = req.body?.captchaToken;
 		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 		const index = await storage.getIndex();
-
-		if (!captchaToken) {
-			return res.status(400).json({ ok: false, error: "Captcha verification required" });
-		}
-
-		const [captchaOk, captchaErrors] = await verifyToken(captchaToken, userIp);
-		if (!captchaOk) {
-			return res.status(400).json({ ok: false, error: "Captcha verification failed", errors: captchaErrors });
-		}
-		
 		const user = getUserIndexData(index, userId);
 		if (!user) throw new Error();
 
 		const storedUser = await storage.readUserJson(user.id);
+		const storedCode = storedUser.email ? getStoredVerificationCode(storedUser.email) : null;
+		const requiresCaptcha = shouldRequireCaptcha({ verificationCode, storedCode });
+
+		if (requiresCaptcha) {
+			if (!captchaToken) {
+				return res.status(400).json({ ok: false, error: "Captcha verification required" });
+			}
+
+			const [captchaOk, captchaErrors] = await verifyToken(captchaToken, userIp);
+			if (!captchaOk) {
+				return res.status(400).json({ ok: false, error: "Captcha verification failed", errors: captchaErrors });
+			}
+		}
 
 		if (await bcrypt.compare(password, storedUser.password)) {
 			if (storedUser.email) {
