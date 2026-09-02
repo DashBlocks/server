@@ -23,7 +23,6 @@ function formatFeaturedProjects(index, featuredProjects = index.featuredProjects
 				joinedAt: author?.joinedAt || null
 			},
 			thumbnailId: project.id || 1,
-			fileSize: project.fileSize || null,
 			uploadedAt: project.uploadedAt || null,
 			featuredAt: featuredProject.featuredAt || null
 		}];
