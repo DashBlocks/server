@@ -46,7 +46,6 @@ const clearStoredVerificationCode = (email) => {
 
 export async function verifyToken(token, ip) {
 	if (!token) return [false, ["missing-input-response"]];
-	if (!vars.HCAPTCHA_SECRET) return [false, ["missing-secret"]];
 
 	const params = new URLSearchParams({
 		secret: vars.HCAPTCHA_SECRET,
