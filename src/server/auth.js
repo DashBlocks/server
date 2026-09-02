@@ -79,14 +79,39 @@ const sendVerificationEmail = async (email, code) => {
 	return data;
 };
 
-const setAuthCookie = (res, token) => {
-	res.cookie("auth_token", token, {
+const setTokenCookies = (res, { accessToken, refreshToken }) => {
+	res.cookie("auth_token", accessToken, {
+		httpOnly: true,
+		secure: true,
+		sameSite: "none",
+		maxAge: 15 * 60 * 1000,
+		path: "/"
+	});
+	res.cookie("refresh_token", refreshToken, {
 		httpOnly: true,
 		secure: true,
 		sameSite: "none",
 		maxAge: 7 * 24 * 60 * 60 * 1000,
-		path: "/"
+		path: "/auth/refresh"
 	});
+};
+
+const createTokenPair = (user) => ({
+	accessToken: jwt.sign(
+		{ userId: user.id, username: user.username, tokenType: "access" },
+		vars.JWT_SECRET,
+		{ expiresIn: "15m" }
+	),
+	refreshToken: jwt.sign(
+		{ userId: user.id, username: user.username, tokenType: "refresh" },
+		vars.JWT_REFRESH_SECRET,
+		{ expiresIn: "7d" }
+	)
+});
+
+const clearTokenCookies = (res) => {
+	res.clearCookie("auth_token", { path: "/" });
+	res.clearCookie("refresh_token", { path: "/auth/refresh" });
 };
 
 app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (req, res) => {
@@ -185,10 +210,7 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 		await storage.updateIndex(index);
 		clearStoredVerificationCode(email);
 
-		const token = jwt.sign({ userId, username }, vars.JWT_SECRET, {
-			expiresIn: "7d"
-		});
-		setAuthCookie(res, token);
+		setTokenCookies(res, createTokenPair({ id: userId, username }));
 
 		res.json({
 			ok: true,
@@ -244,8 +266,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 			user.lastActive = new Date().toISOString();
 			await storage.updateIndex(index);
 
-			const token = jwt.sign({ userId: user.id, username: user.username }, vars.JWT_SECRET, { expiresIn: "7d" });
-			setAuthCookie(res, token);
+			setTokenCookies(res, createTokenPair(user));
 			res.json({
 				ok: true,
 				user: {
@@ -260,6 +281,25 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 		}
 	} catch (_) {
 		res.status(401).json({ ok: false, error: "Invalid target or password" });
+	}
+});
+
+app.post("/auth/refresh", authLimiter, async (req, res) => {
+	try {
+		const token = req.cookies.refresh_token;
+		if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
+
+		const decoded = jwt.verify(token, vars.JWT_REFRESH_SECRET);
+		if (decoded.tokenType !== "refresh") throw new Error("Invalid token type");
+
+		const index = await storage.getIndex();
+		const user = getUserIndexData(index, decoded.userId);
+		if (!user || user.banned) return res.status(401).json({ ok: false, error: "Invalid session" });
+
+		setTokenCookies(res, createTokenPair(user));
+		res.json({ ok: true });
+	} catch (_) {
+		res.status(401).json({ ok: false, error: "Invalid refresh token" });
 	}
 });
 
@@ -336,12 +376,7 @@ app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {
 });
 
 app.get("/auth/logout", verifyAuth, securityCheck, (_, res) => {
-	res.clearCookie("auth_token", {
-		httpOnly: true,
-		secure: true,
-		sameSite: "none",
-		path: "/"
-	});
+	clearTokenCookies(res);
 	return res.json({ ok: true, message: "Logged out" });
 });
 
@@ -363,12 +398,7 @@ app.post("/auth/change-password", verifyAuth, securityCheck, authLimiter, async 
 		storedUser.password = await bcrypt.hash(newPassword, 12);
 		await storage.updateUserJson(userIndexData.id, storedUser);
 
-		res.clearCookie("auth_token", {
-			httpOnly: true,
-			secure: true,
-			sameSite: "none",
-			path: "/"
-		});
+		clearTokenCookies(res);
 
 		res.json({ ok: true, message: "Password changed. Log in now" });
 		sendEventMessage([
@@ -405,12 +435,7 @@ app.post("/auth/delete-account", verifyAuth, securityCheck, authLimiter, async (
 		await storage.updateIndex(index);
 		await storage.deleteUserJson(userIndexData.id);
 
-		res.clearCookie("auth_token", {
-			httpOnly: true,
-			secure: true,
-			sameSite: "none",
-			path: "/"
-		});
+		clearTokenCookies(res);
 
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
 		sendEventMessage([

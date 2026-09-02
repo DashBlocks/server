@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
 const LAVA_API_KEY = process.env.LAVA_API_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -46,6 +47,7 @@ const PLANS_DAYS = {
 
 export {
 	JWT_SECRET,
+	JWT_REFRESH_SECRET,
 
 	LAVA_API_KEY,
 	RESEND_API_KEY,

@@ -31,7 +31,7 @@ app.get("/users/:target", securityCheck, async (req, res) => {
 		try {
 			if (token) {
 				const decoded = jwt.verify(token, vars.JWT_SECRET);
-				user = decoded;
+				if (decoded.tokenType === "access") user = decoded;
 			}
 		} catch (_) {/* ignore */}
 

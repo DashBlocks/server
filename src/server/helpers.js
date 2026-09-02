@@ -167,6 +167,7 @@ const verifyAuth = (req, res, next) => {
 
 	try {
 		const decoded = jwt.verify(token, JWT_SECRET);
+		if (decoded.tokenType !== "access") throw new Error("Invalid token type");
 		req.user = decoded;
 		next();
 	} catch (_) {

@@ -609,6 +609,7 @@ app.post("/projects/:id/view", async (req, res) => {
 	if (token) {
 		try {
 			const decoded = jwt.verify(token, vars.JWT_SECRET);
+			if (decoded.tokenType !== "access") throw new Error("Invalid token type");
 			viewerId = `user_${decoded.userId}`;
 		} catch (_) {
 			viewerId = `ip_${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
