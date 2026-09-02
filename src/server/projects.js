@@ -417,7 +417,6 @@ app.get("/projects/:id/forks", securityCheck, validateId, (req, res) => {
 				joinedAt: parentAuthor?.joinedAt || null,
 				lastActive: parentAuthor?.lastActive || null
 			},
-			thumbnailId: forkProject.id || 1,
 			uploadedAt: forkProject.uploadedAt || null
 		}];
 	});

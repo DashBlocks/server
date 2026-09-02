@@ -44,6 +44,30 @@ const clearStoredVerificationCode = (email) => {
 	verificationCodes.delete(email.toLowerCase());
 };
 
+export async function verifyToken(token, ip) {
+	if (!token) return [false, ["missing-input-response"]];
+	if (!vars.HCAPTCHA_SECRET) return [false, ["missing-secret"]];
+
+	const params = new URLSearchParams({
+		secret: vars.HCAPTCHA_SECRET,
+		response: token,
+		remoteip: ip || "",
+		sitekey: vars.HCAPTCHA_SITEKEY
+	});
+
+	try {
+		const res = await fetch("https://api.hcaptcha.com/siteverify", {
+			method: "POST",
+			headers: { "Content-Type": "application/x-www-form-urlencoded" },
+			body: params
+		});
+		const j = await res.json();
+		return j.success ? [true, []] : [false, j["error-codes"] || []];
+	} catch (error) {
+		return [false, [error?.message || "captcha-verification-failed"]];
+	}
+}
+
 const sendVerificationEmail = async (email, code) => {
 	const { data, error } = await resend.emails.send({
 		from: "DashBlocks Verification <verify@noreply.dashblocks.org>",
@@ -120,6 +144,17 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 		const password = req.body?.password;
 		const email = req.body?.email?.trim();
 		const verificationCode = req.body?.verificationCode;
+		const captchaToken = req.body?.captchaToken;
+		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+
+		if (!captchaToken) {
+			return res.status(400).json({ ok: false, error: "Captcha verification required" });
+		}
+
+		const [captchaOk, captchaErrors] = await verifyToken(captchaToken, userIp);
+		if (!captchaOk) {
+			return res.status(400).json({ ok: false, error: "Captcha verification failed", errors: captchaErrors });
+		}
 
 		if (!isValidUsername(username))
 			return res.status(400).json({
@@ -160,7 +195,6 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 			return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
 
 		const hashedPassword = await bcrypt.hash(password, 12);
-		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 		const userId = index.nextUserId;
 
 		const newUserMetadata = {
@@ -233,7 +267,18 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 	try {
 		const { userId, password, verificationCode } = req.body;
+		const captchaToken = req.body?.captchaToken;
+		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
 		const index = await storage.getIndex();
+
+		if (!captchaToken) {
+			return res.status(400).json({ ok: false, error: "Captcha verification required" });
+		}
+
+		const [captchaOk, captchaErrors] = await verifyToken(captchaToken, userIp);
+		if (!captchaOk) {
+			return res.status(400).json({ ok: false, error: "Captcha verification failed", errors: captchaErrors });
+		}
 		
 		const user = getUserIndexData(index, userId);
 		if (!user) throw new Error();
