@@ -11,8 +11,10 @@ import {
 	getUserIndexData,
 	securityCheck,
 	verifyAuth,
-	authLimiter,
 	registerLimiter,
+	loginLimiter,
+	changePasswordLimiter,
+	deleteAccountLimiter,
 	sendEventMessage
 } from "./helpers.js";
 import * as storage from "./storage.js";
@@ -140,7 +142,7 @@ const clearTokenCookies = (res) => {
 	res.clearCookie("refresh_token", { path: "/auth/refresh" });
 };
 
-app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (req, res) => {
+app.post("/auth/register", registerLimiter, securityCheck, async (req, res) => {
 	try {
 		const username = req.body?.username?.trim();
 		const password = req.body?.password;
@@ -269,7 +271,7 @@ app.post("/auth/register", authLimiter, registerLimiter, securityCheck, async (r
 	}
 });
 
-app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
+app.post("/auth/login", loginLimiter, securityCheck, async (req, res) => {
 	try {
 		const { userId, password, verificationCode } = req.body;
 		const captchaToken = req.body?.captchaToken;
@@ -337,7 +339,7 @@ app.post("/auth/login", authLimiter, securityCheck, async (req, res) => {
 	}
 });
 
-app.post("/auth/refresh", authLimiter, async (req, res) => {
+app.post("/auth/refresh", securityCheck, async (req, res) => {
 	try {
 		const token = req.cookies.refresh_token;
 		if (!token) return res.status(401).json({ ok: false, error: "Unauthorized" });
@@ -433,7 +435,7 @@ app.get("/auth/logout", verifyAuth, securityCheck, (_, res) => {
 	return res.json({ ok: true, message: "Logged out" });
 });
 
-app.post("/auth/change-password", verifyAuth, securityCheck, authLimiter, async (req, res) => {
+app.post("/auth/change-password", verifyAuth, securityCheck, changePasswordLimiter, async (req, res) => {
 	try {
 		const { currentPassword, newPassword } = req.body;
 		if (!currentPassword || !newPassword)
@@ -463,7 +465,7 @@ app.post("/auth/change-password", verifyAuth, securityCheck, authLimiter, async 
 	}
 });
 
-app.post("/auth/delete-account", verifyAuth, securityCheck, authLimiter, async (req, res) => {
+app.post("/auth/delete-account", verifyAuth, securityCheck, deleteAccountLimiter, async (req, res) => {
 	try {
 		const { password } = req.body;
 		const index = await storage.getIndex();
