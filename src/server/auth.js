@@ -354,7 +354,7 @@ app.post("/auth/refresh", securityCheck, async (req, res) => {
 		setTokenCookies(res, createTokenPair(user));
 		res.json({ ok: true });
 	} catch (e) {
-		res.status(401).json(e);
+		res.status(401).json(e.message);
 		return;
 		res.status(401).json({ ok: false, error: "Invalid refresh token" });
 	}
