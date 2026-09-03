@@ -123,10 +123,11 @@ const generateUserObject = (user) => {
 };
 
 const getUserIndexData = (index, target) => {
-	if (/^s?\d+$/.test(target) && !target.startsWith("0") && !target.startsWith("s0")) {
-		return Object.values(index.users).find((u) => String(u.id) === String(target));
+	const normalizedTarget = String(target);
+	if (/^s?\d+$/.test(normalizedTarget) && !normalizedTarget.startsWith("0") && !normalizedTarget.startsWith("s0")) {
+		return Object.values(index.users).find((u) => String(u.id) === normalizedTarget);
 	}
-	return index.users[target.toLowerCase()];
+	return index.users[normalizedTarget.toLowerCase()];
 };
 
 const escapeHTML = (unsafe) => {
