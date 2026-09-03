@@ -205,15 +205,27 @@ const securityCheck = async (req, res, next) => {
 	}
 };
 
-const authLimiter = rateLimit({
+const registerLimiter = rateLimit({
+	windowMs: 24 * 60 * 60 * 1000,
+	max: 20,
+	message: { ok: false, error: "Too many attempts, try again later" }
+});
+
+const loginLimiter = rateLimit({
 	windowMs: 24 * 60 * 60 * 1000,
 	max: 30,
 	message: { ok: false, error: "Too many attempts, try again later" }
 });
 
-const registerLimiter = rateLimit({
+const changePasswordLimiter = rateLimit({
 	windowMs: 24 * 60 * 60 * 1000,
-	max: 20,
+	max: 30,
+	message: { ok: false, error: "Too many attempts, try again later" }
+});
+
+const deleteAccountLimiter = rateLimit({
+	windowMs: 24 * 60 * 60 * 1000,
+	max: 30,
 	message: { ok: false, error: "Too many attempts, try again later" }
 });
 
@@ -266,8 +278,10 @@ export {
 	sendEventMessage,
 	verifyAuth,
 	securityCheck,
-	authLimiter,
 	registerLimiter,
+	loginLimiter,
+	changePasswordLimiter,
+	deleteAccountLimiter,
 	uploadLimiter,
 	searchLimiter,
 	projectUploadTimeout,
