@@ -206,14 +206,14 @@ const securityCheck = async (req, res, next) => {
 };
 
 const authLimiter = rateLimit({
-	windowMs: 60 * 60 * 1000,
-	max: 15,
+	windowMs: 24 * 60 * 60 * 1000,
+	max: 30,
 	message: { ok: false, error: "Too many attempts, try again later" }
 });
 
 const registerLimiter = rateLimit({
 	windowMs: 24 * 60 * 60 * 1000,
-	max: 5,
+	max: 20,
 	message: { ok: false, error: "Too many attempts, try again later" }
 });
 
