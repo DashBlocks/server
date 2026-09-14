@@ -231,9 +231,15 @@ const deleteAccountLimiter = rateLimit({
 });
 
 const uploadLimiter = rateLimit({
-	windowMs: 60 * 60 * 1000,
+	windowMs: 30 * 60 * 1000,
 	max: 10,
 	message: { ok: false, error: "Upload limit reached, try again later" }
+});
+
+const updateLimiter = rateLimit({
+	windowMs: 30 * 60 * 1000,
+	max: 30,
+	message: { ok: false, error: "Update limit reached, try again later" }
 });
 
 const searchLimiter = rateLimit({
@@ -284,6 +290,7 @@ export {
 	changePasswordLimiter,
 	deleteAccountLimiter,
 	uploadLimiter,
+	updateLimiter,
 	searchLimiter,
 	projectUploadTimeout,
 	thumbnailUploadTimeout,
