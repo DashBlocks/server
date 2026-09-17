@@ -34,10 +34,15 @@ const FORBIDDEN_USERNAMES = [
 	"avatars",
 	"set-description",
 	"set-gradient",
+	"set-avatar-frame",
 	"set-recommended-project",
 	"add-link",
 	"update-link",
 	"remove-link"
+];
+
+const AVATAR_FRAMES = [
+	"thorny-core"
 ];
 
 const PLANS_DAYS = {
@@ -67,6 +72,8 @@ export {
 	DATA_PROJECTS_PATH,
 
 	FORBIDDEN_USERNAMES,
+
+	AVATAR_FRAMES,
 
 	PLANS_DAYS
 };

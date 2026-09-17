@@ -74,6 +74,7 @@ const generateUserObject = (user) => {
 		role: "dasher",
 		profile: {
 			avatarId: 1,
+			avatarFrame: null,
 			scratchUsername: null,
 			gradient: null,
 			description: "",
@@ -100,6 +101,7 @@ const generateUserObject = (user) => {
 		role: user.role || "dasher",
 		profile: {
 			avatarId: user.id || 1,
+			avatarFrame: user.avatarFrame || null,
 			scratchUsername: user.scratchUsername || null,
 			gradient: user.gradient || null,
 			description: user.description || "",

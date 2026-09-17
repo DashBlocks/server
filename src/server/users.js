@@ -395,6 +395,38 @@ app.post(
 );
 
 app.post(
+	"/users/set-avatar-frame",
+	verifyAuth,
+	securityCheck,
+	async (req, res) => {
+		if (req.userRole !== "dash-supporter" && req.userRole !== "dashteam")
+			return res.status(403).json({ ok: false, error: "Must have Dash Supporter role" });
+
+		const avatarFrameValue = req.body.avatarFrame;
+		// eslint-disable-next-line
+		let avatarFrame = null;
+
+		if (avatarFrameValue === "" || avatarFrameValue === null || avatarFrameValue === undefined) {
+			avatarFrame = null
+		} else if (!vars.AVATAR_FRAMES.includes(avatarFrameValue)) {
+			return res.status(400).json({ ok: false, error: "Frame not exist" });
+		} else {
+			avatarFrame = avatarFrameValue;
+		}
+
+		const index = req.usersIndex;
+		const user = index.users[req.user.username.toLowerCase()];
+
+		user.avatarFrame = avatarFrame;
+		user.lastActive = new Date().toISOString();
+
+		await storage.updateIndex(index);
+
+		res.json({ ok: true, user: generateUserObject(user) });
+	}
+);
+
+app.post(
 	"/users/set-recommended-project",
 	verifyAuth,
 	securityCheck,
