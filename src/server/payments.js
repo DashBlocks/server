@@ -138,7 +138,7 @@ app.post("/payments/lava", async (req, res) => {
 			"status: <b>purchased</b>",
 			`user: <b>${user.username}</b> (id ${user.id})`,
 			`days: <b>${daysToGive}</b>`,
-			`ends: <b><tg-time unix="${endDate.getTime()}" format="dT"></tg-time></b>`
+			`ends: <b><tg-time unix="${endDate.getTime()}" format="dT">${endDate.toISOString()}</tg-time></b>`
 		]);
 	} catch (error) {
 		sendEventMessage([
