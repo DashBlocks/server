@@ -416,7 +416,8 @@ app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {
 						id: followedData.id,
 						username: followedData.username,
 						profile: {
-							avatarId: followedData.id
+							avatarId: followedData.id,
+							avatarFrame: followedData.avatarFrame
 						}
 					}
 				})));
