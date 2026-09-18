@@ -42,6 +42,7 @@ const FORBIDDEN_USERNAMES = [
 ];
 
 const AVATAR_FRAMES = [
+	"dashy",
 	"thorny-core"
 ];
 
