@@ -376,7 +376,7 @@ app.get("/session", verifyAuth, securityCheck, async (req, res) => {
 app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
 	let limit = parseInt(req.query.limit, 10);
 	let offset = parseInt(req.query.offset, 10);
-	limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
+	limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40);
 	offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
 	const index = await storage.getIndex();
@@ -401,7 +401,7 @@ app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {
 	try {
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
-		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
+		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40);
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
 		const index = await storage.getIndex();
@@ -473,7 +473,7 @@ app.post("/auth/delete-account", verifyAuth, securityCheck, deleteAccountLimiter
 		const index = await storage.getIndex();
 		const usernameLower = req.user.username.toLowerCase();
 		const userIndexData = index.users[usernameLower];
-        
+
 		if (!userIndexData) return res.status(404).json({ ok: false, error: "User not found" });
 
 		const storedUser = await storage.readUserJson(userIndexData.id);

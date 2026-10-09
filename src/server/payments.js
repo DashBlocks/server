@@ -18,7 +18,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 	const userId = req.user.userId;
 	if (!userId) return res.status(400).json({ ok: false, error: "User ID not found" });
 
-	const fakeEmail = `${userId}@dashblocks.org`; 
+	const fakeEmail = `${userId}@dashblocks.org`;
 
 	const body = {
 		offerId,
@@ -69,7 +69,7 @@ app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {
 
 		const data = await response.json();
 		if (data && data.paymentUrl)
-			return res.status(200).json({ ok: true, paymentUrl: data.paymentUrl }); 
+			return res.status(200).json({ ok: true, paymentUrl: data.paymentUrl });
 		else
 			return res.status(400).json({ ok: false, error: "Failed to get payment link" });
 	} catch (_) {
@@ -97,21 +97,21 @@ app.post("/payments/lava", async (req, res) => {
 		const userId = buyerEmail ? Number(buyerEmail.split("@")[0]) : null;
 		if (!userId || isNaN(userId))
 			return res.status(200).json({ ok: false, error: "User ID not found or invalid" });
-		
+
 		const index = await storage.getIndex();
 		const user = getUserIndexData(index, String(userId));
-		
+
 		if (!user || user.role === "dashteam")
 			return res.status(200).json({ ok: false, error: "User not found / User's role is Dash Team" });
 
-		const daysToGive = vars.PLANS_DAYS[paidOfferId] || 30; 
+		const daysToGive = vars.PLANS_DAYS[paidOfferId] || 30;
 		const now = Date.now();
 		let baseTime = now;
 
 		if (user.subscription && user.subscription.status === "active" && user.subscription.endDate) {
 			const currentEndDate = new Date(user.subscription.endDate).getTime();
 			if (currentEndDate > now) {
-				baseTime = currentEndDate; 
+				baseTime = currentEndDate;
 			}
 		}
 

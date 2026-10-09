@@ -37,12 +37,12 @@ const isTrustedUrl = (url) =>
 const validateProjectZip = async (file, userRole) => {
 	if (!file)
 		return { ok: false, error: "No file uploaded" };
- 
+
 	const zip = await JSZip.loadAsync(file.buffer);
 	const projectData = await zip.file("project.json")?.async("string");
 	if (!projectData)
 		return { ok: false, error: "project.json not found" };
- 
+
 	const projectJson = JSON.parse(projectData);
 	const hasCustomExtensions = Object.values(
 		projectJson.extensionURLs || {}
@@ -53,14 +53,14 @@ const validateProjectZip = async (file, userRole) => {
 	);
 	if (hasCustomExtensions && userRole === "dasher")
 		return { ok: false, error: "Custom extensions require Dasher+ role" };
- 
+
 	const maxProjectSize = userRole === "dash-supporter" ? 250 * 1024 * 1024 : 75 * 1024 * 1024;
 	if (file.size > maxProjectSize)
 		return {
 			ok: false,
 			error: `Project size limit is ${userRole === "dash-supporter" ? "250MB" : "75MB - donate Dash to increase it up to 250MB! https://dashblocks.org/donate"}`
 		};
- 
+
 	return { ok: true };
 };
 

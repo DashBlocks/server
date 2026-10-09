@@ -56,9 +56,9 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
-		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
+		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40);
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-        
+
 		const projects = (author.projects?.toReversed() || []).slice(offset, offset + limit).map(p => ({
 			id: p?.id || null,
 			name: p?.name || "Unknown",
@@ -129,9 +129,9 @@ app.get("/users/:target/actions", securityCheck, async (req, res) => {
 
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
-		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
+		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40);
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
-        
+
 		const actions = (indexData.actions || []).slice(offset, offset + limit);
 
 		res.json({ ok: true, actions });
@@ -147,7 +147,7 @@ app.get("/users/:target/followers", securityCheck, async (req, res) => {
 
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
-		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
+		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40);
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
 		const followers = (indexData.followers || [])
@@ -169,7 +169,7 @@ app.get("/users/:target/following", securityCheck, async (req, res) => {
 
 		let limit = parseInt(req.query.limit, 10);
 		let offset = parseInt(req.query.offset, 10);
-		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40); 
+		limit = isNaN(limit) ? 40 : Math.min(Math.max(1, limit), 40);
 		offset = isNaN(offset) ? 0 : Math.max(0, offset);
 
 		const following = (indexData.following || [])
@@ -196,7 +196,7 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
 		const targetIndexData = getUserIndexData(index, target);
-        
+
 		if (!targetIndexData) return res.status(404).json({ ok: false, error: "User not found" });
 
 		if (!user.following) user.following = [];
@@ -248,7 +248,7 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 			...(targetIndexData.messages || [])
 		];
 		targetIndexData.unreadMessages = (targetIndexData.unreadMessages || 0) + 1;
-        
+
 		await storage.updateIndex(index);
 
 		res.json({ ok: true });
@@ -272,7 +272,7 @@ app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) 
 
 		user.following = user.following.filter(u => String(u.id) !== String(targetIndexData.id));
 		targetIndexData.followers = targetIndexData.followers.filter(u => String(u.id) !== String(user.id));
-        
+
 		user.lastActive = new Date().toISOString();
 		if (targetIndexData.messages) {
 			targetIndexData.messages = targetIndexData.messages.filter(
@@ -280,7 +280,7 @@ app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) 
 			);
 			targetIndexData.unreadMessages = (targetIndexData.unreadMessages || 1) - 1;
 		}
-        
+
 		await storage.updateIndex(index);
 
 		res.json({ ok: true });
@@ -360,10 +360,10 @@ app.post(
 		const user = isDashTeam && req.query?.target ? index.users[req.query.target.toLowerCase()] : index.users[req.user.username.toLowerCase()];
 		if (!user)
 			return res.status(404).json({ ok: false, error: "User not found" });
-        
+
 		user.description = description;
 		user.lastActive = new Date().toISOString();
-        
+
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
@@ -484,17 +484,17 @@ app.post(
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
 		const projectMeta = user.projects.find(p => String(p.id) === String(projectId));
-        
+
 		if (!projectMeta)
 			return res.status(404).json({ ok: false, error: "Project not found in your profile" });
-            
+
 		user.recommendedProject = {
 			id: projectId,
 			name: projectMeta.name,
 			thumbnailId: projectId
 		};
 		user.lastActive = new Date().toISOString();
-        
+
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
@@ -508,7 +508,7 @@ app.post(
 	async (req, res) => {
 		if (req.userRole === "dasher")
 			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
-            
+
 		const { label, link } = req.body;
 		if (!link) return res.status(400).json({ ok: false, error: "No link provided" });
 		if (link.length > 200) return res.status(400).json({ ok: false, error: "Link max length is 200" });
@@ -517,13 +517,13 @@ app.post(
 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-        
+
 		if (!user.links) user.links = [];
 		if (user.links.length === 5) return res.status(400).json({ ok: false, error: "Max links count is 5" });
-        
+
 		user.links.push({ label: label || "Link", link });
 		user.lastActive = new Date().toISOString();
-        
+
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
@@ -542,11 +542,11 @@ app.post(
 	async (req, res) => {
 		if (req.userRole === "dasher")
 			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
-            
+
 		const { linkIndex, label, link } = req.body;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-        
+
 		if ((!linkIndex && linkIndex !== 0) || !link)
 			return res.status(400).json({ ok: false, error: "No link provided" });
 		if (link.length > 200) return res.status(400).json({ ok: false, error: "Link max length is 200" });
@@ -555,10 +555,10 @@ app.post(
 
 		if (!user.links || !user.links[linkIndex])
 			return res.status(400).json({ ok: false, error: "Link not found" });
-            
+
 		user.links[linkIndex] = { label: label || "Link", link };
 		user.lastActive = new Date().toISOString();
-        
+
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
@@ -578,19 +578,19 @@ app.post(
 	async (req, res) => {
 		if (req.userRole === "dasher")
 			return res.status(403).json({ ok: false, error: "Must have Dasher+ role" });
-            
+
 		const linkIndex = req.body.linkIndex;
 		if (!linkIndex && linkIndex !== 0) return res.status(400).json({ ok: false, error: "No link provided" });
 
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-        
+
 		if (!user.links || !user.links[linkIndex])
 			return res.status(400).json({ ok: false, error: "Link not found" });
-            
+
 		user.links.splice(linkIndex, 1);
 		user.lastActive = new Date().toISOString();
-        
+
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });

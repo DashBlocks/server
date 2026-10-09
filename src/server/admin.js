@@ -93,7 +93,7 @@ app.post("/admin/delete-account", verifyAuth, securityCheck, async (req, res) =>
 	const index = req.usersIndex;
 	const userKey = username.toLowerCase();
 	const userIndexData = index.users[userKey];
-    
+
 	if (!userIndexData)
 		return res.status(404).json({ ok: false, error: "User not found" });
 
@@ -117,7 +117,7 @@ app.post("/admin/delete-account", verifyAuth, securityCheck, async (req, res) =>
 	}
 
 	delete index.users[userKey];
-    
+
 	try {
 		await storage.updateIndex(index);
 		res.status(200).json({ ok: true, message: "Goodbye :(" });

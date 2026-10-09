@@ -317,7 +317,7 @@ app.get("/get-project/:id", securityCheck, validateId, async (req, res) => {
 		if (!exists) {
 			return res.status(404).json({ ok: false, error: "Project not found" });
 		}
-        
+
 		const fileStream = storage.streamProjectFile(req.params.id);
 		res.setHeader("Content-Type", "application/zip");
 		res.setHeader("Content-Disposition", `attachment; filename="${req.params.id}.dbp.zip"`);
@@ -477,10 +477,10 @@ app.patch(
 	async (req, res) => {
 		const projectId = req.params.id;
 		const { name, description } = req.body;
- 
+
 		if (name === undefined && description === undefined)
 			return res.status(400).json({ ok: false, error: "Nothing to update" });
- 
+
 		if (name !== undefined) {
 			if (typeof name !== "string" || name.trim().length === 0)
 				return res.status(400).json({ ok: false, error: "Project name cannot be empty" });
@@ -493,41 +493,41 @@ app.patch(
 			if (description.length > 1000)
 				return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
 		}
- 
+
 		const index = req.usersIndex;
 		const isDashTeam = req.userRole === "dashteam";
- 
+
 		const authorKey = isDashTeam && req.body?.targetUsername
 			? req.body.targetUsername.toLowerCase()
 			: req.user.username.toLowerCase();
- 
+
 		const userProfile = index.users[req.user.username.toLowerCase()];
 		let authorProfile = index.users[authorKey];
- 
+
 		if (isDashTeam && !req.body?.targetUsername) {
 			authorProfile = Object.values(index.users).find((profile) =>
 				profile.projects?.some((project) => String(project.id) === String(projectId))
 			);
 		}
- 
+
 		const project = authorProfile?.projects?.find(
 			(p) => String(p.id) === String(projectId)
 		);
- 
+
 		if (!isDashTeam && !project) {
 			return res.status(403).json({ ok: false, error: "Project not found in your profile" });
 		}
 		if (!project) {
 			return res.status(404).json({ ok: false, error: "Project not found" });
 		}
- 
+
 		if (name !== undefined) project.name = name.trim();
 		if (description !== undefined) project.description = description;
 		project.updatedAt = new Date().toISOString();
 		userProfile.lastActive = new Date().toISOString();
- 
+
 		await storage.updateIndex(index);
- 
+
 		res.json({
 			ok: true,
 			project: {
@@ -568,7 +568,7 @@ app.put(
 		const projectId = req.params.id;
 		const { name, description } = req.body;
 		const file = req.file;
- 
+
 		if (name !== undefined) {
 			if (typeof name !== "string" || name.trim().length === 0)
 				return res.status(400).json({ ok: false, error: "Project name cannot be empty" });
@@ -581,51 +581,51 @@ app.put(
 			if (description.length > 1000)
 				return res.status(400).json({ ok: false, error: "Project description is too long (maximum length 1000)" });
 		}
- 
+
 		const validation = await validateProjectZip(file, req.userRole);
 		if (!validation.ok)
 			return res.status(400).json({ ok: false, error: validation.error });
- 
+
 		const index = req.usersIndex;
 		const isDashTeam = req.userRole === "dashteam";
- 
+
 		const authorKey = isDashTeam && req.body?.targetUsername
 			? req.body.targetUsername.toLowerCase()
 			: req.user.username.toLowerCase();
- 
+
 		const userProfile = index.users[req.user.username.toLowerCase()];
 		let authorProfile = index.users[authorKey];
- 
+
 		if (isDashTeam && !req.body?.targetUsername) {
 			authorProfile = Object.values(index.users).find((profile) =>
 				profile.projects?.some((project) => String(project.id) === String(projectId))
 			);
 		}
- 
+
 		const project = authorProfile?.projects?.find(
 			(p) => String(p.id) === String(projectId)
 		);
- 
+
 		if (!isDashTeam && !project) {
 			return res.status(403).json({ ok: false, error: "Project not found in your profile" });
 		}
 		if (!project) {
 			return res.status(404).json({ ok: false, error: "Project not found" });
 		}
- 
+
 		try {
 			await storage.saveProjectFile(projectId, file.buffer);
 		} catch (_) {
 			return res.status(500).json({ ok: false, error: "Failed to save project file" });
 		}
- 
+
 		if (name !== undefined) project.name = name.trim();
 		if (description !== undefined) project.description = description;
 		project.updatedAt = new Date().toISOString();
 		userProfile.lastActive = new Date().toISOString();
- 
+
 		await storage.updateIndex(index);
- 
+
 		res.json({ ok: true });
 		if (isDashTeam && userProfile.id !== authorProfile.id) {
 			sendEventMessage([
@@ -657,7 +657,7 @@ app.delete(
 		const authorKey = isDashTeam && req.body?.targetUsername
 			? req.body.targetUsername.toLowerCase()
 			: req.user.username.toLowerCase();
- 
+
 		const userProfile = index.users[req.user.username.toLowerCase()];
 		let authorProfile = index.users[authorKey];
 
@@ -804,7 +804,7 @@ app.get("/projects/thumbnails/:id", validateId, async (req, res) => {
 	try {
 		const exists = await storage.thumbnailFileExists(req.params.id);
 		if (!exists) throw new Error("Not found");
-        
+
 		const projectDir = path.join(vars.DATA_PROJECTS_PATH, String(req.params.id));
 		res.setHeader("Content-Type", "image/png");
 		res.sendFile(path.join(projectDir, `${req.params.id}.png`));
@@ -818,7 +818,7 @@ app.post("/projects/:id/view", async (req, res) => {
 	const projectId = req.params.id;
 	let viewerId;
 	const token = req.cookies?.auth_token;
-    
+
 	if (token) {
 		try {
 			const decoded = jwt.verify(token, vars.JWT_SECRET);
@@ -864,7 +864,7 @@ app.post(
 		const projectId = req.params.id;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-        
+
 		if (user.firedProjects?.includes(Number(projectId)) || user.firedProjects?.includes(String(projectId)))
 			return res.status(400).json({ ok: false, error: "Project already fired" });
 
@@ -878,10 +878,10 @@ app.post(
 		if (!authorProfile) return res.status(404).json({ ok: false, error: "Author profile not found" });
 
 		const project = authorProfile.projects.find((p) => String(p.id) === String(projectId));
-        
+
 		project.stats ? project.stats.fires += 1 : project.stats = { fires: 1 };
 		user.firedProjects ? user.firedProjects.push(Number(projectId)) : user.firedProjects = [Number(projectId)];
-        
+
 		if (user.id !== authorProfile.id) {
 			authorProfile.messages = [
 				{
@@ -912,7 +912,7 @@ app.post(
 			},
 			...user.actions
 		];
-        
+
 		await storage.updateIndex(index);
 		res.json({ ok: true, fires: project.stats.fires });
 	}
@@ -927,7 +927,7 @@ app.delete(
 		const projectId = req.params.id;
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
-        
+
 		const isFired = user.firedProjects?.includes(Number(projectId)) || user.firedProjects?.includes(String(projectId));
 		if (!isFired)
 			return res.status(400).json({ ok: false, error: "Project is not fired" });
@@ -941,12 +941,12 @@ app.delete(
 
 		project.stats && project.stats.fires > 0 ? project.stats.fires -= 1 : project.stats = { fires: 0 };
 		user.firedProjects = user.firedProjects ? user.firedProjects.filter((id) => String(id) !== String(projectId)) : [];
-        
+
 		authorProfile.messages = authorProfile.messages?.filter(
 			(m) => !(m.type === "fired" && String(m.id) === String(projectId) && m.user?.id === user.id)
 		) || [];
 		authorProfile.unreadMessages = (authorProfile.unreadMessages || 1) - 1;
-        
+
 		user.lastActive = new Date().toISOString();
 		await storage.updateIndex(index);
 		res.json({ ok: true, fires: project.stats.fires });
