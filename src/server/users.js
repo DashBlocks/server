@@ -18,7 +18,10 @@ import {
 import { formatAvatarImage } from "./image-processing.js";
 import * as storage from "./storage.js";
 
-app.get("/users/:target", securityCheck, async (req, res) => {
+const getUserFormattedData = (isDeprecatedPath) => async (req, res) => {
+	if (isDeprecatedPath) {
+		res.setHeader("Deprecation", "@<1791549156>")
+	}
 	try {
 		const indexData = getUserIndexData(req.usersIndex, req.params.target);
 		if (!indexData) throw new Error("User not found");
@@ -47,9 +50,14 @@ app.get("/users/:target", securityCheck, async (req, res) => {
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
-});
+};
+app.get("/users/profiles/:target", securityCheck, getUserFormattedData(false));
+app.get("/users/:target", securityCheck, getUserFormattedData(true));
 
-app.get("/users/:target/projects", securityCheck, async (req, res) => {
+const getUserProjects = (isDeprecatedPath) => async (req, res) => {
+	if (isDeprecatedPath) {
+		res.setHeader("Deprecation", "@<1791549156>")
+	}
 	try {
 		const author = getUserIndexData(req.usersIndex, req.params.target);
 		if (!author) throw new Error("User not found");
@@ -88,9 +96,14 @@ app.get("/users/:target/projects", securityCheck, async (req, res) => {
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
-});
+};
+app.get("/users/profiles/:target/projects", securityCheck, getUserProjects(false));
+app.get("/users/:target/projects", securityCheck, getUserProjects(true));
 
-app.get("/users/:target/studios", securityCheck, (req, res) => {
+const getUserStudios = (isDeprecatedPath) => (req, res) => {
+	if (isDeprecatedPath) {
+		res.setHeader("Deprecation", "@<1791549156>")
+	}
 	const index = req.usersIndex;
 	const user = getUserIndexData(index, req.params.target);
 	if (!user) return res.status(404).json({ ok: false, error: "User not found" });
@@ -120,9 +133,14 @@ app.get("/users/:target/studios", securityCheck, (req, res) => {
 		total: studios.length,
 		studios: formattedStudios
 	});
-});
+};
+app.get("/users/profiles/:target/studios", securityCheck, getUserStudios(false));
+app.get("/users/:target/studios", securityCheck, getUserStudios(true));
 
-app.get("/users/:target/actions", securityCheck, async (req, res) => {
+const getUserActions = (isDeprecatedPath) => async (req, res) => {
+	if (isDeprecatedPath) {
+		res.setHeader("Deprecation", "@<1791549156>")
+	}
 	try {
 		const indexData = getUserIndexData(req.usersIndex, req.params.target);
 		if (!indexData) throw new Error("User not found");
@@ -138,9 +156,14 @@ app.get("/users/:target/actions", securityCheck, async (req, res) => {
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
-});
+};
+app.get("/users/profiles/:target/actions", securityCheck, getUserActions(false));
+app.get("/users/:target/actions", securityCheck, getUserActions(true));
 
-app.get("/users/:target/followers", securityCheck, async (req, res) => {
+const getUserFollowers = (isDeprecatedPath) => async (req, res) => {
+	if (isDeprecatedPath) {
+		res.setHeader("Deprecation", "@<1791549156>")
+	}
 	try {
 		const indexData = getUserIndexData(req.usersIndex, req.params.target);
 		if (!indexData) throw new Error("User not found");
@@ -160,9 +183,14 @@ app.get("/users/:target/followers", securityCheck, async (req, res) => {
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
-});
+};
+app.get("/users/profiles/:target/followers", securityCheck, getUserFollowers(false));
+app.get("/users/:target/followers", securityCheck, getUserFollowers(true));
 
-app.get("/users/:target/following", securityCheck, async (req, res) => {
+const getUserFollowing = (isDeprecatedPath) => async (req, res) => {
+	if (isDeprecatedPath) {
+		res.setHeader("Deprecation", "@<1791549156>")
+	}
 	try {
 		const indexData = getUserIndexData(req.usersIndex, req.params.target);
 		if (!indexData) throw new Error("User not found");
@@ -182,9 +210,14 @@ app.get("/users/:target/following", securityCheck, async (req, res) => {
 	} catch (_) {
 		res.status(404).json({ ok: false, error: "User not found" });
 	}
-});
+};
+app.get("/users/profiles/:target/following", securityCheck, getUserFollowing(false));
+app.get("/users/:target/following", securityCheck, getUserFollowing(true));
 
-app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) => {
+const followUser = (isDeprecatedPath) => async (req, res) => {
+	if (isDeprecatedPath) {
+		res.setHeader("Deprecation", "@<1791549156>")
+	}
 	try {
 		const target = req.params.target;
 		if (
@@ -255,9 +288,14 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, async (req, res) =>
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to follow user" });
 	}
-});
+};
+app.post("/users/profiles/:target/follow", verifyAuth, securityCheck, followUser(false));
+app.post("/users/:target/follow", verifyAuth, securityCheck, followUser(true));
 
-app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) => {
+const unfollowUser = (isDeprecatedPath) => async (req, res) => {
+	if (isDeprecatedPath) {
+		res.setHeader("Deprecation", "@<1791549156>")
+	}
 	try {
 		const index = req.usersIndex;
 		const user = index.users[req.user.username.toLowerCase()];
@@ -287,7 +325,9 @@ app.post("/users/:target/unfollow", verifyAuth, securityCheck, async (req, res) 
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to unfollow user" });
 	}
-});
+};
+app.post("/users/profiles/:target/unfollow", verifyAuth, securityCheck, unfollowUser(false));
+app.post("/users/:target/unfollow", verifyAuth, securityCheck, unfollowUser(true));
 
 app.post(
 	"/users/upload-avatar",
