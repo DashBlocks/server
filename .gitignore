@@ -1,2 +1,8 @@
+# Packages
 node_modules
+
+# Private
 .env
+
+# Editor
+.replit

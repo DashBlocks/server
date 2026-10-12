@@ -625,6 +625,15 @@ const validateCollaborationExtensions = (project) => {
 		if (typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(id) ||
 			["__proto__", "prototype", "constructor"].includes(id)) throw new Error("Invalid extension ID");
 	}
+	const core = new Set(["argument", "colour", "control", "data", "json", "console", "event", "looks",
+		"math", "motion", "operator", "procedures", "sensing", "sound"]);
+	for (const target of project.targets) {
+		for (const block of Object.values(target.blocks)) {
+			const index = block.opcode.indexOf("_");
+			const id = index < 0 ? "" : block.opcode.slice(0, index).replace(/[^\w-]/g, "-");
+			if (id && !core.has(id) && !ids.includes(id)) throw new Error("Block refers to a removed extension");
+		}
+	}
 	for (const value of Object.values(urls)) {
 		if (typeof value !== "string" || value.length > 4096) throw new Error("Invalid extension URL");
 		const url = new URL(value);
@@ -663,12 +672,17 @@ const assertAllowedCollaborationChanges = (previous, candidate) => {
 		delete previousRoot[key];
 		delete candidateRoot[key];
 	}
-	if (!isDeepStrictEqual(previousRoot, candidateRoot)) throw new Error("Project settings cannot be changed");
-	for (const id of previous.extensions || []) {
-		if (!candidate.extensions.includes(id)) throw new Error("Extension IDs are append-only in a room");
+	const removedExtensions = new Set((previous.extensions || []).filter(id => !candidate.extensions.includes(id)));
+	if (removedExtensions.size && Array.isArray(previousRoot.monitors)) {
+		previousRoot.monitors = previousRoot.monitors.filter(monitor =>
+			!removedExtensions.has(monitor.opcode.split("_")[0]));
 	}
+	if (!isDeepStrictEqual(previousRoot, candidateRoot)) throw new Error("Project settings cannot be changed");
 	for (const [id, url] of Object.entries(previous.extensionURLs || {})) {
-		if (candidate.extensionURLs[id] !== url) throw new Error("Existing extension URL cannot be replaced");
+		if (candidate.extensionURLs[id] !== url &&
+			(candidate.extensions.includes(id) || Object.hasOwn(candidate.extensionURLs, id))) {
+			throw new Error("Existing extension URL cannot be replaced");
+		}
 	}
 	const previousStage = previous.targets.find((target) => target.isStage);
 	const candidateStage = candidate.targets.find((target) => target.isStage);
