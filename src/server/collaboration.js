@@ -1,3 +1,4 @@
+import express from "express";
 import { randomUUID, createHash } from "node:crypto";
 import JSZip from "jszip";
 import jwt from "jsonwebtoken";
@@ -19,6 +20,7 @@ import * as storage from "./storage.js";
 
 const collaborationRooms = new Map();
 let collaborationImportQueue = Promise.resolve();
+let collaborationAssetUploads = 0;
 
 class CollaborationError extends Error {
 	constructor(status, message) {
@@ -269,6 +271,15 @@ app.post("/projects/:id/collaboration-token", verifyAuth, securityCheck, validat
 	}
 });
 
+const createAssetMap = record => {
+	const {collaborationId, name, ...content} = record;
+	const asset = new Y.Map();
+	asset.set("collaborationId", collaborationId);
+	asset.set("name", name);
+	asset.set("content", content);
+	return asset;
+};
+
 const createCollaborationDocument = (project, projectId, sourceHash) => {
 	if (!project || !Array.isArray(project.targets) || !project.targets.length) {
 		throw new CollaborationError(400, "Project has no targets");
@@ -279,13 +290,15 @@ const createCollaborationDocument = (project, projectId, sourceHash) => {
 	const ids = new Set();
 	doc.transact(() => {
 		const meta = doc.getMap("collaboration");
-		meta.set("schemaVersion", 3);
+		meta.set("schemaVersion", 4);
 		meta.set("projectId", String(projectId));
 		meta.set("sourceHash", sourceHash);
 		const root = doc.getMap("project");
 		for (const [key, value] of Object.entries(project)) {
-			if (key !== "targets") root.set(key, value);
+			if (!["targets", "extensions", "extensionURLs"].includes(key)) root.set(key, value);
 		}
+		for (const id of project.extensions || []) doc.getMap("extensionIds").set(id, true);
+		for (const [id, url] of Object.entries(project.extensionURLs || {})) doc.getMap("extensionURLs").set(id, url);
 		const targets = doc.getMap("targets");
 		const order = [];
 		for (const source of project.targets) {
@@ -299,10 +312,25 @@ const createCollaborationDocument = (project, projectId, sourceHash) => {
 			const target = new Y.Map();
 			targets.set(id, target);
 			for (const [key, value] of Object.entries(source)) {
-				if (["blocks", "variables", "lists", "broadcasts", "comments"].includes(key)) continue;
+				if (["blocks", "variables", "lists", "broadcasts", "comments", "costumes", "sounds", "currentCostume"].includes(key)) continue;
 				if (key !== "collaborationId") target.set(key, value);
 			}
 			target.set("collaborationId", id);
+			for (const key of ["costumes", "sounds"]) {
+				const assets = new Y.Map();
+				const assetOrder = [];
+				for (const sourceAsset of source[key] || []) {
+					let assetId = sourceAsset.collaborationId;
+					if (typeof assetId !== "string" || !/^[\x21-\x7e]{1,128}$/.test(assetId) || assetOrder.includes(assetId)) {
+						assetId = randomUUID();
+					}
+					assetOrder.push(assetId);
+					assets.set(assetId, createAssetMap({ ...sourceAsset, collaborationId: assetId }));
+				}
+				target.set(key, assets);
+				target.set(`${key}Order`, assetOrder);
+			}
+			target.set("currentCostumeId", target.get("costumesOrder")[source.currentCostume || 0] || null);
 			for (const key of ["blocks", "variables", "lists", "broadcasts", "comments"]) {
 				const entries = source[key] || {};
 				if (typeof entries !== "object" || Array.isArray(entries)) throw new CollaborationError(400, "Invalid target data");
@@ -421,14 +449,42 @@ const expandPrimitiveBlocks = (project) => {
 	}
 };
 
+const projectTargetAssets = target => {
+	const value = target.toJSON();
+	for (const key of ["costumes", "sounds"]) {
+		const entries = target.get(key);
+		const order = target.get(`${key}Order`);
+		if (!(entries instanceof Y.Map) || !Array.isArray(order) ||
+            new Set(order).size !== order.length || order.length > 1000 || entries.size > 1000) {
+			throw new Error("Invalid collaboration assets");
+		}
+		const ids = order.filter(id => entries.has(id));
+		const seen = new Set(ids);
+		ids.push(...[...entries.keys()].filter(id => !seen.has(id)).sort());
+		value[key] = ids.map(id => {
+			const asset = entries.get(id);
+			if (!(asset instanceof Y.Map) || asset.get("collaborationId") !== id) {
+				throw new Error("Invalid collaboration asset ID");
+			}
+			return { ...asset.get("content"), name: asset.get("name"), collaborationId: id };
+		});
+		delete value[`${key}Order`];
+	}
+	const selected = value.costumes.findIndex(asset => asset.collaborationId === value.currentCostumeId);
+	value.currentCostume = Math.max(0, selected);
+	delete value.currentCostumeId;
+	return value;
+};
+
 const readCollaborationProject = (
 	doc,
 	projectId,
-	schemaVersion = 3,
+	schemaVersion = 4,
 	{ requireBlockMaps = true, validateGraph = true } = {}
 ) => {
 	const allowed = ["collaboration", "project", "targets", "targetOrder"];
-	if (schemaVersion === 3) allowed.push("targetSequence");
+	if (schemaVersion >= 3) allowed.push("targetSequence");
+	if (schemaVersion === 4) allowed.push("extensionIds", "extensionURLs");
 	if ([...doc.share.keys()].some((key) => !allowed.includes(key))) throw new Error("Unknown collaboration root");
 	const meta = doc.getMap("collaboration");
 	if (meta.get("schemaVersion") !== schemaVersion || meta.get("projectId") !== String(projectId) ||
@@ -441,7 +497,7 @@ const readCollaborationProject = (
 	if (!order.length || order.length > 1000 || order.length !== targets.size || new Set(order).size !== order.length) {
 		throw new Error("Invalid target order");
 	}
-	if (schemaVersion === 3) {
+	if (schemaVersion >= 3) {
 		const sequence = doc.getMap("targetSequence");
 		const preferred = sequence.get("ids");
 		if (sequence.size !== 1 || !Array.isArray(preferred) || preferred.length > 1000 ||
@@ -476,12 +532,17 @@ const readCollaborationProject = (
 				}
 			}
 		}
-		const value = target.toJSON();
+		const value = schemaVersion === 4 ? projectTargetAssets(target) : target.toJSON();
 		if (typeof value.isStage !== "boolean" || typeof value.name !== "string" ||
 			!Array.isArray(value.costumes) || !Array.isArray(value.sounds)) throw new Error("Invalid target properties");
 		if (value.isStage) stages++;
 		return value;
 	});
+	if (schemaVersion === 4) {
+		project.extensions = [...doc.getMap("extensionIds").keys()];
+		project.extensionURLs = doc.getMap("extensionURLs").toJSON();
+		validateCollaborationExtensions(project);
+	}
 	if (stages !== 1) throw new Error("Project must contain exactly one stage");
 	if (validateGraph) validateBlockGraph(project);
 	return project;
@@ -553,52 +614,76 @@ const validateBlockGraph = (project) => {
 	}
 };
 
-const assertAllowedCollaborationChanges = (previous, candidate) => {
-	const assetIdentity = (value) => {
-		if (Array.isArray(value)) return value.map(assetIdentity);
-		if (value && typeof value === "object") {
-			return Object.fromEntries(Object.keys(value).sort().map((key) => [key, assetIdentity(value[key])]));
+const validateCollaborationExtensions = (project) => {
+	const ids = project.extensions || [];
+	const urls = project.extensionURLs || {};
+	if (!Array.isArray(ids) || ids.length > 300 || new Set(ids).size !== ids.length ||
+		!urls || typeof urls !== "object" || Array.isArray(urls) || Object.keys(urls).length > 300) {
+		throw new Error("Invalid extension metadata");
+	}
+	for (const id of [...ids, ...Object.keys(urls)]) {
+		if (typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(id) ||
+			["__proto__", "prototype", "constructor"].includes(id)) throw new Error("Invalid extension ID");
+	}
+	for (const value of Object.values(urls)) {
+		if (typeof value !== "string" || value.length > 4096) throw new Error("Invalid extension URL");
+		const url = new URL(value);
+		if (url.protocol !== "https:" || url.username || url.password) throw new Error("Invalid extension URL");
+	}
+};
+
+const validateCollaborationAssets = async (project, room) => {
+	for (const target of project.targets) {
+		for (const key of ["costumes", "sounds"]) {
+			const seen = new Set();
+			if (target[key].length > 1000) throw new Error("Too many assets");
+			for (const asset of target[key]) {
+				if (!asset || typeof asset.collaborationId !== "string" ||
+					!/^[\x21-\x7e]{1,128}$/.test(asset.collaborationId) || seen.has(asset.collaborationId) ||
+					typeof asset.name !== "string" || asset.name.length > 1024 ||
+					!/^[a-f0-9]{32}$/.test(asset.assetId) ||
+					!(key === "costumes" ? ["svg", "png", "jpg", "jpeg", "bmp", "gif"] : ["wav", "mp3"]).includes(asset.dataFormat) ||
+					asset.md5ext !== `${asset.assetId}.${asset.dataFormat}`) throw new Error("Invalid asset metadata");
+				seen.add(asset.collaborationId);
+				const name = asset.md5ext;
+				if (!room.sourceAssets.has(name)) {
+					const stat = await fs.stat(path.join(room.assetDirectory, name));
+					if (!stat.isFile() || stat.size > 10 * 1024 * 1024) throw new Error("Asset is unavailable");
+				}
+			}
 		}
-		return value;
-	};
-	const assetKey = (asset) => JSON.stringify(assetIdentity(asset));
+	}
+};
+
+const assertAllowedCollaborationChanges = (previous, candidate) => {
+	validateCollaborationExtensions(candidate);
 	const previousRoot = { ...previous };
 	const candidateRoot = { ...candidate };
-	delete previousRoot.targets;
-	delete candidateRoot.targets;
+	for (const key of ["targets", "extensions", "extensionURLs"]) {
+		delete previousRoot[key];
+		delete candidateRoot[key];
+	}
 	if (!isDeepStrictEqual(previousRoot, candidateRoot)) throw new Error("Project settings cannot be changed");
-
-	const previousTargets = new Map(previous.targets.map((target) => [target.collaborationId, target]));
-	const candidateTargets = new Map(candidate.targets.map((target) => [target.collaborationId, target]));
-	const originalAssetSets = new Set(previous.targets.map((target) =>
-		JSON.stringify([target.costumes.map(assetKey), target.sounds.map(assetKey)])));
+	for (const id of previous.extensions || []) {
+		if (!candidate.extensions.includes(id)) throw new Error("Extension IDs are append-only in a room");
+	}
+	for (const [id, url] of Object.entries(previous.extensionURLs || {})) {
+		if (candidate.extensionURLs[id] !== url) throw new Error("Existing extension URL cannot be replaced");
+	}
 	const previousStage = previous.targets.find((target) => target.isStage);
 	const candidateStage = candidate.targets.find((target) => target.isStage);
 	if (!candidateStage || candidateStage.collaborationId !== previousStage.collaborationId) {
 		throw new Error("The stage cannot be replaced or removed");
 	}
-
-	for (const [id, target] of previousTargets) {
-		const nextTarget = candidateTargets.get(id);
-		if (!nextTarget) {
-			if (target.isStage) throw new Error("The stage cannot be removed");
-			continue;
-		}
-		if (target.isStage !== nextTarget.isStage) throw new Error("Target type cannot be changed");
-		const keys = new Set([...Object.keys(target), ...Object.keys(nextTarget)]);
-		for (const key of keys) {
-			if (key === "collaborationId" || key === "isStage" || editableTargetScalars.has(key) || editableTargetMaps.has(key)) continue;
-			if (!isDeepStrictEqual(target[key], nextTarget[key])) throw new Error("Target assets and properties cannot be changed");
-		}
-	}
-	for (const target of candidate.targets) {
-		if (previousTargets.has(target.collaborationId)) continue;
-		if (target.isStage) throw new Error("The stage cannot be replaced");
-		if (!originalAssetSets.has(JSON.stringify([
-			target.costumes.map(assetKey),
-			target.sounds.map(assetKey)
-		]))) {
-			throw new Error("Target assets must come from the original project");
+	const next = new Map(candidate.targets.map((target) => [target.collaborationId, target]));
+	for (const target of previous.targets) {
+		const other = next.get(target.collaborationId);
+		if (!other) continue;
+		if (target.isStage !== other.isStage) throw new Error("Target type cannot be changed");
+		for (const key of new Set([...Object.keys(target), ...Object.keys(other)])) {
+			if (["collaborationId", "isStage", "costumes", "sounds"].includes(key) ||
+				editableTargetScalars.has(key) || editableTargetMaps.has(key)) continue;
+			if (!isDeepStrictEqual(target[key], other[key])) throw new Error("Target property cannot be changed");
 		}
 	}
 };
@@ -729,7 +814,7 @@ export const attachCollaborationWebSocket = (server) => {
 				}
 			}
 			const schemaVersion = room.doc.getMap("collaboration").get("schemaVersion");
-			if (schemaVersion === 1 || schemaVersion === 2) {
+			if (schemaVersion === 1 || schemaVersion === 2 || schemaVersion === 3) {
 				const project = readCollaborationProject(room.doc, id, schemaVersion, {
 					requireBlockMaps: false,
 					validateGraph: false
@@ -743,7 +828,7 @@ export const attachCollaborationWebSocket = (server) => {
 				room.doc = migrated;
 				room.epoch = randomUUID();
 				await save(room, Y.encodeStateAsUpdate(room.doc));
-			} else if (schemaVersion !== 3) {
+			} else if (schemaVersion !== 4) {
 				throw new Error("Unsupported collaboration schema");
 			}
 			readCollaborationProject(room.doc, id);
@@ -751,6 +836,19 @@ export const attachCollaborationWebSocket = (server) => {
 			if ((await fs.stat(room.sourcePath)).size > 250 * 1024 * 1024) throw new Error("Source archive too large");
 			const source = await fs.readFile(room.sourcePath);
 			if (createHash("sha256").update(source).digest("hex") !== room.sourceHash) throw new Error("Source archive changed");
+			const sourceZip = await JSZip.loadAsync(source);
+			room.sourceAssets = new Set(Object.keys(sourceZip.files).map((name) => path.posix.basename(name)));
+			room.assetDirectory = path.join(directory, `${id}.assets`);
+			room.assetQueue = Promise.resolve();
+			room.assetUploads = 0;
+			room.assetBytes = 0;
+			await fs.mkdir(room.assetDirectory, { recursive: true });
+			for (const name of await fs.readdir(room.assetDirectory)) {
+				if (/^[a-f0-9]{32}\.(svg|png|jpg|jpeg|bmp|gif|wav|mp3)$/.test(name)) {
+					room.assetBytes += (await fs.stat(path.join(room.assetDirectory, name))).size;
+				}
+			}
+			await validateCollaborationAssets(readCollaborationProject(room.doc, id), room);
 		});
 		collaborationImportQueue = initialize.catch(() => {});
 		room.queue = initialize.catch((error) => {
@@ -784,6 +882,103 @@ export const attachCollaborationWebSocket = (server) => {
 			});
 		}
 	});
+
+	app.post("/projects/:id/collaboration-assets/:asset", verifyAuth, securityCheck, validateId, checkOrigin,
+		async (req, res) => {
+			let room;
+			try {
+				const access = resolveProjectAccess(await storage.getIndex(), req.params.id, req.user.userId);
+				if (access.role === "viewer") throw new CollaborationError(403, "Read-only collaboration");
+				if (!/^[a-f0-9]{32}\.(svg|png|jpg|jpeg|bmp|gif|wav|mp3)$/.test(req.params.asset)) {
+					throw new CollaborationError(400, "Invalid asset filename");
+				}
+				room = load(String(req.params.id));
+				await room.queue;
+				if (room.assetUploads >= 2 || collaborationAssetUploads >= 8) throw new CollaborationError(429, "Too many asset uploads");
+				room.assetUploads++;
+				collaborationAssetUploads++;
+				try {
+					await new Promise((resolve, reject) => {
+						express.raw({ type: "application/octet-stream", limit: "10mb" })(req, res,
+							(error) => error ? reject(new CollaborationError(error.status || 400, "Invalid asset upload")) : resolve());
+					});
+					if (!Buffer.isBuffer(req.body) || !req.body.length ||
+						createHash("md5").update(req.body).digest("hex") !== req.params.asset.split(".")[0]) {
+						throw new CollaborationError(400, "Asset hash does not match its filename");
+					}
+					const write = room.assetQueue.then(async () => {
+						const current = resolveProjectAccess(await storage.getIndex(), req.params.id, req.user.userId);
+						if (current.role === "viewer" || current.grantId !== access.grantId) {
+							throw new CollaborationError(403, "Collaboration permission changed");
+						}
+						await fs.mkdir(room.assetDirectory, { recursive: true });
+						const file = path.join(room.assetDirectory, req.params.asset);
+						try {
+							await fs.access(file);
+							return;
+						} catch (error) {
+							if (error.code !== "ENOENT") throw error;
+						}
+						if (room.assetBytes + req.body.length > 250 * 1024 * 1024) {
+							throw new CollaborationError(413, "Collaboration asset quota reached");
+						}
+						const temporary = `${file}.${randomUUID()}.tmp`;
+						try {
+							const handle = await fs.open(temporary, "wx", 0o600);
+							try {
+								await handle.writeFile(req.body);
+								await handle.sync();
+							} finally {
+								await handle.close();
+							}
+							await fs.rename(temporary, file);
+							const folder = await fs.open(room.assetDirectory, "r");
+							try { await folder.sync(); } finally { await folder.close(); }
+							room.assetBytes += req.body.length;
+						} finally {
+							await fs.rm(temporary, { force: true });
+						}
+					});
+					room.assetQueue = write.catch(() => {});
+					await write;
+					room.touched = Date.now();
+					res.set("Cache-Control", "no-store").json({ ok: true });
+				} finally {
+					room.assetUploads--;
+					collaborationAssetUploads--;
+				}
+			} catch (error) {
+				res.status(error instanceof CollaborationError ? error.status : 500).json({
+					ok: false, error: error instanceof CollaborationError ? error.message : "Asset upload failed"
+				});
+			}
+		});
+
+	app.get("/projects/:id/collaboration-assets/:asset", verifyAuth, securityCheck, validateId,
+		async (req, res) => {
+			try {
+				resolveProjectAccess(await storage.getIndex(), req.params.id, req.user.userId);
+				if (!/^[a-f0-9]{32}\.(svg|png|jpg|jpeg|bmp|gif|wav|mp3)$/.test(req.params.asset)) {
+					throw new CollaborationError(400, "Invalid asset filename");
+				}
+				const room = load(String(req.params.id));
+				await room.queue;
+				resolveProjectAccess(await storage.getIndex(), req.params.id, req.user.userId);
+				room.touched = Date.now();
+				res.set("Cache-Control", "no-store");
+				res.set("X-Content-Type-Options", "nosniff");
+				res.type("application/octet-stream");
+				res.sendFile(path.join(room.assetDirectory, req.params.asset), (error) => {
+					if (!error) return;
+					if (res.headersSent) res.destroy(error);
+					else res.status(error.code === "ENOENT" ? 404 : 500).json({ ok: false, error: "Asset unavailable" });
+				});
+			} catch (error) {
+				res.status(error instanceof CollaborationError ? error.status : 500).json({
+					ok: false, error: error instanceof CollaborationError ? error.message : "Asset unavailable"
+				});
+			}
+		});
 
 	const upgrade = (req, socket, head) => {
 		socket.on("error", () => socket.destroy());
@@ -921,6 +1116,7 @@ export const attachCollaborationWebSocket = (server) => {
 								const previous = readCollaborationProject(next, room.id);
 								const proposed = readCollaborationProject(candidate, room.id);
 								assertAllowedCollaborationChanges(previous, proposed);
+								await validateCollaborationAssets(proposed, room);
 								validateBlockGraph(proposed);
 								if (candidate.getMap("collaboration").get("sourceHash") !== room.sourceHash) {
 									throw new Error("Source archive cannot be changed by a document update");
@@ -974,7 +1170,7 @@ export const attachCollaborationWebSocket = (server) => {
 			ws.ping();
 		}
 		for (const [id, room] of collaborationRooms) {
-			if (!room.clients.size && !room.loading && !room.busy && !room.pending.length && Date.now() - room.touched > 60000) {
+			if (!room.assetUploads && !room.clients.size && !room.loading && !room.busy && !room.pending.length && Date.now() - room.touched > 60000) {
 				collaborationRooms.delete(id);
 				room.doc.destroy();
 			}
