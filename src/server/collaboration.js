@@ -636,12 +636,20 @@ const validateCollaborationExtensions = (project) => {
 	}
 	for (const value of Object.values(urls)) {
 		if (typeof value !== "string" || value.length > 4096) throw new Error("Invalid extension URL");
+		if (/^dash-extension:[a-f0-9]{64}\.js$/.test(value)) continue;
 		const url = new URL(value);
 		if (url.protocol !== "https:" || url.username || url.password) throw new Error("Invalid extension URL");
 	}
 };
 
 const validateCollaborationAssets = async (project, room) => {
+	for (const value of new Set(Object.values(project.extensionURLs || {}))) {
+		if (!value.startsWith("dash-extension:")) continue;
+		const name = value.slice("dash-extension:".length);
+		if (!/^[a-f0-9]{64}\.js$/.test(name)) throw new Error("Invalid custom extension reference");
+		const stat = await fs.stat(path.join(room.assetDirectory, name));
+		if (!stat.isFile() || !stat.size || stat.size > 2 * 1024 * 1024) throw new Error("Custom extension is unavailable");
+	}
 	for (const target of project.targets) {
 		for (const key of ["costumes", "sounds"]) {
 			const seen = new Set();
@@ -753,6 +761,44 @@ export const attachCollaborationWebSocket = (server) => {
 		}
 	};
 
+	const importExtensionSources = async (project, id) => {
+		for (const [extensionId, value] of Object.entries(project.extensionURLs || {})) {
+			if (typeof value !== "string" || !value.startsWith("data:")) continue;
+			if (value.length > 8 * 1024 * 1024) throw new Error("Custom extension data URL is too large");
+			const comma = value.indexOf(",");
+			if (comma < 0) throw new Error("Invalid custom extension data URL");
+			const payload = value.slice(comma + 1);
+			const base64 = value.slice(0, comma).toLowerCase().endsWith(";base64");
+			const decoded = decodeURIComponent(payload);
+			if (base64 && !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(decoded)) {
+				throw new Error("Invalid custom extension base64");
+			}
+			const bytes = Buffer.from(decoded, base64 ? "base64" : "utf8");
+			if (!bytes.length || bytes.length > 2 * 1024 * 1024 || !Buffer.from(bytes.toString("utf8")).equals(bytes)) {
+				throw new Error("Custom extension must contain between 1 byte and 2 MiB of UTF-8 JavaScript");
+			}
+			const name = `${createHash("sha256").update(bytes).digest("hex")}.js`;
+			const folder = path.join(directory, `${id}.assets`);
+			await fs.mkdir(folder, { recursive: true });
+			const temporary = path.join(folder, `${name}.${randomUUID()}.tmp`);
+			try {
+				const handle = await fs.open(temporary, "wx", 0o600);
+				try {
+					await handle.writeFile(bytes);
+					await handle.sync();
+				} finally {
+					await handle.close();
+				}
+				await fs.rename(temporary, path.join(folder, name));
+				const directoryHandle = await fs.open(folder, "r");
+				try { await directoryHandle.sync(); } finally { await directoryHandle.close(); }
+			} finally {
+				await fs.rm(temporary, { force: true });
+			}
+			project.extensionURLs[extensionId] = `dash-extension:${name}`;
+		}
+	};
+
 	const load = (id) => {
 		let room = collaborationRooms.get(id);
 		if (room) return room;
@@ -811,6 +857,7 @@ export const attachCollaborationWebSocket = (server) => {
 						stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
 					});
 					const project = JSON.parse(text);
+					await importExtensionSources(project, id);
 					const doc = createCollaborationDocument(project, id, hash);
 					room.doc.destroy();
 					room.doc = doc;
@@ -833,6 +880,7 @@ export const attachCollaborationWebSocket = (server) => {
 					requireBlockMaps: false,
 					validateGraph: false
 				});
+				await importExtensionSources(project, id);
 				const migrated = createCollaborationDocument(
 					project,
 					id,
@@ -858,7 +906,7 @@ export const attachCollaborationWebSocket = (server) => {
 			room.assetBytes = 0;
 			await fs.mkdir(room.assetDirectory, { recursive: true });
 			for (const name of await fs.readdir(room.assetDirectory)) {
-				if (/^[a-f0-9]{32}\.(svg|png|jpg|jpeg|bmp|gif|wav|mp3)$/.test(name)) {
+				if (/^(?:[a-f0-9]{32}\.(?:svg|png|jpg|jpeg|bmp|gif|wav|mp3)|[a-f0-9]{64}\.js)$/.test(name)) {
 					room.assetBytes += (await fs.stat(path.join(room.assetDirectory, name))).size;
 				}
 			}
@@ -903,7 +951,7 @@ export const attachCollaborationWebSocket = (server) => {
 			try {
 				const access = resolveProjectAccess(await storage.getIndex(), req.params.id, req.user.userId);
 				if (access.role === "viewer") throw new CollaborationError(403, "Read-only collaboration");
-				if (!/^[a-f0-9]{32}\.(svg|png|jpg|jpeg|bmp|gif|wav|mp3)$/.test(req.params.asset)) {
+				if (!/^(?:[a-f0-9]{32}\.(?:svg|png|jpg|jpeg|bmp|gif|wav|mp3)|[a-f0-9]{64}\.js)$/.test(req.params.asset)) {
 					throw new CollaborationError(400, "Invalid asset filename");
 				}
 				room = load(String(req.params.id));
@@ -913,12 +961,15 @@ export const attachCollaborationWebSocket = (server) => {
 				collaborationAssetUploads++;
 				try {
 					await new Promise((resolve, reject) => {
-						express.raw({ type: "application/octet-stream", limit: "10mb" })(req, res,
+						express.raw({ type: "application/octet-stream", limit: req.params.asset.endsWith(".js") ? "2mb" : "10mb" })(req, res,
 							(error) => error ? reject(new CollaborationError(error.status || 400, "Invalid asset upload")) : resolve());
 					});
 					if (!Buffer.isBuffer(req.body) || !req.body.length ||
-						createHash("md5").update(req.body).digest("hex") !== req.params.asset.split(".")[0]) {
+						createHash(req.params.asset.endsWith(".js") ? "sha256" : "md5").update(req.body).digest("hex") !== req.params.asset.split(".")[0]) {
 						throw new CollaborationError(400, "Asset hash does not match its filename");
+					}
+					if (req.params.asset.endsWith(".js") && !Buffer.from(req.body.toString("utf8")).equals(req.body)) {
+						throw new CollaborationError(400, "Custom extension must be UTF-8 JavaScript");
 					}
 					const write = room.assetQueue.then(async () => {
 						const current = resolveProjectAccess(await storage.getIndex(), req.params.id, req.user.userId);
@@ -972,7 +1023,7 @@ export const attachCollaborationWebSocket = (server) => {
 		async (req, res) => {
 			try {
 				resolveProjectAccess(await storage.getIndex(), req.params.id, req.user.userId);
-				if (!/^[a-f0-9]{32}\.(svg|png|jpg|jpeg|bmp|gif|wav|mp3)$/.test(req.params.asset)) {
+				if (!/^(?:[a-f0-9]{32}\.(?:svg|png|jpg|jpeg|bmp|gif|wav|mp3)|[a-f0-9]{64}\.js)$/.test(req.params.asset)) {
 					throw new CollaborationError(400, "Invalid asset filename");
 				}
 				const room = load(String(req.params.id));
