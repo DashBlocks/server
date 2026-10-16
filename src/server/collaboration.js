@@ -1114,14 +1114,34 @@ export const attachCollaborationWebSocket = (server) => {
 							room.clients.add(ws);
 							room.touched = Date.now();
 							clearTimeout(timeout);
-							send(ws, {
-								type: "ready", epoch: room.epoch, userId, role: ws.role, grantId: ws.grantId,
-								data: Buffer.from(Y.encodeStateAsUpdate(room.doc)).toString("base64")
-							});
+						send(ws, {
+							type: "ready", epoch: room.epoch, userId, role: ws.role, grantId: ws.grantId,
+							connectionId: ws.connectionId,
+							data: Buffer.from(Y.encodeStateAsUpdate(room.doc)).toString("base64")
+						});
 							presence(room);
 						});
 						room.queue = join.catch(() => {});
 						await join;
+						return;
+					}
+					if (message.type === "presence") {
+						if (!message.state || typeof message.state !== "object" || Array.isArray(message.state) ||
+							JSON.stringify(message.state).length > 2048) {
+							return ws.close(4400, "Invalid presence");
+						}
+						const state = message.state;
+						for (const peer of ws.room.clients) {
+							if (peer !== ws) {
+								send(peer, {
+									type: "presence",
+									connectionId: ws.connectionId,
+									userId: ws.userId,
+									username: ws.username,
+									state
+								});
+							}
+						}
 						return;
 					}
 					if (message.type !== "update" || typeof message.id !== "string" || !/^[a-zA-Z0-9-]{1,64}$/.test(message.id) ||
