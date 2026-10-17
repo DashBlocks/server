@@ -737,6 +737,41 @@ export const attachCollaborationWebSocket = (server) => {
 		for (const ws of room.clients) send(ws, { type: "members", members });
 	};
 
+	const scheduleChatSave = (room) => {
+		if (room.chatSaveTimer) return;
+		room.chatSaveTimer = setTimeout(async () => {
+			room.chatSaveTimer = null;
+			try {
+				const file = path.join(directory, `${room.id}.chat.json`);
+				const temporary = `${file}.${randomUUID()}.tmp`;
+				const handle = await fs.open(temporary, "wx", 0o600);
+				try {
+					await handle.writeFile(JSON.stringify({ version: 1, messages: room.chat }));
+					await handle.sync();
+				} finally {
+					await handle.close();
+				}
+				await fs.rename(temporary, file);
+			} catch (_) {
+				// Chat persistence is best-effort; never break the session over it.
+			}
+		}, 1000);
+	};
+
+	const loadChatHistory = async (id) => {
+		try {
+			const data = JSON.parse(await fs.readFile(path.join(directory, `${id}.chat.json`), "utf8"));
+			if (!data || data.version !== 1 || !Array.isArray(data.messages)) return [];
+			return data.messages.filter((entry) => entry && typeof entry === "object" &&
+				typeof entry.id === "string" && typeof entry.userId === "string" &&
+				typeof entry.username === "string" && typeof entry.text === "string" &&
+				entry.text.length <= 500 && Number.isFinite(entry.ts)).slice(-200);
+		} catch (error) {
+			if (error.code !== "ENOENT") return [];
+			return [];
+		}
+	};
+
 	const save = async (room, update) => {
 		await fs.mkdir(directory, { recursive: true });
 		const file = path.join(directory, `${room.id}.json`);
@@ -803,7 +838,7 @@ export const attachCollaborationWebSocket = (server) => {
 		let room = collaborationRooms.get(id);
 		if (room) return room;
 		if (collaborationRooms.size >= 25) throw new CollaborationError(429, "Too many active rooms");
-		room = { id, epoch: randomUUID(), doc: new Y.Doc(), clients: new Set(), pending: [], busy: false, loading: true, failed: false, touched: Date.now() };
+		room = { id, epoch: randomUUID(), doc: new Y.Doc(), clients: new Set(), pending: [], busy: false, loading: true, failed: false, touched: Date.now(), chat: [], chatSaveTimer: null };
 		collaborationRooms.set(id, room);
 		const initialize = collaborationImportQueue.then(async () => {
 			const file = path.join(directory, `${id}.json`);
@@ -911,6 +946,7 @@ export const attachCollaborationWebSocket = (server) => {
 				}
 			}
 			await validateCollaborationAssets(readCollaborationProject(room.doc, id), room);
+			room.chat = await loadChatHistory(id);
 		});
 		collaborationImportQueue = initialize.catch(() => {});
 		room.queue = initialize.catch((error) => {
@@ -1060,6 +1096,7 @@ export const attachCollaborationWebSocket = (server) => {
 		wss.handleUpgrade(req, socket, head, (ws) => {
 			ws.projectId = match[1];
 			ws.connectionId = randomUUID();
+			ws.features = new Set();
 			ws.alive = true;
 			ws.windowStart = Date.now();
 			ws.messages = 0;
@@ -1092,6 +1129,11 @@ export const attachCollaborationWebSocket = (server) => {
 							return ws.close(4400, "Authentication required");
 						}
 						ws.authenticating = true;
+						ws.features = new Set(
+							Array.isArray(message.features) ?
+								message.features.filter((feature) => feature === "presence" || feature === "chat") :
+								[]
+						);
 						const access = await verifyCollaborationToken(message.token, ws.projectId);
 						if (ws.readyState !== WebSocket.OPEN || closing) return;
 						const room = load(ws.projectId);
@@ -1114,14 +1156,67 @@ export const attachCollaborationWebSocket = (server) => {
 							room.clients.add(ws);
 							room.touched = Date.now();
 							clearTimeout(timeout);
-							send(ws, {
-								type: "ready", epoch: room.epoch, userId, role: ws.role, grantId: ws.grantId,
-								data: Buffer.from(Y.encodeStateAsUpdate(room.doc)).toString("base64")
-							});
-							presence(room);
+						send(ws, {
+							type: "ready", epoch: room.epoch, userId, role: ws.role, grantId: ws.grantId,
+							connectionId: ws.connectionId,
+							features: ["presence", "chat"],
+							data: Buffer.from(Y.encodeStateAsUpdate(room.doc)).toString("base64")
+						});
+						presence(room);
+						if (ws.features.has("chat")) send(ws, { type: "chat-history", messages: room.chat });
 						});
 						room.queue = join.catch(() => {});
 						await join;
+						return;
+					}
+					if (message.type === "presence") {
+						if (!message.state || typeof message.state !== "object" || Array.isArray(message.state) ||
+							JSON.stringify(message.state).length > 2048) {
+							return ws.close(4400, "Invalid presence");
+						}
+						const state = message.state;
+						for (const peer of ws.room.clients) {
+							if (peer !== ws && peer.features.has("presence")) {
+								send(peer, {
+									type: "presence",
+									connectionId: ws.connectionId,
+									userId: ws.userId,
+									username: ws.username,
+									state
+								});
+							}
+						}
+						return;
+					}
+					if (message.type === "chat") {
+						const pin = message.pin === undefined ? null : message.pin;
+						if (typeof message.text !== "string" || !message.text.trim().length || message.text.length > 500 ||
+							(pin !== null && (typeof pin !== "object" || Array.isArray(pin) ||
+								!["sprite", "block", "costume"].includes(pin.type) ||
+								typeof pin.targetId !== "string" || !pin.targetId.length || pin.targetId.length > 64 ||
+								(pin.blockId !== undefined && (typeof pin.blockId !== "string" || pin.blockId.length > 64)) ||
+								(pin.name !== undefined && (typeof pin.name !== "string" || pin.name.length > 64))))) {
+							return ws.close(4400, "Invalid chat message");
+						}
+						const entry = {
+							id: randomUUID(),
+							userId: ws.userId,
+							username: ws.username,
+							ts: Date.now(),
+							text: message.text,
+							pin: pin && {
+								type: pin.type,
+								targetId: pin.targetId,
+								blockId: pin.blockId,
+								name: pin.name
+							}
+						};
+						ws.room.chat.push(entry);
+						if (ws.room.chat.length > 200) ws.room.chat.splice(0, ws.room.chat.length - 200);
+						for (const peer of ws.room.clients) {
+							if (peer.features.has("chat")) send(peer, { type: "chat", message: entry });
+						}
+						scheduleChatSave(ws.room);
 						return;
 					}
 					if (message.type !== "update" || typeof message.id !== "string" || !/^[a-zA-Z0-9-]{1,64}$/.test(message.id) ||
