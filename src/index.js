@@ -53,4 +53,4 @@ checkSubs();
 const server = createServer(app);
 attachCollaborationWebSocket(server);
 // eslint-disable-next-line no-console
-server.listen(process.env.PORT, "127.0.0.1", () => console.log(`Port ${process.env.PORT}`));
+server.listen(process.env.PORT, "0.0.0.0", () => console.log(`Port ${process.env.PORT}`));
