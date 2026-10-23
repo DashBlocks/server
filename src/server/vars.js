@@ -15,6 +15,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const HCAPTCHA_SECRET = process.env.HCAPTCHA_SECRET;
 const HCAPTCHA_SITEKEY = process.env.HCAPTCHA_SITEKEY;
 
+const TG_BOT_API = process.env.TG_BOT_API;
 const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN;
 const TG_EVENTS_GROUP_ID = process.env.TG_EVENTS_GROUP_ID;
 
@@ -63,6 +64,7 @@ export {
 	HCAPTCHA_SECRET,
 	HCAPTCHA_SITEKEY,
 
+	TG_BOT_API,
 	TG_BOT_TOKEN,
 	TG_EVENTS_GROUP_ID,
 
