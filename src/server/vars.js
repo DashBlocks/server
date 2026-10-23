@@ -20,7 +20,7 @@ const TG_EVENTS_GROUP_ID = process.env.TG_EVENTS_GROUP_ID;
 
 const ASSETS_PATH = path.join(__dirname, "../assets");
 
-const DATA_PATH = "/var/lib/dash";
+const DATA_PATH = process.env.DATA_PATH;
 const DATA_INDEX_PATH = path.join(DATA_PATH, "index.json");
 const DATA_USERS_PATH = path.join(DATA_PATH, "users");
 const DATA_PROJECTS_PATH = path.join(DATA_PATH, "projects");
