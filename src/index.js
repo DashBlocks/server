@@ -12,6 +12,18 @@ import "./server/admin.js";
 import "./server/featured.js";
 import "./server/payments.js";
 
+app.get("/", async (_, res) => {
+	const index = await storage.getIndex();
+	if (
+		index && typeof index?.users === 'object' &&
+		index.users !== null && !Array.isArray(index.users) &&
+		Object.keys(index.users).length > 0
+	) {
+		return res.status(200).json({ ok: true, message: "Dash Server API seems to work fine" });
+	}
+	return res.status(500).json({ ok: false, message: "noo Dash server api is down" });
+});
+
 function checkSubs() {
 	setInterval(async () => {
 		try {
