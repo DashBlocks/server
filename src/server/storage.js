@@ -38,16 +38,22 @@ async function getIndex() {
 async function updateIndex(indexData) {
 	const write = indexWriteQueue.then(async () => {
 		const current = await getIndex();
+		indexData.commentsEnabled = current.commentsEnabled !== false;
 		const projects = new Map();
 		for (const user of Object.values(current.users)) {
 			for (const project of user.projects || []) projects.set(String(project.id), project);
 		}
 		for (const user of Object.values(indexData.users)) {
+			const savedUser = current.users[user.username.toLowerCase()];
+			if (savedUser && String(savedUser.id) === String(user.id))
+				user.lastCommentAt = savedUser.lastCommentAt || 0;
 			for (const project of user.projects || []) {
 				const saved = projects.get(String(project.id));
 				if (!saved) continue;
 				project.collaborators = structuredClone(saved.collaborators || []);
 				project.collaborationRevision = saved.collaborationRevision || 0;
+				project.comments = structuredClone(saved.comments || []);
+				project.nextCommentId = saved.nextCommentId || (saved.comments?.at(-1)?.id || 0) + 1;
 			}
 		}
 		await writeIndexAtomically(indexData);

@@ -155,6 +155,8 @@ app.post(
 			id: projectId,
 			collaborators: [],
 			collaborationRevision: 0,
+			comments: [],
+			nextCommentId: 1,
 			name: projectName,
 			description: description || "",
 			parentId: parentProject?.id || null,
@@ -717,7 +719,15 @@ app.delete(
 			await storage.updateIndex(index);
 		}
 
-		res.json({ ok: true, projects: authorProfile?.projects || [] });
+		res.json({
+			ok: true,
+			projects: (authorProfile?.projects || []).map(project => {
+				const metadata = { ...project };
+				delete metadata.comments;
+				delete metadata.nextCommentId;
+				return metadata;
+			})
+		});
 		if (isDashTeam && userProfile.id !== authorProfile.id) {
 			sendEventMessage([
 				"<b>#ADMIN #PROJECT_DELETED</b>",
