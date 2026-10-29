@@ -17,6 +17,7 @@ import {
 } from "./helpers.js";
 import { formatAvatarImage } from "./image-processing.js";
 import * as storage from "./storage.js";
+import { AVATAR_FRAMES } from "./avatar-frames.js";
 
 const getUserFormattedData = (isDeprecatedPath) => async (req, res) => {
 	if (isDeprecatedPath) {
@@ -368,9 +369,9 @@ app.post(
 	}
 );
 
-app.get("/users/avatars/:id", async (req, res) => {
+app.get("/users/avatars/:id", securityCheck, async (req, res) => {
 	try {
-		const avatarId = req.params.id;
+		const avatarId = Number(req.params.id);
 		const exists = await storage.avatarFileExists(avatarId);
 
 		if (!exists) throw new Error("Avatar not found");
@@ -495,7 +496,7 @@ app.post(
 
 		if (avatarFrameValue === "" || avatarFrameValue === null || avatarFrameValue === undefined) {
 			avatarFrame = null;
-		} else if (!vars.AVATAR_FRAMES.includes(avatarFrameValue)) {
+		} else if (!AVATAR_FRAMES.find((frame) => frame.id === avatarFrameValue)) {
 			return res.status(400).json({ ok: false, error: "Frame not exist" });
 		} else {
 			avatarFrame = avatarFrameValue;

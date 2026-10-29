@@ -43,11 +43,6 @@ const FORBIDDEN_USERNAMES = [
 	"remove-link"
 ];
 
-const AVATAR_FRAMES = [
-	"dashy",
-	"thorny-core"
-];
-
 const PLANS_DAYS = {
 	[process.env.OFFER_ID_30_DAYS]: 30,
 	[process.env.OFFER_ID_90_DAYS]: 90,
@@ -77,8 +72,6 @@ export {
 	DATA_STUDIOS_PATH,
 
 	FORBIDDEN_USERNAMES,
-
-	AVATAR_FRAMES,
 
 	PLANS_DAYS
 };

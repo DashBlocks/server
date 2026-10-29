@@ -8,6 +8,7 @@ import { attachCollaborationWebSocket } from "./server/collaboration.js";
 import "./server/studios.js";
 import "./server/search.js";
 import "./server/users.js";
+import "./server/avatar-frames.js";
 import "./server/admin.js";
 import "./server/featured.js";
 import "./server/payments.js";
