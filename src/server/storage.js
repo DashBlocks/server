@@ -45,8 +45,24 @@ async function updateIndex(indexData) {
 		}
 		for (const user of Object.values(indexData.users)) {
 			const savedUser = current.users[user.username.toLowerCase()];
-			if (savedUser && String(savedUser.id) === String(user.id))
+			if (savedUser && String(savedUser.id) === String(user.id)) {
 				user.lastCommentAt = savedUser.lastCommentAt || 0;
+				if ((savedUser.messages || []).some(message => message.type === "project-commented")) {
+					const incomingMessages = user.messages || [];
+					const savedMessages = savedUser.messages || [];
+					const unread = incomingMessages.slice(0, user.unreadMessages || 0)
+						.filter(message => message.type !== "project-commented")
+						.concat(savedMessages.slice(0, savedUser.unreadMessages || 0)
+							.filter(message => message.type === "project-commented"));
+					const read = incomingMessages.slice(user.unreadMessages || 0)
+						.filter(message => message.type !== "project-commented")
+						.concat(savedMessages.slice(savedUser.unreadMessages || 0)
+							.filter(message => message.type === "project-commented"));
+					const byDate = (a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0);
+					user.messages = [...unread.sort(byDate), ...read.sort(byDate)];
+					user.unreadMessages = unread.length;
+				}
+			}
 			for (const project of user.projects || []) {
 				const saved = projects.get(String(project.id));
 				if (!saved) continue;

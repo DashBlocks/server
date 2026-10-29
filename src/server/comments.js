@@ -116,6 +116,19 @@ app.post("/projects/:id/comments", verifyAuth, securityCheck, validateId, async 
 			project.comments.push(comment);
 			project.nextCommentId = id + 1;
 			user.lastCommentAt = now;
+			const owner = Object.values(index.users).find(profile =>
+				(profile.projects || []).some(entry => String(entry.id) === String(project.id))
+			);
+			if (owner && String(owner.id) !== String(user.id)) {
+				owner.messages = [{
+					type: "project-commented",
+					project: { id: project.id, name: project.name },
+					commentId: comment.id,
+					user: { id: user.id, username: user.username },
+					date: comment.createdAt
+				}, ...(owner.messages || [])];
+				owner.unreadMessages = (owner.unreadMessages || 0) + 1;
+			}
 			sendEventMessage([
 				"<b>#PROJECT_COMMENTED</b>",
 				eventFmt`project: ${{ type: "project", id: project.id, name: project.name }}`,
@@ -138,6 +151,40 @@ app.post("/projects/:id/comments", verifyAuth, securityCheck, validateId, async 
 			error: error.status ? error.message : "Failed to publish comment",
 			...(error.code === "COMMENTS_DISABLED" ? { code: error.code } : {}),
 			...(error.retryAfter ? { retryAfter: error.retryAfter } : {})
+		});
+	}
+});
+
+app.delete("/projects/:id/comments/:commentId", verifyAuth, securityCheck, validateId, async (req, res) => {
+	if (req.userRole !== "dashteam")
+		return res.status(403).json({ ok: false, error: "Only Dash Team can delete comments" });
+	const commentId = Number(req.params.commentId);
+	if (!/^[1-9]\d*$/.test(req.params.commentId) || !Number.isSafeInteger(commentId))
+		return res.status(400).json({ ok: false, error: "Invalid comment ID" });
+
+	try {
+		const result = await storage.mutateIndex(index => {
+			const user = index.users[req.user.username.toLowerCase()];
+			if (!user || String(user.id) !== String(req.user.userId) || user.banned || user.role !== "dashteam")
+				throw Object.assign(new Error("Only Dash Team can delete comments"), { status: 403 });
+			const project = storage.findProjectById(index, req.params.id);
+			if (!project) throw Object.assign(new Error("Project not found"), { status: 404 });
+			const comments = project.comments || [];
+			const position = comments.findIndex(comment => comment.id === commentId);
+			if (position === -1)
+				throw Object.assign(new Error("Comment not found"), {
+					status: 404, code: "COMMENT_NOT_FOUND", total: comments.length
+				});
+			project.nextCommentId = project.nextCommentId || (comments.at(-1)?.id || 0) + 1;
+			comments.splice(position, 1);
+			return { ok: true, commentId, total: comments.length };
+		});
+		res.json(result);
+	} catch (error) {
+		res.status(error.status || 500).json({
+			ok: false,
+			error: error.status ? error.message : "Failed to delete comment",
+			...(error.code === "COMMENT_NOT_FOUND" ? { code: error.code, total: error.total } : {})
 		});
 	}
 });
