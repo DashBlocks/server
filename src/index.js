@@ -4,6 +4,7 @@ import app from "./app.js";
 import * as storage from "./server/storage.js";
 import "./server/auth.js";
 import "./server/projects.js";
+import "./server/comments.js";
 import { attachCollaborationWebSocket } from "./server/collaboration.js";
 import "./server/studios.js";
 import "./server/search.js";

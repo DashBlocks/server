@@ -381,20 +381,38 @@ app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
 
 	const index = await storage.getIndex();
 	const metadata = index.users[req.user.username.toLowerCase()];
-	const messages = (metadata?.messages || []).slice(offset, offset + limit);
+	const messages = (metadata?.messages || []).slice(offset, offset + limit).map(message => {
+		if (message.type !== "project-commented") return message;
+		const project = storage.findProjectById(index, message.project.id);
+		const comment = (project?.comments || []).find(entry => entry.id === message.commentId);
+		const author = comment ? getUserIndexData(index, comment.authorId) : null;
+		return {
+			...message,
+			comment: comment ? {
+				content: comment.content,
+				author: { avatarId: author?.id || 1, avatarFrame: author?.avatarFrame || null }
+			} : null
+		};
+	});
 	res.json({ ok: true, messages });
 });
 
 app.post("/session/messages/mark-all-as-read", verifyAuth, securityCheck, async (req, res) => {
-	const index = await storage.getIndex();
-	const metadata = index.users[req.user.username.toLowerCase()];
-	if (metadata && ((metadata.unreadMessages || 0) > 0))
-		metadata.unreadMessages = 0;
-	else
-		res.status(400).json({ ok: false, error: "No unread messages" });
-	metadata.lastActive = new Date().toISOString();
-	await storage.updateIndex(index);
-	res.json({ ok: true, unreadMessages: 0 });
+	try {
+		await storage.mutateIndex(index => {
+			const metadata = index.users[req.user.username.toLowerCase()];
+			if (!metadata || String(metadata.id) !== String(req.user.userId) || metadata.banned)
+				throw Object.assign(new Error("Account unavailable"), { status: 403 });
+			metadata.unreadMessages = 0;
+			metadata.lastActive = new Date().toISOString();
+		});
+		res.json({ ok: true, unreadMessages: 0 });
+	} catch (error) {
+		res.status(error.status || 500).json({
+			ok: false,
+			error: error.status ? error.message : "Failed to mark messages as read"
+		});
+	}
 });
 
 app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {

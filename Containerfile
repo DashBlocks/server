@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY package.json ./
 RUN npm install
-RUN npm audit -fix
+RUN npm audit fix
 
 COPY --chown=node:node . .
 

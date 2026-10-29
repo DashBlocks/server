@@ -38,16 +38,38 @@ async function getIndex() {
 async function updateIndex(indexData) {
 	const write = indexWriteQueue.then(async () => {
 		const current = await getIndex();
+		indexData.commentsEnabled = current.commentsEnabled !== false;
 		const projects = new Map();
 		for (const user of Object.values(current.users)) {
 			for (const project of user.projects || []) projects.set(String(project.id), project);
 		}
 		for (const user of Object.values(indexData.users)) {
+			const savedUser = current.users[user.username.toLowerCase()];
+			if (savedUser && String(savedUser.id) === String(user.id)) {
+				user.lastCommentAt = savedUser.lastCommentAt || 0;
+				if ((savedUser.messages || []).some(message => message.type === "project-commented")) {
+					const incomingMessages = user.messages || [];
+					const savedMessages = savedUser.messages || [];
+					const unread = incomingMessages.slice(0, user.unreadMessages || 0)
+						.filter(message => message.type !== "project-commented")
+						.concat(savedMessages.slice(0, savedUser.unreadMessages || 0)
+							.filter(message => message.type === "project-commented"));
+					const read = incomingMessages.slice(user.unreadMessages || 0)
+						.filter(message => message.type !== "project-commented")
+						.concat(savedMessages.slice(savedUser.unreadMessages || 0)
+							.filter(message => message.type === "project-commented"));
+					const byDate = (a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0);
+					user.messages = [...unread.sort(byDate), ...read.sort(byDate)];
+					user.unreadMessages = unread.length;
+				}
+			}
 			for (const project of user.projects || []) {
 				const saved = projects.get(String(project.id));
 				if (!saved) continue;
 				project.collaborators = structuredClone(saved.collaborators || []);
 				project.collaborationRevision = saved.collaborationRevision || 0;
+				project.comments = structuredClone(saved.comments || []);
+				project.nextCommentId = saved.nextCommentId || (saved.comments?.at(-1)?.id || 0) + 1;
 			}
 		}
 		await writeIndexAtomically(indexData);

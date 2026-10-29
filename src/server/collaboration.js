@@ -737,24 +737,33 @@ export const attachCollaborationWebSocket = (server) => {
 		for (const ws of room.clients) send(ws, { type: "members", members });
 	};
 
-	const scheduleChatSave = (room) => {
-		if (room.chatSaveTimer) return;
-		room.chatSaveTimer = setTimeout(async () => {
-			room.chatSaveTimer = null;
+	const saveChat = (room) => {
+		const data = JSON.stringify({ version: 1, messages: room.chat });
+		room.chatQueue = (room.chatQueue || Promise.resolve()).then(async () => {
+			await fs.mkdir(directory, { recursive: true });
+			const file = path.join(directory, `${room.id}.chat.json`);
+			const temporary = `${file}.${randomUUID()}.tmp`;
 			try {
-				const file = path.join(directory, `${room.id}.chat.json`);
-				const temporary = `${file}.${randomUUID()}.tmp`;
 				const handle = await fs.open(temporary, "wx", 0o600);
 				try {
-					await handle.writeFile(JSON.stringify({ version: 1, messages: room.chat }));
+					await handle.writeFile(data);
 					await handle.sync();
 				} finally {
 					await handle.close();
 				}
 				await fs.rename(temporary, file);
-			} catch (_) {
-				// Chat persistence is best-effort; never break the session over it.
+			} finally {
+				await fs.unlink(temporary).catch(() => {});
 			}
+		}).catch(() => {});
+		return room.chatQueue;
+	};
+
+	const scheduleChatSave = (room) => {
+		if (room.chatSaveTimer) return;
+		room.chatSaveTimer = setTimeout(() => {
+			room.chatSaveTimer = null;
+			saveChat(room);
 		}, 1000);
 	};
 
@@ -1343,7 +1352,12 @@ export const attachCollaborationWebSocket = (server) => {
 		clearInterval(heartbeat);
 		server.off("upgrade", upgrade);
 		for (const ws of wss.clients) ws.terminate();
-		await Promise.allSettled([...collaborationRooms.values()].map((room) => room.queue));
+		await Promise.allSettled([...collaborationRooms.values()].map(async (room) => {
+			clearTimeout(room.chatSaveTimer);
+			room.chatSaveTimer = null;
+			await room.queue;
+			await saveChat(room);
+		}));
 		await new Promise((resolve) => wss.close(resolve));
 		for (const room of collaborationRooms.values()) room.doc.destroy();
 		collaborationRooms.clear();
