@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import app, { imageUpload } from "../app.js";
 import * as vars from "./vars.js";
 import {
+	roleEqualOrHigherThan,
 	generateUserObject,
 	getProjectStudiosCount,
 	getUserIndexData,
@@ -428,7 +429,7 @@ app.post(
 	verifyAuth,
 	securityCheck,
 	async (req, res) => {
-		if (req.userRole !== "dash-supporter" && req.userRole !== "dashteam")
+		if (!roleEqualOrHigherThan(req.userRole, "dash-supporter"))
 			return res.status(403).json({ ok: false, error: "Must have Dash Supporter role" });
 
 		const gradientValue = req.body.gradient;
@@ -487,7 +488,7 @@ app.post(
 	verifyAuth,
 	securityCheck,
 	async (req, res) => {
-		if (req.userRole !== "dash-supporter" && req.userRole !== "dashteam")
+		if (!roleEqualOrHigherThan(req.userRole, "dash-supporter"))
 			return res.status(403).json({ ok: false, error: "Must have Dash Supporter role" });
 
 		const avatarFrameValue = req.body.avatarFrame;

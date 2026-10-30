@@ -27,6 +27,13 @@ const DATA_USERS_PATH = path.join(DATA_PATH, "users");
 const DATA_PROJECTS_PATH = path.join(DATA_PATH, "projects");
 const DATA_STUDIOS_PATH = path.join(DATA_PATH, "studios");
 
+const ROLES = [
+	"dasher",
+	"dasher+",
+	"dash-supporter",
+	"dashteam"
+];
+
 const FORBIDDEN_USERNAMES = [
 	"user",
 	"unknown",
@@ -70,6 +77,8 @@ export {
 	DATA_USERS_PATH,
 	DATA_PROJECTS_PATH,
 	DATA_STUDIOS_PATH,
+
+	ROLES,
 
 	FORBIDDEN_USERNAMES,
 

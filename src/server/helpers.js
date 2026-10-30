@@ -2,8 +2,17 @@ import jwt from "jsonwebtoken";
 import JSZip from "jszip";
 import rateLimit from "express-rate-limit";
 
-import { JWT_SECRET, TG_BOT_API, TG_BOT_TOKEN, TG_EVENTS_GROUP_ID } from "./vars.js";
+import {
+	JWT_SECRET,
+	TG_BOT_API,
+	TG_BOT_TOKEN,
+	TG_EVENTS_GROUP_ID,
+	ROLES
+} from "./vars.js";
 import { getIndex } from "./storage.js";
+
+const roleEqualOrHigherThan = (comparedRole, minRole) =>
+	ROLES.indexOf(comparedRole) >= ROLES.indexOf(minRole);
 
 const isValidUsername = (username) => {
 	const regex = /^(?!\d+$)[a-zA-Z0-9-_]+$/;
@@ -54,11 +63,11 @@ const validateProjectZip = async (file, userRole) => {
 	if (hasCustomExtensions && userRole === "dasher")
 		return { ok: false, error: "Custom extensions require Dasher+ role" };
 
-	const maxProjectSize = userRole === "dash-supporter" ? 250 * 1024 * 1024 : 75 * 1024 * 1024;
+	const maxProjectSize = roleEqualOrHigherThan(userRole, "dash-supporter")  ? 250 * 1024 * 1024 : 75 * 1024 * 1024;
 	if (file.size > maxProjectSize)
 		return {
 			ok: false,
-			error: `Project size limit is ${userRole === "dash-supporter" ? "250MB" : "75MB - donate Dash to increase it up to 250MB! https://dashblocks.org/donate"}`
+			error: `Project size limit is ${roleEqualOrHigherThan(userRole, "dash-supporter") ? "250MB" : "75MB - support Dash to increase it up to 250MB! https://dashblocks.org/support"}`
 		};
 
 	return { ok: true };
@@ -331,6 +340,7 @@ const searchTimeout = rateLimit({
 });
 
 export {
+	roleEqualOrHigherThan,
 	isValidUsername,
 	isValidEmail,
 	validateId,

@@ -28,7 +28,7 @@ app.get("/avatar-frames/:id", securityCheck, (req, res) => {
     try {
         const avatarFrameId = req.params.id;
     
-        if (!AVATAR_FRAMES.find((frame) => frame.id === avatarFrameValue)) throw new Error();
+        if (!AVATAR_FRAMES.find((frame) => frame.id === avatarFrameId)) throw new Error();
     
         res.setHeader("Content-Type", "image/svg+xml");
         res.sendFile(path.join(vars.ASSETS_PATH, `avatar-frames/${avatarFrameId}.svg`));

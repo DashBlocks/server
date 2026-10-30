@@ -11,6 +11,7 @@ import * as Y from "yjs";
 import app from "../app.js";
 import * as vars from "./vars.js";
 import {
+	roleEqualOrHigherThan,
 	validateId,
 	securityCheck,
 	verifyAuth,
@@ -69,14 +70,14 @@ export const resolveProjectAccess = (index, projectId, userId) => {
 
 	const position = collaborators.findIndex((member) => member.userId === String(user.id));
 	if (position === -1) throw new CollaborationError(403, "Collaboration access denied");
-	if (position >= ((owner.role === "dash-supporter" || owner.role === "dashteam") ? 5 : 2)) {
+	if (position >= (roleEqualOrHigherThan(owner.role, "dash-supporter") ? 5 : 2)) {
 		throw new CollaborationError(
 			403,
 			"Project collaborators limit reached" +
 			(
-				owner.role !== "dash-supporter" && owner.role !== "dashteam"
-					? " - donate Dash to add more collaborators: https://dashblocks.org/donate"
-					: ""
+				roleEqualOrHigherThan(owner.role, "dash-supporter")
+					? ""
+					: " - support Dash to add more collaborators: https://dashblocks.org/support"
 			)
 		);
 	}
@@ -124,7 +125,7 @@ const checkOrigin = (req, res, next) => {
 };
 
 const formatCollaboration = (index, access) => {
-	const limit = (access.owner.role === "dash-supporter" || access.owner.role === "dashteam") ? 5 : 2;
+	const limit = roleEqualOrHigherThan(access.owner.role, "dash-supporter") ? 5 : 2;
 	return {
 		ok: true,
 		projectId: Number(access.project.id),
@@ -185,10 +186,10 @@ app.post("/projects/:id/collaborators", verifyAuth, securityCheck, validateId, c
 
 			const existing = access.collaborators.find((member) => member.userId === String(user.id));
 			if (!existing) {
-				if (access.collaborators.length >= ((access.owner.role === "dash-supporter" || access.owner.role === "dashteam") ? 5 : 2)) {
+				if (access.collaborators.length >= (roleEqualOrHigherThan(access.owner.role, "dash-supporter") ? 5 : 2)) {
 					throw new CollaborationError(
 						403,
-						`This project allows up to ${(access.owner.role === "dash-supporter" || access.owner.role === "dashteam") ? 5 : 2} collaborators`
+						`This project allows up to ${roleEqualOrHigherThan(access.owner.role, "dash-supporter") ? 5 : 2} collaborators`
 					);
 				}
 				access.collaborators.push({
