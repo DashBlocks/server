@@ -15,8 +15,8 @@ import {
 	thumbnailUploadTimeout,
 	sendEventMessage,
 	eventFmt
-} from "./helpers.js";
-import { formatThumbnailImage } from "./image-processing.js";
+} from "./util/helpers.js";
+import { formatThumbnailImage } from "./util/image-processing.js";
 import * as storage from "./storage.js";
 
 const views = new Map();

@@ -6,7 +6,7 @@ import {
 	verifyAuth,
 	sendEventMessage,
 	eventFmt
-} from "./helpers.js";
+} from "./util/helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/payments/create", verifyAuth, securityCheck, async (req, res) => {

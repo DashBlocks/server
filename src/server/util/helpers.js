@@ -8,8 +8,8 @@ import {
 	TG_BOT_TOKEN,
 	TG_EVENTS_GROUP_ID,
 	ROLES
-} from "./vars.js";
-import { getIndex } from "./storage.js";
+} from "../vars.js";
+import { getIndex } from "../storage.js";
 
 const roleEqualOrHigherThan = (comparedRole, minRole) =>
 	ROLES.indexOf(comparedRole) >= ROLES.indexOf(minRole);

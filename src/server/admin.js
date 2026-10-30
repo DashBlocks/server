@@ -1,6 +1,6 @@
 import app from "../app.js";
 import { ROLES } from "./vars.js";
-import { securityCheck, verifyAuth, sendEventMessage, eventFmt } from "./helpers.js";
+import { securityCheck, verifyAuth, sendEventMessage, eventFmt } from "./util/helpers.js";
 import * as storage from "./storage.js";
 
 app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {

@@ -1,7 +1,8 @@
 import path from "path";
 
 import app from "../app.js";
-import { securityCheck } from "./helpers.js";
+import * as vars from "./vars.js";
+import { securityCheck } from "./util/helpers.js";
 
 const AVATAR_FRAMES = [
     { id: "blocks" },

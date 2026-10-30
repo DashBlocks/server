@@ -5,7 +5,7 @@ import {
 	securityCheck,
 	searchLimiter,
 	searchTimeout
-} from "./helpers.js";
+} from "./util/helpers.js";
 
 // "d-*" - descending sort methods
 // "a-*" - ascending sort methods

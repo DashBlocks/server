@@ -17,7 +17,7 @@ import {
 	deleteAccountLimiter,
 	sendEventMessage,
 	eventFmt
-} from "./helpers.js";
+} from "./util/helpers.js";
 import * as storage from "./storage.js";
 
 const verificationCodes = new Map();

@@ -7,7 +7,7 @@ import {
 	verifyAuth,
 	sendEventMessage,
 	eventFmt
-} from "./helpers.js";
+} from "./util/helpers.js";
 import * as storage from "./storage.js";
 
 function formatFeaturedProjects(index, featuredProjects = index.featuredProjects || []) {

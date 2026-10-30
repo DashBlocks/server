@@ -1,7 +1,12 @@
 import app from "../app.js";
-import { securityCheck, verifyAuth, validateId } from "./helpers.js";
+import {
+	securityCheck,
+	verifyAuth,
+	validateId,
+	sendEventMessage,
+	eventFmt
+} from "./util/helpers.js";
 import * as storage from "./storage.js";
-import { sendEventMessage, eventFmt } from "./helpers.js";
 
 const formatComment = (comment, users) => {
 	const author = users.get(String(comment.authorId));

@@ -15,8 +15,8 @@ import {
 	escapeHTML,
 	sendEventMessage,
 	eventFmt
-} from "./helpers.js";
-import { formatAvatarImage } from "./image-processing.js";
+} from "./util/helpers.js";
+import { formatAvatarImage } from "./util/image-processing.js";
 import * as storage from "./storage.js";
 import { AVATAR_FRAMES } from "./avatar-frames.js";
 

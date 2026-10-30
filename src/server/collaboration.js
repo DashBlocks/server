@@ -16,7 +16,7 @@ import {
 	securityCheck,
 	verifyAuth,
 	generateUserObject
-} from "./helpers.js";
+} from "./util/helpers.js";
 import * as storage from "./storage.js";
 
 const collaborationRooms = new Map();

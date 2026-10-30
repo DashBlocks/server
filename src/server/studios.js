@@ -16,8 +16,8 @@ import {
 	thumbnailUploadTimeout,
 	sendEventMessage,
 	eventFmt
-} from "./helpers.js";
-import { formatStudioThumbnailImage } from "./image-processing.js";
+} from "./util/helpers.js";
+import { formatStudioThumbnailImage } from "./util/image-processing.js";
 import * as storage from "./storage.js";
 
 const getStudio = (index, studioId) => index.studios?.[String(studioId)] || null;
