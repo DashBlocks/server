@@ -46,7 +46,7 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 			return res.status(400).json({ ok: false, error: "At least one account field is required" });
 		if (updateUsername && (!isValidUsername(username) || FORBIDDEN_USERNAMES.includes(username.toLowerCase())))
 			return res.status(400).json({ ok: false, error: "Invalid username" });
-		if (updateEmail && (typeof email !== "string" || !isValidEmail(email)))
+		if (updateEmail && (typeof email !== "string" || !isValidEmail(email) && email !== ""))
 			return res.status(400).json({ ok: false, error: "Invalid email address" });
 		if (updatePassword && (typeof password !== "string" || password.length < 8 || password.length > 100))
 			return res.status(400).json({ ok: false, error: "Password must be 8-100 characters long" });
