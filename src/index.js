@@ -17,7 +17,7 @@ import "./server/payments.js";
 app.get("/", async (_, res) => {
 	const index = await storage.getIndex();
 	if (
-		index && typeof index?.users === 'object' &&
+		index && typeof index?.users === "object" &&
 		index.users !== null && !Array.isArray(index.users) &&
 		Object.keys(index.users).length > 0
 	) {

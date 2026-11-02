@@ -1166,14 +1166,14 @@ export const attachCollaborationWebSocket = (server) => {
 							room.clients.add(ws);
 							room.touched = Date.now();
 							clearTimeout(timeout);
-						send(ws, {
-							type: "ready", epoch: room.epoch, userId, role: ws.role, grantId: ws.grantId,
-							connectionId: ws.connectionId,
-							features: ["presence", "chat"],
-							data: Buffer.from(Y.encodeStateAsUpdate(room.doc)).toString("base64")
-						});
-						presence(room);
-						if (ws.features.has("chat")) send(ws, { type: "chat-history", messages: room.chat });
+							send(ws, {
+								type: "ready", epoch: room.epoch, userId, role: ws.role, grantId: ws.grantId,
+								connectionId: ws.connectionId,
+								features: ["presence", "chat"],
+								data: Buffer.from(Y.encodeStateAsUpdate(room.doc)).toString("base64")
+							});
+							presence(room);
+							if (ws.features.has("chat")) send(ws, { type: "chat-history", messages: room.chat });
 						});
 						room.queue = join.catch(() => {});
 						await join;

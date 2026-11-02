@@ -1,24 +1,103 @@
+import bcrypt from "bcrypt";
 import app from "../app.js";
-import { ROLES } from "./vars.js";
-import { securityCheck, verifyAuth, sendEventMessage, eventFmt } from "./util/helpers.js";
+import {
+	ROLES,
+	FORBIDDEN_USERNAMES
+} from "./vars.js";
+import {
+	isValidEmail,
+	isValidUsername,
+	adminAccountUpdateLimiter,
+	securityCheck,
+	verifyAuth,
+	sendEventMessage,
+	eventFmt
+} from "./util/helpers.js";
 import * as storage from "./storage.js";
 
-app.post("/admin/manage-user", verifyAuth, securityCheck, async (req, res) => {
+app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCheck, async (req, res) => {
 	if (req.userRole !== "dashteam")
 		return res.status(403).json({
 			ok: false,
 			error: "Only Dash Team can do this, what did you expect?"
 		});
 
-	const { targetUsername, action, role, endDate } = req.body;
+	const { targetUsername, action, role, endDate } = req.body || {};
+	if (typeof targetUsername !== "string" || !targetUsername.trim() || typeof action !== "string")
+		return res.status(400).json({ ok: false, error: "Target username and action required" });
 	const index = req.usersIndex;
-	const target = index.users[targetUsername.toLowerCase()];
+	const target = index.users[targetUsername.trim().toLowerCase()];
 
 	if (!target)
 		return res.status(404).json({ ok: false, error: "User not found" });
 
 	if (target.role === "dashteam")
 		return res.status(400).json({ ok: false, error: "User's role is Dash Team" });
+
+	if (["update-account", "change-username", "change-email", "change-password"].includes(action)) {
+		const username = action === "change-username" ? req.body.newUsername : req.body.username;
+		const email = action === "change-email" ? req.body.newEmail : req.body.email;
+		const password = action === "change-password" ? req.body.newPassword : req.body.password;
+		const updateUsername = action === "change-username" || action === "update-account" && username !== undefined;
+		const updateEmail = action === "change-email" || action === "update-account" && email !== undefined;
+		const updatePassword = action === "change-password" || action === "update-account" && password !== undefined;
+
+		if (!updateUsername && !updateEmail && !updatePassword)
+			return res.status(400).json({ ok: false, error: "At least one account field is required" });
+		if (updateUsername && (!isValidUsername(username) || FORBIDDEN_USERNAMES.includes(username.toLowerCase())))
+			return res.status(400).json({ ok: false, error: "Invalid username" });
+		if (updateEmail && (typeof email !== "string" || !isValidEmail(email)))
+			return res.status(400).json({ ok: false, error: "Invalid email address" });
+		if (updatePassword && (typeof password !== "string" || password.length < 8 || password.length > 100))
+			return res.status(400).json({ ok: false, error: "Password must be 8-100 characters long" });
+
+		const normalizedUsername = updateUsername ? username.trim().toLowerCase() : null;
+		const normalizedEmail = updateEmail ? email.trim().toLowerCase() : null;
+		if (updateUsername && Object.values(index.users).some(
+			(user) => String(user.id) !== String(target.id) && user.username?.toLowerCase() === normalizedUsername
+		)) return res.status(400).json({ ok: false, error: "Username taken" });
+		if (updateEmail && Object.values(index.users).some(
+			(user) => String(user.id) !== String(target.id) && user.email?.toLowerCase() === normalizedEmail
+		)) return res.status(400).json({ ok: false, error: "Email already in use" });
+
+		try {
+			const storedUser = await storage.readUserJson(target.id);
+			if (updateUsername) {
+				const oldKey = target.username.toLowerCase();
+				delete index.users[oldKey];
+				target.username = username.trim();
+				index.users[normalizedUsername] = target;
+				for (const user of Object.values(index.users)) {
+					for (const relation of [...(user.followers || []), ...(user.following || [])]) {
+						if (String(relation.id) === String(target.id)) relation.username = target.username;
+					}
+				}
+				for (const studio of Object.values(index.studios || {})) {
+					if (String(studio.ownerId) === String(target.id)) studio.ownerUsername = target.username;
+				}
+				storedUser.username = target.username;
+			}
+			if (updateEmail) {
+				target.email = email.trim();
+				storedUser.email = email.trim();
+			}
+			if (updatePassword) {
+				storedUser.password = await bcrypt.hash(password, 12);
+			}
+			await storage.updateUserJson(target.id, storedUser);
+			await storage.updateIndex(index);
+			res.json({ ok: true });
+			sendEventMessage([
+				"<b>#ADMIN #ACCOUNT_UPDATED</b>",
+				eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
+				eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`,
+				`fields: <b>${[updateUsername && "username", updateEmail && "email", updatePassword && "password"].filter(Boolean).join(", ")}</b>`
+			]);
+		} catch (_) {
+			res.status(500).json({ ok: false, error: "Failed to update user account" });
+		}
+		return;
+	}
 
 	if (action === "ban-user") {
 		target.banned = true;

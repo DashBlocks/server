@@ -22,7 +22,7 @@ import { AVATAR_FRAMES } from "./avatar-frames.js";
 
 const getUserFormattedData = (isDeprecatedPath) => async (req, res) => {
 	if (isDeprecatedPath) {
-		res.setHeader("Deprecation", "@<1791549156>")
+		res.setHeader("Deprecation", "@<1791549156>");
 	}
 	try {
 		const indexData = getUserIndexData(req.usersIndex, req.params.target);
@@ -58,7 +58,7 @@ app.get("/users/:target", securityCheck, getUserFormattedData(true));
 
 const getUserProjects = (isDeprecatedPath) => async (req, res) => {
 	if (isDeprecatedPath) {
-		res.setHeader("Deprecation", "@<1791549156>")
+		res.setHeader("Deprecation", "@<1791549156>");
 	}
 	try {
 		const author = getUserIndexData(req.usersIndex, req.params.target);
@@ -104,7 +104,7 @@ app.get("/users/:target/projects", securityCheck, getUserProjects(true));
 
 const getUserStudios = (isDeprecatedPath) => (req, res) => {
 	if (isDeprecatedPath) {
-		res.setHeader("Deprecation", "@<1791549156>")
+		res.setHeader("Deprecation", "@<1791549156>");
 	}
 	const index = req.usersIndex;
 	const user = getUserIndexData(index, req.params.target);
@@ -141,7 +141,7 @@ app.get("/users/:target/studios", securityCheck, getUserStudios(true));
 
 const getUserActions = (isDeprecatedPath) => async (req, res) => {
 	if (isDeprecatedPath) {
-		res.setHeader("Deprecation", "@<1791549156>")
+		res.setHeader("Deprecation", "@<1791549156>");
 	}
 	try {
 		const indexData = getUserIndexData(req.usersIndex, req.params.target);
@@ -164,7 +164,7 @@ app.get("/users/:target/actions", securityCheck, getUserActions(true));
 
 const getUserFollowers = (isDeprecatedPath) => async (req, res) => {
 	if (isDeprecatedPath) {
-		res.setHeader("Deprecation", "@<1791549156>")
+		res.setHeader("Deprecation", "@<1791549156>");
 	}
 	try {
 		const indexData = getUserIndexData(req.usersIndex, req.params.target);
@@ -191,7 +191,7 @@ app.get("/users/:target/followers", securityCheck, getUserFollowers(true));
 
 const getUserFollowing = (isDeprecatedPath) => async (req, res) => {
 	if (isDeprecatedPath) {
-		res.setHeader("Deprecation", "@<1791549156>")
+		res.setHeader("Deprecation", "@<1791549156>");
 	}
 	try {
 		const indexData = getUserIndexData(req.usersIndex, req.params.target);
@@ -218,7 +218,7 @@ app.get("/users/:target/following", securityCheck, getUserFollowing(true));
 
 const followUser = (isDeprecatedPath) => async (req, res) => {
 	if (isDeprecatedPath) {
-		res.setHeader("Deprecation", "@<1791549156>")
+		res.setHeader("Deprecation", "@<1791549156>");
 	}
 	try {
 		const target = req.params.target;
@@ -296,7 +296,7 @@ app.post("/users/:target/follow", verifyAuth, securityCheck, followUser(true));
 
 const unfollowUser = (isDeprecatedPath) => async (req, res) => {
 	if (isDeprecatedPath) {
-		res.setHeader("Deprecation", "@<1791549156>")
+		res.setHeader("Deprecation", "@<1791549156>");
 	}
 	try {
 		const index = req.usersIndex;

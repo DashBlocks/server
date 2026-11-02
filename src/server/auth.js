@@ -14,6 +14,8 @@ import {
 	registerLimiter,
 	loginLimiter,
 	changePasswordLimiter,
+	passwordResetLimiter,
+	changeEmailLimiter,
 	deleteAccountLimiter,
 	sendEventMessage,
 	eventFmt
@@ -73,7 +75,13 @@ export async function verifyToken(token, ip) {
 	}
 }
 
-const sendVerificationEmail = async (email, code) => {
+const sendVerificationEmail = async (email, code, purpose = "verify") => {
+	const messages = {
+		"password-reset": ["Reset your password", "Use this code to reset your Dash password."],
+		"change-email": ["Verify your new email address", "Use this code to confirm your new email address."],
+		verify: ["Verify your email address", "Use this code to complete your email verification."]
+	};
+	const [heading, description] = messages[purpose] || messages.verify;
 	const { data, error } = await resend.emails.send({
 		from: "DashBlocks Verification <verify@noreply.dashblocks.org>",
 		to: [email],
@@ -85,8 +93,8 @@ const sendVerificationEmail = async (email, code) => {
   				"
 			>
   				<p>Hello,</p>
-  				<h2>Verify your email address</h2>
-  				<p>Please use the verification code below to complete your verification in Dash. This code is valid for ~10 minutes</p>
+				<h2>${heading}</h2>
+				<p>${description} This code is valid for ~10 minutes.</p>
   				<div style="
       					padding: 1rem;
       					font-size: 2rem;
@@ -453,6 +461,113 @@ app.get("/session/activity", verifyAuth, securityCheck, async (req, res) => {
 app.get("/auth/logout", verifyAuth, securityCheck, (_, res) => {
 	clearTokenCookies(res);
 	return res.json({ ok: true, message: "Logged out" });
+});
+
+app.post("/auth/reset-password", passwordResetLimiter, securityCheck, async (req, res) => {
+	try {
+		const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+		const verificationCode = req.body?.verificationCode;
+		const newPassword = req.body?.newPassword;
+		if (!email || !isValidEmail(email))
+			return res.status(400).json({ ok: false, error: "Invalid email address" });
+
+		const index = await storage.getIndex();
+		const user = Object.values(index.users).find(
+			(entry) => entry.email?.toLowerCase() === email.toLowerCase()
+		);
+
+		if (!verificationCode) {
+			if (user) {
+				const code = generateVerificationCode();
+				storeVerificationCode(email, code, { purpose: "password-reset", userId: user.id });
+				await sendVerificationEmail(email, code, "password-reset");
+			}
+			return res.json({
+				ok: true,
+				requiresVerification: true,
+				message: "If an account exists for this email, a verification code has been sent"
+			});
+		}
+
+		if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8 || newPassword.length > 100)
+			return res.status(400).json({ ok: false, error: "Password must be 8-100 characters long" });
+
+		const storedCode = getStoredVerificationCode(email);
+		if (!user || !storedCode || storedCode.purpose !== "password-reset" ||
+			String(storedCode.userId) !== String(user.id) || storedCode.code !== verificationCode) {
+			return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
+		}
+
+		const storedUser = await storage.readUserJson(user.id);
+		storedUser.password = await bcrypt.hash(newPassword, 12);
+		await storage.updateUserJson(user.id, storedUser);
+		clearStoredVerificationCode(email);
+		clearTokenCookies(res);
+		res.json({ ok: true, message: "Password reset. Log in with your new password" });
+		sendEventMessage([
+			"<b>#PASSWORD_RESET</b>",
+			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`
+		]);
+	} catch (_) {
+		res.status(500).json({ ok: false, error: "Failed to reset password" });
+	}
+});
+
+app.post("/auth/change-email", verifyAuth, securityCheck, changeEmailLimiter, async (req, res) => {
+	try {
+		const email = typeof req.body?.newEmail === "string" ? req.body.newEmail.trim() : "";
+		const password = req.body?.password;
+		const verificationCode = req.body?.verificationCode;
+		if (!email || !isValidEmail(email))
+			return res.status(400).json({ ok: false, error: "Invalid email address" });
+		if (!password || typeof password !== "string")
+			return res.status(400).json({ ok: false, error: "Password required" });
+
+		const index = await storage.getIndex();
+		const user = index.users[req.user.username.toLowerCase()];
+		if (!user || String(user.id) !== String(req.user.userId))
+			return res.status(404).json({ ok: false, error: "User not found" });
+		if (email.toLowerCase() === user.email?.toLowerCase())
+			return res.status(400).json({ ok: false, error: "This is already your email address" });
+		if (Object.values(index.users).some(
+			(entry) => String(entry.id) !== String(user.id) && entry.email?.toLowerCase() === email.toLowerCase()
+		)) return res.status(400).json({ ok: false, error: "Email already in use" });
+
+		const storedUser = await storage.readUserJson(user.id);
+		if (!(await bcrypt.compare(password, storedUser.password)))
+			return res.status(401).json({ ok: false, error: "Password is incorrect" });
+
+		if (!verificationCode) {
+			const code = generateVerificationCode();
+			storeVerificationCode(email, code, {
+				purpose: "change-email",
+				userId: user.id,
+				newEmail: email.toLowerCase()
+			});
+			await sendVerificationEmail(email, code, "change-email");
+			return res.status(201).json({
+				ok: true,
+				requiresVerification: true,
+				message: "Verification code sent to your new email address"
+			});
+		}
+
+		const storedCode = getStoredVerificationCode(email);
+		if (!storedCode || storedCode.purpose !== "change-email" ||
+			String(storedCode.userId) !== String(user.id) ||
+			storedCode.newEmail !== email.toLowerCase() || storedCode.code !== verificationCode) {
+			return res.status(400).json({ ok: false, error: "Invalid or expired verification code" });
+		}
+
+		storedUser.email = email;
+		await storage.updateUserJson(user.id, storedUser);
+		user.email = email;
+		await storage.updateIndex(index);
+		clearStoredVerificationCode(email);
+		res.json({ ok: true, message: "Email address changed" });
+	} catch (_) {
+		res.status(500).json({ ok: false, error: "Failed to change email address" });
+	}
 });
 
 app.post("/auth/change-password", verifyAuth, securityCheck, changePasswordLimiter, async (req, res) => {
