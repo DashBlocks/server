@@ -228,7 +228,21 @@ const securityCheck = async (req, res, next) => {
 				.json({ ok: false, error: "Security check failed" });
 
 		const userIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-		const username = req.user?.username?.toLowerCase();
+		let username = req.user?.username?.toLowerCase();
+		if (req.user) {
+			let profile = username ? index.users[username] : null;
+			if (!profile || String(profile.id) !== String(req.user.userId)) {
+				profile = Object.values(index.users).find(
+					(user) => String(user.id) === String(req.user.userId)
+				);
+			}
+			if (profile) {
+				req.user.username = profile.username;
+				username = profile.username.toLowerCase();
+			} else {
+				return res.status(401).json({ ok: false, error: "Invalid session" });
+			}
+		}
 
 		if (index.bannedIps?.includes(userIp)) {
 			return res.status(403).json({ ok: false, error: "IP address banned" });
@@ -263,6 +277,24 @@ const loginLimiter = rateLimit({
 
 const changePasswordLimiter = rateLimit({
 	windowMs: 24 * 60 * 60 * 1000,
+	max: 30,
+	message: { ok: false, error: "Too many attempts, try again later" }
+});
+
+const passwordResetLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000,
+	max: 5,
+	message: { ok: false, error: "Too many attempts, try again later" }
+});
+
+const changeEmailLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000,
+	max: 5,
+	message: { ok: false, error: "Too many attempts, try again later" }
+});
+
+const adminAccountUpdateLimiter = rateLimit({
+	windowMs: 60 * 60 * 1000,
 	max: 30,
 	message: { ok: false, error: "Too many attempts, try again later" }
 });
@@ -358,6 +390,9 @@ export {
 	registerLimiter,
 	loginLimiter,
 	changePasswordLimiter,
+	passwordResetLimiter,
+	changeEmailLimiter,
+	adminAccountUpdateLimiter,
 	deleteAccountLimiter,
 	uploadLimiter,
 	updateLimiter,
