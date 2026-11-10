@@ -31,8 +31,8 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 	if (!target)
 		return res.status(404).json({ ok: false, error: "User not found" });
 
-	/* if (target.role === "dashteam")
-		return res.status(400).json({ ok: false, error: "User's role is Dash Team" }); */
+	if (target.role === "dashteam")
+		return res.status(400).json({ ok: false, error: "User's role is Dash Team" });
 
 	if (["update-account", "change-username", "change-email", "change-password"].includes(action)) {
 		const username = action === "change-username" ? req.body.newUsername : req.body.username;
