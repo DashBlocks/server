@@ -1,8 +1,10 @@
+import { commentTarget } from "./util/comment-target.js";
 import app from "../app.js";
 import {
 	securityCheck,
 	verifyAuth,
-	validateId,
+	getUserIndexData,
+	escapeHTML,
 	sendEventMessage,
 	eventFmt
 } from "./util/helpers.js";
@@ -13,6 +15,8 @@ const formatComment = (comment, users) => {
 	return {
 		id: comment.id,
 		content: comment.content,
+		threadId: comment.threadId || null,
+		replyTo: comment.replyTo || null,
 		createdAt: comment.createdAt,
 		author: {
 			id: author?.id || null,
@@ -51,145 +55,148 @@ app.patch("/comments/settings", verifyAuth, securityCheck, async (req, res) => {
 	}
 });
 
-app.get("/projects/:id/comments", securityCheck, validateId, (req, res) => {
+const route = "/:scope(projects|users|studios)/:id/comments";
+const validateTargetId = (req, res, next) => {
+	const valid = req.params.scope === "users" ? /^s?[1-9]\d*$/ : /^[1-9]\d*$/;
+	if (!valid.test(req.params.id)) return res.status(400).json({ ok: false, error: "Invalid ID" });
+	next();
+};
+const positive = value => Number.isSafeInteger(value) && value > 0;
+const fail = (status, code) => Object.assign(new Error(code), { status, code });
+
+app.get(route, securityCheck, validateTargetId, (req, res) => {
 	const index = req.usersIndex;
-	const project = storage.findProjectById(index, req.params.id);
-	if (!project) return res.status(404).json({ ok: false, error: "Project not found" });
-
-	const limit = req.query.limit === undefined ? 20 : Number(req.query.limit);
-	const before = req.query.before === undefined ? null : Number(req.query.before);
-	if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50 ||
-		(before !== null && (!Number.isSafeInteger(before) || before < 1)))
+	const target = commentTarget(index, req.params.scope, req.params.id);
+	if (!target) return res.status(404).json({ ok: false, error: "Page not found" });
+	const limit = Number(req.query.limit ?? 20);
+	const before = Number(req.query.before);
+	const thread = Number(req.query.thread);
+	const after = Number(req.query.after);
+	const threaded = req.query.thread !== undefined;
+	if (!positive(limit) || limit > 50 ||
+		(req.query.before !== undefined && (threaded || !positive(before))) ||
+		(threaded && !positive(thread)) ||
+		(req.query.after !== undefined && (!threaded || !positive(after))))
 		return res.status(400).json({ ok: false, error: "Invalid pagination" });
-
-	const comments = project.comments || [];
-	let end = comments.length;
-	if (before !== null) {
-		let start = 0;
-		while (start < end) {
-			const middle = Math.floor((start + end) / 2);
-			if (comments[middle].id < before) start = middle + 1;
-			else end = middle;
-		}
-	}
-	const start = Math.max(0, end - limit);
-	const page = comments.slice(start, end).reverse();
+	const comments = target.item.comments || [];
 	const users = new Map(Object.values(index.users).map(user => [String(user.id), user]));
 	res.setHeader("Cache-Control", "no-store");
+	if (threaded) {
+		const replies = comments.filter(entry => entry.threadId === thread && (!after || entry.id > after));
+		const page = replies.slice(0, limit);
+		return res.json({
+			ok: true, replies: page.map(entry => formatComment(entry, users)),
+			nextCursor: replies.length > limit ? page.at(-1).id : null
+		});
+	}
+	const roots = comments.filter(entry => !entry.threadId && (!before || entry.id < before));
+	const page = roots.slice(-limit).reverse().map(entry => ({
+		...formatComment(entry, users), replies: [], nextReplyCursor: null
+	}));
+	const visible = new Map(page.map(root => [root.id, root]));
+	for (const entry of comments) {
+		const root = visible.get(entry.threadId);
+		if (!root) continue;
+		if (root.replies.length < 3) root.replies.push(formatComment(entry, users));
+		else root.nextReplyCursor = root.replies.at(-1).id;
+	}
 	res.json({
-		ok: true,
-		enabled: index.commentsEnabled !== false,
-		total: comments.length,
-		comments: page.map(comment => formatComment(comment, users)),
-		nextCursor: start > 0 ? page[page.length - 1].id : null
+		ok: true, enabled: index.commentsEnabled !== false, total: comments.length,
+		projectOwnerId: req.params.scope === "projects" ? target.owner.id : null,
+		comments: page, nextCursor: roots.length > limit ? page.at(-1).id : null
 	});
 });
 
-app.post("/projects/:id/comments", verifyAuth, securityCheck, validateId, async (req, res) => {
-	if (typeof req.body?.content !== "string" || !req.body.content.trim() || req.body.content.length > 500)
-		return res.status(400).json({ ok: false, error: "Comment must contain 1 to 500 characters" });
-	if (Object.keys(req.body).some(key => key !== "content"))
-		return res.status(400).json({ ok: false, error: "Only content is supported" });
-
+app.post(route, verifyAuth, securityCheck, validateTargetId, async (req, res) => {
+	const { content, replyToId } = req.body || {};
+	if (typeof content !== "string" || !content.trim() || content.length > 500 ||
+		(replyToId !== undefined && !positive(replyToId)) ||
+		Object.keys(req.body).some(key => key !== "content" && key !== "replyToId"))
+		return res.status(400).json({ ok: false, error: "Invalid comment" });
 	try {
-		const result = await storage.mutateIndex((index) => {
+		const { scope, id: pageId } = req.params;
+		const result = await storage.mutateIndex(index => {
 			const user = index.users[req.user.username.toLowerCase()];
-			if (!user || String(user.id) !== String(req.user.userId) || user.banned)
-				throw Object.assign(new Error("Account unavailable"), { status: 403 });
-			const project = storage.findProjectById(index, req.params.id);
-			if (!project) throw Object.assign(new Error("Project not found"), { status: 404 });
-			if (index.commentsEnabled === false)
-				throw Object.assign(new Error("Commenting is disabled"), { status: 403, code: "COMMENTS_DISABLED" });
+			if (!user || String(user.id) !== String(req.user.userId) || user.banned) throw fail(403, "ACCOUNT_UNAVAILABLE");
+			const target = commentTarget(index, scope, pageId);
+			if (!target) throw fail(404, "PAGE_NOT_FOUND");
+			const item = target.item;
+			if (index.commentsEnabled === false) throw fail(403, "COMMENTS_DISABLED");
+			const comments = item.comments ||= [];
+			const parent = replyToId && comments.find(entry => entry.id === replyToId);
+			if (replyToId && !parent) throw fail(404, "COMMENT_NOT_FOUND");
 			const now = Date.now();
 			const remaining = 10000 - (now - (user.lastCommentAt || 0));
-			if (remaining > 0)
-				throw Object.assign(new Error("Please wait before commenting again"), {
-					status: 429,
-					retryAfter: Math.ceil(remaining / 1000)
-				});
-			if (!project.comments) project.comments = [];
-			const id = project.nextCommentId || (project.comments.at(-1)?.id || 0) + 1;
-			if (!Number.isSafeInteger(id) || id < 1 || id >= Number.MAX_SAFE_INTEGER)
-				throw new Error("Comment ID limit reached");
+			if (remaining > 0) throw Object.assign(fail(429, "RATE_LIMIT"), { retryAfter: Math.ceil(remaining / 1000) });
+			const id = item.nextCommentId || (comments.at(-1)?.id || 0) + 1;
+			if (!positive(id) || id >= Number.MAX_SAFE_INTEGER) throw new Error("Comment ID limit reached");
 			const comment = {
-				id,
-				authorId: user.id,
-				username: user.username,
-				content: req.body.content.trim(),
-				createdAt: new Date(now).toISOString()
+				id, authorId: user.id, username: user.username, content: content.trim(), createdAt: new Date(now).toISOString(),
+				...(parent ? { threadId: parent.threadId || parent.id, replyTo: {
+					id: parent.id, authorId: parent.authorId, username: parent.username
+				} } : {})
 			};
-			project.comments.push(comment);
-			project.nextCommentId = id + 1;
+			comments.push(comment);
+			item.nextCommentId = id + 1;
 			user.lastCommentAt = now;
-			const owner = Object.values(index.users).find(profile =>
-				(profile.projects || []).some(entry => String(entry.id) === String(project.id))
-			);
-			if (owner && String(owner.id) !== String(user.id)) {
-				owner.messages = [{
-					type: "project-commented",
-					project: { id: project.id, name: project.name },
-					commentId: comment.id,
-					user: { id: user.id, username: user.username },
-					date: comment.createdAt
-				}, ...(owner.messages || [])];
-				owner.unreadMessages = (owner.unreadMessages || 0) + 1;
+			const recipient = parent ? getUserIndexData(index, parent.authorId) : target.owner;
+			const page = { id: item.id, name: item.name || item.username };
+			if (recipient && String(recipient.id) !== String(user.id)) {
+				const type = { projects: "project-commented", users: "profile-commented", studios: "studio-commented" }[scope];
+				recipient.messages = [{
+					type: parent ? "comment-replied" : type, scope, target: page,
+					...(scope === "projects" ? { project: page } : {}),
+					commentId: id, user: { id: user.id, username: user.username }, date: comment.createdAt
+				}, ...(recipient.messages || [])];
+				recipient.unreadMessages = (recipient.unreadMessages || 0) + 1;
 			}
-			sendEventMessage([
-				"<b>#PROJECT_COMMENTED</b>",
-				eventFmt`project: ${{ type: "project", id: project.id, name: project.name }}`,
-				eventFmt`comment author: ${{ type: "user", id: user.id, username: user.username }}`
-			]);
-			return {
-				status: 201,
-				body: {
-					ok: true,
-					comment: formatComment(comment, new Map([[String(user.id), user]])),
-					total: project.comments.length
-				}
-			};
+			return { ok: true, comment: formatComment(comment, new Map([[String(user.id), user]])), total: comments.length, page };
 		});
-		res.status(result.status).json(result.body);
+		const { page, ...body } = result;
+		const type = { projects: "project", users: "user", studios: "studio" }[scope];
+		const subject = { type, id: page.id, name: page.name, username: escapeHTML(page.name) };
+		const author = { type: "user", id: body.comment.author.id, username: escapeHTML(body.comment.author.username) };
+		sendEventMessage([
+			`<b>#${type.toUpperCase()}_COMMENTED</b>`,
+			`${type}: ${eventFmt`${subject}`}`,
+			eventFmt`comment author: ${author}`,
+			`content: ${escapeHTML(body.comment.content)}`
+		]);
+		res.status(201).json(body);
 	} catch (error) {
 		if (error.retryAfter) res.setHeader("Retry-After", error.retryAfter);
-		res.status(error.status || 500).json({
-			ok: false,
-			error: error.status ? error.message : "Failed to publish comment",
-			...(error.code === "COMMENTS_DISABLED" ? { code: error.code } : {}),
-			...(error.retryAfter ? { retryAfter: error.retryAfter } : {})
-		});
+		res.status(error.status || 500).json({ ok: false, code: error.status ? error.code : undefined,
+			error: error.status ? error.message : "Failed to publish comment", retryAfter: error.retryAfter });
 	}
 });
 
-app.delete("/projects/:id/comments/:commentId", verifyAuth, securityCheck, validateId, async (req, res) => {
-	if (req.userRole !== "dashteam")
-		return res.status(403).json({ ok: false, error: "Only Dash Team can delete comments" });
+app.delete(route + "/:commentId", verifyAuth, securityCheck, validateTargetId, async (req, res) => {
 	const commentId = Number(req.params.commentId);
-	if (!/^[1-9]\d*$/.test(req.params.commentId) || !Number.isSafeInteger(commentId))
+	if (!positive(commentId) || String(commentId) !== req.params.commentId)
 		return res.status(400).json({ ok: false, error: "Invalid comment ID" });
-
 	try {
 		const result = await storage.mutateIndex(index => {
 			const user = index.users[req.user.username.toLowerCase()];
-			if (!user || String(user.id) !== String(req.user.userId) || user.banned || user.role !== "dashteam")
-				throw Object.assign(new Error("Only Dash Team can delete comments"), { status: 403 });
-			const project = storage.findProjectById(index, req.params.id);
-			if (!project) throw Object.assign(new Error("Project not found"), { status: 404 });
-			const comments = project.comments || [];
-			const position = comments.findIndex(comment => comment.id === commentId);
-			if (position === -1)
-				throw Object.assign(new Error("Comment not found"), {
-					status: 404, code: "COMMENT_NOT_FOUND", total: comments.length
-				});
-			project.nextCommentId = project.nextCommentId || (comments.at(-1)?.id || 0) + 1;
-			comments.splice(position, 1);
-			return { ok: true, commentId, total: comments.length };
+			if (!user || String(user.id) !== String(req.user.userId) || user.banned) throw fail(403, "ACCOUNT_UNAVAILABLE");
+			const { scope, id } = req.params;
+			const target = commentTarget(index, scope, id);
+			if (!target) throw fail(404, "PAGE_NOT_FOUND");
+			const comments = target.item.comments || [];
+			const entry = comments.find(comment => comment.id === commentId);
+			if (!entry) throw Object.assign(fail(404, "COMMENT_NOT_FOUND"), { total: comments.length });
+			if (user.role !== "dashteam" && String(entry.authorId) !== String(user.id) &&
+				!(scope === "projects" && String(target.owner.id) === String(user.id))) throw fail(403, "FORBIDDEN");
+			target.item.nextCommentId ||= (comments.at(-1)?.id || 0) + 1;
+			const removed = new Set([commentId]);
+			for (const row of comments) {
+				if (removed.has(row.replyTo?.id) || removed.has(row.threadId)) removed.add(row.id);
+			}
+			target.item.comments = comments.filter(row => !removed.has(row.id));
+			return { ok: true, commentId, removedIds: [...removed], total: target.item.comments.length };
 		});
 		res.json(result);
 	} catch (error) {
-		res.status(error.status || 500).json({
-			ok: false,
-			error: error.status ? error.message : "Failed to delete comment",
-			...(error.code === "COMMENT_NOT_FOUND" ? { code: error.code, total: error.total } : {})
-		});
+		res.status(error.status || 500).json({ ok: false, code: error.status ? error.code : undefined,
+			total: error.total, error: error.status ? error.message : "Failed to delete comment" });
 	}
 });

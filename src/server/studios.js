@@ -44,6 +44,7 @@ const formatStudio = (index, studio) => ({
 	description: studio.description || "",
 	allowProjects: !!studio.allowProjects,
 	projectsCount: (studio.projects || []).length,
+	commentsCount: studio.comments?.length || 0,
 	thumbnailId: studio.id || 1,
 	createdAt: studio.createdAt || null,
 	updatedAt: studio.updatedAt || null

@@ -1,3 +1,4 @@
+import { commentTarget, isCommentMessage } from "./util/comment-target.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
@@ -390,9 +391,9 @@ app.get("/session/messages", verifyAuth, securityCheck, async (req, res) => {
 	const index = await storage.getIndex();
 	const metadata = index.users[req.user.username.toLowerCase()];
 	const messages = (metadata?.messages || []).slice(offset, offset + limit).map(message => {
-		if (message.type !== "project-commented") return message;
-		const project = storage.findProjectById(index, message.project.id);
-		const comment = (project?.comments || []).find(entry => entry.id === message.commentId);
+		if (!isCommentMessage(message)) return message;
+		const target = commentTarget(index, message.scope || "projects", message.target?.id || message.project?.id);
+		const comment = target?.item.comments?.find(entry => entry.id === message.commentId);
 		const author = comment ? getUserIndexData(index, comment.authorId) : null;
 		return {
 			...message,

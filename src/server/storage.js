@@ -1,3 +1,4 @@
+import { isCommentMessage } from "./util/comment-target.js";
 import fs from "fs";
 import fsPromises from "fs/promises";
 import path from "path";
@@ -46,18 +47,20 @@ async function updateIndex(indexData) {
 		for (const user of Object.values(indexData.users)) {
 			const savedUser = current.users[user.username.toLowerCase()];
 			if (savedUser && String(savedUser.id) === String(user.id)) {
+				user.comments = savedUser.comments || [];
+				user.nextCommentId = savedUser.nextCommentId || (savedUser.comments?.at(-1)?.id || 0) + 1;
 				user.lastCommentAt = savedUser.lastCommentAt || 0;
-				if ((savedUser.messages || []).some(message => message.type === "project-commented")) {
+				if ((savedUser.messages || []).some(isCommentMessage)) {
 					const incomingMessages = user.messages || [];
 					const savedMessages = savedUser.messages || [];
 					const unread = incomingMessages.slice(0, user.unreadMessages || 0)
-						.filter(message => message.type !== "project-commented")
+						.filter(message => !isCommentMessage(message))
 						.concat(savedMessages.slice(0, savedUser.unreadMessages || 0)
-							.filter(message => message.type === "project-commented"));
+							.filter(isCommentMessage));
 					const read = incomingMessages.slice(user.unreadMessages || 0)
-						.filter(message => message.type !== "project-commented")
+						.filter(message => !isCommentMessage(message))
 						.concat(savedMessages.slice(savedUser.unreadMessages || 0)
-							.filter(message => message.type === "project-commented"));
+							.filter(isCommentMessage));
 					const byDate = (a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0);
 					user.messages = [...unread.sort(byDate), ...read.sort(byDate)];
 					user.unreadMessages = unread.length;
@@ -71,6 +74,12 @@ async function updateIndex(indexData) {
 				project.comments = structuredClone(saved.comments || []);
 				project.nextCommentId = saved.nextCommentId || (saved.comments?.at(-1)?.id || 0) + 1;
 			}
+		}
+		for (const studio of Object.values(indexData.studios || {})) {
+			const saved = current.studios?.[studio.id];
+			if (!saved) continue;
+			studio.comments = saved.comments || [];
+			studio.nextCommentId = saved.nextCommentId || (saved.comments?.at(-1)?.id || 0) + 1;
 		}
 		await writeIndexAtomically(indexData);
 	});
