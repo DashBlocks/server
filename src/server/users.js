@@ -488,21 +488,28 @@ app.post(
 	verifyAuth,
 	securityCheck,
 	async (req, res) => {
-		if (!roleEqualOrHigherThan(req.userRole, "dash-supporter") || !AVATAR_FRAMES.find((frame) => frame.author?.id === req.user.userId))
+		const isSupporter = roleEqualOrHigherThan(req.userRole, "dash-supporter");
+		const hasAuthoredFrame = AVATAR_FRAMES.some(
+			(frame) => String(frame.author?.id) === String(req.user.userId)
+		);
+
+		if (!isSupporter && !hasAuthoredFrame)
 			return res.status(403).json({ ok: false, error: "Must have Dash Supporter role" });
 
 		const avatarFrameValue = req.body.avatarFrame;
-		 
 		let avatarFrame = null;
 
 		if (avatarFrameValue === "" || avatarFrameValue === null || avatarFrameValue === undefined) {
 			avatarFrame = null;
-		} else if (!AVATAR_FRAMES.find((frame) => frame.id === avatarFrameValue)) {
+		} else if (!AVATAR_FRAMES.some((frame) => frame.id === avatarFrameValue)) {
 			return res.status(400).json({ ok: false, error: "Frame not exist" });
 		} else if (
-			!roleEqualOrHigherThan(req.userRole, "dash-supporter") &&
-			AVATAR_FRAMES.find((frame) => frame.author?.id === req.user.userId) &&
-			!AVATAR_FRAMES.find((frame) => (frame.id === avatarFrameValue && frame.author?.id === req.user.userId))
+			!isSupporter &&
+			!AVATAR_FRAMES.some(
+				(frame) =>
+					frame.id === avatarFrameValue &&
+					String(frame.author?.id) === String(req.user.userId)
+			)
 		) {
 			return res.status(400).json({
 				ok: false,
