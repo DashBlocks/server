@@ -7,7 +7,28 @@ import { securityCheck } from "./util/helpers.js";
 const AVATAR_FRAMES = [
 	{ id: "blocks" },
 	{ id: "dashy" },
-	{ id: "thorny-core" }
+	{ id: "thorny-core" },
+	{
+		id: "costume-editor",
+		author: {
+			id: 323,
+			username: "CHIPY"
+		}
+	},
+	{
+		id: "googly-eyes",
+		author: {
+			id: 489,
+			username: "Fenicf0x"
+		}
+	},
+	{
+		id: "card",
+		author: {
+			id: 419,
+			username: "Raythemint4"
+		}
+	}
 ];
 
 app.get("/avatar-frames", securityCheck, (req, res) => {
