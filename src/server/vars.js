@@ -19,6 +19,8 @@ const TG_BOT_API = process.env.TG_BOT_API;
 const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN;
 const TG_EVENTS_GROUP_ID = process.env.TG_EVENTS_GROUP_ID;
 
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL;
+
 const ASSETS_PATH = path.join(__dirname, "../assets");
 
 const DATA_PATH = process.env.DATA_PATH;
@@ -69,6 +71,8 @@ export {
 	TG_BOT_API,
 	TG_BOT_TOKEN,
 	TG_EVENTS_GROUP_ID,
+
+	DISCORD_WEBHOOK_URL,
 
 	ASSETS_PATH,
 
