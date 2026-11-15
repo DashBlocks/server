@@ -7,6 +7,7 @@ import {
 	TG_BOT_API,
 	TG_BOT_TOKEN,
 	TG_EVENTS_GROUP_ID,
+	DISCORD_WEBHOOK_URL,
 	ROLES
 } from "../vars.js";
 import { getIndex } from "../storage.js";
@@ -177,6 +178,17 @@ const sendEventMessage = async (message) => {
 				text: Array.isArray(message) ? message.join("\n") : message,
 				parse_mode: "HTML",
 				link_preview_options: { is_disabled: true }
+			})
+		});
+		await fetch(DISCORD_WEBHOOK_URL, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json"
+			},
+			body: JSON.stringify({
+				content: Array.isArray(message) ? message.join("\n") : message,
+				// TODO: HTML parsing
+				flags: 4 // Disables links preview
 			})
 		});
 	} catch (_) {/* ignore */}
