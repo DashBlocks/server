@@ -88,10 +88,10 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 			await storage.updateIndex(index);
 			res.json({ ok: true });
 			sendEventMessage([
-				"<b>#ADMIN #ACCOUNT_UPDATED</b>",
+				"*#ADMIN #ACCOUNT_UPDATED*",
 				eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 				eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`,
-				`fields: <b>${[updateUsername && "username", updateEmail && "email", updatePassword && "password"].filter(Boolean).join(", ")}</b>`
+				`fields: *${[updateUsername && "username", updateEmail && "email", updatePassword && "password"].filter(Boolean).join(", ")}*`
 			]);
 		} catch (_) {
 			res.status(500).json({ ok: false, error: "Failed to update user account" });
@@ -141,15 +141,15 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 		res.json({ ok: true });
 
 		const eventMessage = [
-			"<b>#ADMIN #ADMIN_ACTION</b>",
+			"*#ADMIN #ADMIN_ACTION*",
 			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-			`action: <b>${action}</b>`,
+			`action: *${action}*`,
 			eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`
 		];
 		if (action === "promote") {
-			eventMessage.push(`role: <b>${role}</b>`);
+			eventMessage.push(`role: *${role}*`);
 			if (role === "dash-supporter" && endDate) {
-				eventMessage.push(`ends: <b><tg-time unix="${new Date(endDate).getTime()}" format="dT">${new Date(endDate).toISOString()}</tg-time></b>`);
+				eventMessage.push(`ends: *${new Date(endDate).toISOString()}*`);
 			}
 		}
 
@@ -202,7 +202,7 @@ app.post("/admin/delete-account", verifyAuth, securityCheck, async (req, res) =>
 		await storage.updateIndex(index);
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
 		sendEventMessage([
-			"<b>#ADMIN #ACCOUNT_DELETED</b>",
+			"*#ADMIN #ACCOUNT_DELETED*",
 			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 			eventFmt`target: ${{ type: "user", id: userIndexData.id, username }}`
 		]);

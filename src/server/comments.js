@@ -4,7 +4,7 @@ import {
 	securityCheck,
 	verifyAuth,
 	getUserIndexData,
-	escapeHTML,
+	escapeMarkdown,
 	sendEventMessage,
 	eventFmt
 } from "./util/helpers.js";
@@ -154,13 +154,13 @@ app.post(route, verifyAuth, securityCheck, validateTargetId, async (req, res) =>
 		});
 		const { page, ...body } = result;
 		const type = { projects: "project", users: "user", studios: "studio" }[scope];
-		const subject = { type, id: page.id, name: page.name, username: escapeHTML(page.name) };
-		const author = { type: "user", id: body.comment.author.id, username: escapeHTML(body.comment.author.username) };
+		const subject = { type, id: page.id, name: page.name, username: page.name };
+		const author = { type: "user", id: body.comment.author.id, username: body.comment.author.username };
 		sendEventMessage([
-			`<b>#${type.toUpperCase()}_COMMENTED</b>`,
+			`*#${type.toUpperCase()}_COMMENTED*`,
 			`${type}: ${eventFmt`${subject}`}`,
 			eventFmt`comment author: ${author}`,
-			`content: ${escapeHTML(body.comment.content)}`
+			`content: ${escapeMarkdown(body.comment.content)}`
 		]);
 		res.status(201).json(body);
 	} catch (error) {

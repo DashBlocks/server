@@ -151,20 +151,14 @@ const getUserIndexData = (index, target) => {
 	return index.users[normalizedTarget.toLowerCase()];
 };
 
-const escapeHTML = (unsafe) => {
-	if (!unsafe) return "";
-	return unsafe.replace(/[&<>"'`]/g, (match) => {
-		const map = {
-			"&": "&amp;",
-			"<": "&lt;",
-			">": "&gt;",
-			"\"": "&quot;",
-			"'": "&#x27;",
-			"`": "&#x60;"
-		};
-		return map[match];
-	});
-};
+const escapeMarkdown = (unsafe) =>
+	String(unsafe ?? "")
+		.replaceAll("\\", "\\\\")
+		.replaceAll("_", "\\_")
+		.replaceAll("*", "\\*")
+		.replaceAll("`", "\\`")
+		.replaceAll("[", "\\[")
+		.replaceAll("]", "\\]");
 
 const sendEventMessage = async (message) => {
 	try {
@@ -176,7 +170,7 @@ const sendEventMessage = async (message) => {
 			body: JSON.stringify({
 				chat_id: TG_EVENTS_GROUP_ID,
 				text: Array.isArray(message) ? message.join("\n") : message,
-				parse_mode: "HTML",
+				parse_mode: "Markdown",
 				link_preview_options: { is_disabled: true }
 			})
 		});
@@ -187,7 +181,6 @@ const sendEventMessage = async (message) => {
 			},
 			body: JSON.stringify({
 				content: Array.isArray(message) ? message.join("\n") : message,
-				// TODO: HTML parsing
 				flags: 4 // Disables links preview
 			})
 		});
@@ -201,16 +194,16 @@ const eventFmt = (strings, ...exps) => {
 		if (i > 0) {
 			switch (exps[i - 1]?.type) {
 			case "user":
-				result += `<b><a href="https://dashblocks.org/user#${exps[i - 1].id}">${exps[i - 1].username}</a></b> (id ${exps[i - 1].id})`;
+				result += `[${escapeMarkdown(exps[i - 1].username)}](https://dashblocks.org/user#${exps[i - 1].id}) (id ${exps[i - 1].id})`;
 				break;
 			case "project":
-				result += `<b><a href="https://dashblocks.org/#${exps[i - 1].id}">${escapeHTML(exps[i - 1].name)}</a></b> (id ${exps[i - 1].id})`;
+				result += `[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/#${exps[i - 1].id}) (id ${exps[i - 1].id})`;
 				break;
 			case "studio":
-				result += `<b><a href="https://dashblocks.org/studio#${exps[i - 1].id}">${escapeHTML(exps[i - 1].name)}</a></b> (id ${exps[i - 1].id})`;
+				result += `[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/studio#${exps[i - 1].id}) (id ${exps[i - 1].id})`;
 				break;
 			default:
-				result += exps[i - 1];
+				result += escapeMarkdown(exps[i - 1]);
 			}
 		}
 	}
@@ -394,7 +387,7 @@ export {
 	getProjectStudiosCount,
 	generateUserObject,
 	getUserIndexData,
-	escapeHTML,
+	escapeMarkdown,
 	sendEventMessage,
 	eventFmt,
 	verifyAuth,

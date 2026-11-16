@@ -2,6 +2,7 @@ import app from "../app.js";
 import * as vars from "./vars.js";
 import {
 	getUserIndexData,
+	escapeMarkdown,
 	securityCheck,
 	verifyAuth,
 	sendEventMessage,
@@ -139,17 +140,17 @@ app.post("/payments/lava", async (req, res) => {
 
 		res.status(200).json({ ok: true, message: "yay" });
 		sendEventMessage([
-			"<b>#SUBSCRIPTION</b>",
-			"status: <b>purchased</b>",
+			"*#SUBSCRIPTION*",
+			"status: *purchased*",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`days: <b>${daysToGive}</b>`,
-			`ends: <b><tg-time unix="${endDate.getTime()}" format="dT">${endDate.toISOString()}</tg-time></b>`
+			`days: *${daysToGive}*`,
+			`ends: *${endDate.toISOString()}*`
 		]);
 	} catch (error) {
 		sendEventMessage([
-			"<b>#SUBSCRIPTION</b>",
-			"status: <b>failed</b>",
-			`error: ${error?.message ? error.message : error}`
+			"*#SUBSCRIPTION*",
+			"status: *failed*",
+			`error: ${escapeMarkdown(error?.message ? error.message : error)}`
 		]);
 		res.status(500).json({ ok: false, error: "Something went wrong :(" });
 	}

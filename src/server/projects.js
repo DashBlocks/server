@@ -295,8 +295,8 @@ app.post(
 
 		const eventMessage = [
 			parentProject
-				? "<b>#FORK #PROJECT_CREATED</b>"
-				: "<b>#PROJECT_CREATED</b>",
+				? "*#FORK #PROJECT_CREATED*"
+				: "*#PROJECT_CREATED*",
 			eventFmt`project: ${{ type: "project", id: projectId, name: projectName }}`,
 			eventFmt`author: ${{ type: "user", id: user.id, username: user.username }}`
 		];
@@ -543,14 +543,14 @@ app.patch(
 		});
 		if (isDashTeam && userProfile.id !== authorProfile.id) {
 			sendEventMessage([
-				"<b>#ADMIN #PROJECT_METADATA_EDITED</b>",
+				"*#ADMIN #PROJECT_METADATA_EDITED*",
 				eventFmt`admin: ${{ type: "user", id: userProfile.id, username: userProfile.username }}`,
 				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
 				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
 			]);
 		} else {
 			sendEventMessage([
-				"<b>#PROJECT_METADATA_EDITED</b>",
+				"*#PROJECT_METADATA_EDITED*",
 				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
 				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
 			]);
@@ -631,14 +631,14 @@ app.put(
 		res.json({ ok: true });
 		if (isDashTeam && userProfile.id !== authorProfile.id) {
 			sendEventMessage([
-				"<b>#ADMIN #PROJECT_EDITED</b>",
+				"*#ADMIN #PROJECT_EDITED*",
 				eventFmt`admin: ${{ type: "user", id: userProfile.id, username: userProfile.username }}`,
 				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
 				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
 			]);
 		} else {
 			sendEventMessage([
-				"<b>#PROJECT_EDITED</b>",
+				"*#PROJECT_EDITED*",
 				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
 				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
 			]);
@@ -730,14 +730,14 @@ app.delete(
 		});
 		if (isDashTeam && userProfile.id !== authorProfile.id) {
 			sendEventMessage([
-				"<b>#ADMIN #PROJECT_DELETED</b>",
+				"*#ADMIN #PROJECT_DELETED*",
 				eventFmt`admin: ${{ type: "user", id: userProfile.id, username: userProfile.username }}`,
 				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
 				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
 			]);
 		} else {
 			sendEventMessage([
-				"<b>#PROJECT_DELETED</b>",
+				"*#PROJECT_DELETED*",
 				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
 				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
 			]);
