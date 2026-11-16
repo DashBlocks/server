@@ -152,26 +152,7 @@ const getUserIndexData = (index, target) => {
 };
 
 const escapeMarkdown = (unsafe) =>
-	String(unsafe ?? "")
-		.replaceAll("\\", "\\\\")
-		.replaceAll("_", "\\_")
-		.replaceAll("*", "\\*")
-		.replaceAll("[", "\\[")
-		.replaceAll("]", "\\]")
-		.replaceAll("(", "\\(")
-		.replaceAll(")", "\\)")
-		.replaceAll("~", "\\~")
-		.replaceAll("`", "\\`")
-		.replaceAll(">", "\\>")
-		.replaceAll("#", "\\#")
-		.replaceAll("+", "\\+")
-		.replaceAll("-", "\\-")
-		.replaceAll("=", "\\=")
-		.replaceAll("|", "\\|")
-		.replaceAll("{", "\\{")
-		.replaceAll("}", "\\}")
-		.replaceAll(".", "\\.")
-		.replaceAll("!", "\\!");
+	String(unsafe ?? "").replace(/([\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E])/g, "\\$1");
 
 const sendEventMessage = async (message) => {
 	try {
