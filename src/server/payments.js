@@ -141,16 +141,16 @@ app.post("/payments/lava", async (req, res) => {
 		res.status(200).json({ ok: true, message: "yay" });
 		sendEventMessage([
 			"**\\#SUBSCRIPTION**",
-			"status: **purchased**",
+			"status\\: **purchased**",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`days: **${daysToGive}**`,
-			`ends: **${escapeMarkdown(endDate.toISOString())}**`
+			`days\\: **${daysToGive}**`,
+			`ends\\: **${escapeMarkdown(endDate.toISOString())}**`
 		]);
 	} catch (error) {
 		sendEventMessage([
 			"**\\#SUBSCRIPTION**",
-			"status: **failed**",
-			`error: ${escapeMarkdown(error?.message ? error.message : error)}`
+			"status\\: **failed**",
+			`error\\: ${escapeMarkdown(error?.message ? error.message : error)}`
 		]);
 		res.status(500).json({ ok: false, error: "Something went wrong :(" });
 	}

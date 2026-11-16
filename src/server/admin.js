@@ -93,7 +93,7 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 				"**\\#ADMIN \\#ACCOUNT\\_UPDATED**",
 				eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 				eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`,
-				`fields: **${escapeMarkdown([updateUsername && "username", updateEmail && "email", updatePassword && "password"].filter(Boolean).join(", "))}**`
+				`fields\\: **${escapeMarkdown([updateUsername && "username", updateEmail && "email", updatePassword && "password"].filter(Boolean).join(", "))}**`
 			]);
 		} catch (_) {
 			res.status(500).json({ ok: false, error: "Failed to update user account" });
@@ -146,13 +146,13 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 		const eventMessage = [
 			"**\\#ADMIN \\#ADMIN\\_ACTION**",
 			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-			`action: **${escapeMarkdown(action)}**`,
+			`action\\: **${escapeMarkdown(action)}**`,
 			eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`
 		];
 		if (action === "promote") {
-			eventMessage.push(`role: **${escapeMarkdown(role)}**`);
+			eventMessage.push(`role\\: **${escapeMarkdown(role)}**`);
 			if (role === "dash-supporter" && endDate) {
-				eventMessage.push(`ends: **${escapeMarkdown(new Date(endDate).toISOString())}**`);
+				eventMessage.push(`ends\\: **${escapeMarkdown(new Date(endDate).toISOString())}**`);
 			}
 		}
 

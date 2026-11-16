@@ -160,9 +160,9 @@ app.post(route, verifyAuth, securityCheck, validateTargetId, async (req, res) =>
 		const author = { type: "user", id: body.comment.author.id, username: body.comment.author.username };
 		sendEventMessage([
 			`**\\#${type.toUpperCase()}\\_COMMENTED**`,
-			`${type}: ${eventFmt`${subject}`}`,
+			`${type}\\: ${eventFmt`${subject}`}`,
 			eventFmt`comment author: ${author}`,
-			`content: ${escapeMarkdown(body.comment.content)}`
+			`content\\: ${escapeMarkdown(body.comment.content)}`
 		]);
 		res.status(201).json(body);
 	} catch (error) {

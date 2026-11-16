@@ -191,7 +191,10 @@ const sendEventMessage = async (message) => {
 				content: text
 					.replaceAll("\\#", "#")
 					.replaceAll("\\[", "[")
-					.replaceAll("\\]", "]"),
+					.replaceAll("\\]", "]")
+					.replaceAll("\\:", ":")
+					.replaceAll("\\(", "(")
+					.replaceAll("\\)", ")"),
 				flags: 4 // Disables links preview
 			})
 		});
@@ -213,17 +216,17 @@ const sendEventMessage = async (message) => {
 const eventFmt = (strings, ...exps) => {
 	let result = "";
 	for (let i = 0; i < strings.length; i++) {
-		result += strings[i];
+		result += escapeMarkdown(strings[i]);
 		if (i > 0) {
 			switch (exps[i - 1]?.type) {
 			case "user":
-				result += `**[${escapeMarkdown(exps[i - 1].username)}](https://dashblocks.org/user#${exps[i - 1].id})** (id ${exps[i - 1].id})`;
+				result += `**[${escapeMarkdown(exps[i - 1].username)}](https://dashblocks.org/user#${exps[i - 1].id})** \\(id ${exps[i - 1].id}\\)`;
 				break;
 			case "project":
-				result += `**[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/#${exps[i - 1].id})** (id ${exps[i - 1].id})`;
+				result += `**[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/#${exps[i - 1].id})** \\(id ${exps[i - 1].id}\\)`;
 				break;
 			case "studio":
-				result += `**[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/studio#${exps[i - 1].id})** (id ${exps[i - 1].id})`;
+				result += `**[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/studio#${exps[i - 1].id})** \\(id ${exps[i - 1].id}\\)`;
 				break;
 			default:
 				result += escapeMarkdown(exps[i - 1]);

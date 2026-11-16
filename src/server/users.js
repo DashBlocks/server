@@ -359,7 +359,7 @@ app.post(
 			sendEventMessage([
 				"**\\#USER\\_AVATAR\\_UPDATED**",
 				eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-				`avatar: **${avatarId}**`
+				`avatar\\: **${avatarId}**`
 			]);
 		} catch (error) {
 			if (error?.message === "Invalid image file" || error?.message === "Format not supported") {
@@ -588,7 +588,7 @@ app.post(
 		sendEventMessage([
 			"**\\#USER\\_LINK\\_ADDED**",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`link: **${escapeMarkdown(label)}** ([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29")}))`
+			`link\\: **${escapeMarkdown(label)}** \\([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29")})\\)`
 		]);
 	}
 );
@@ -623,8 +623,8 @@ app.post(
 		sendEventMessage([
 			"**\\#USER\\_LINK\\_UPDATED**",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`idx: ${linkIndex + 1}`,
-			`link: **${escapeMarkdown(label)}** ([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29")}))`
+			`idx\\: ${linkIndex + 1}`,
+			`link\\: **${escapeMarkdown(label)}** \\([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29")})\\)`
 		]);
 	}
 );
@@ -655,7 +655,7 @@ app.post(
 		sendEventMessage([
 			"**\\#USER\\_LINK\\_REMOVED**",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`idx: ${linkIndex + 1}`
+			`idx\\: ${linkIndex + 1}`
 		]);
 	}
 );
