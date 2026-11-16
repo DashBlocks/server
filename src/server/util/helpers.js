@@ -157,7 +157,7 @@ const escapeMarkdown = (unsafe) =>
 const sendEventMessage = async (message) => {
 	try {
 		const text = Array.isArray(message) ? message.join("\n") : message;
-		await fetch(`${TG_BOT_API}/bot${TG_BOT_TOKEN}/sendMessage`, {
+		const response = await fetch(`${TG_BOT_API}/bot${TG_BOT_TOKEN}/sendMessage`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json"
@@ -169,7 +169,20 @@ const sendEventMessage = async (message) => {
 				link_preview_options: { is_disabled: true }
 			})
 		});
-		await fetch(DISCORD_WEBHOOK_URL, {
+		if (!response.ok) {
+			await fetch(`${TG_BOT_API}/bot${TG_BOT_TOKEN}/sendMessage`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({
+					chat_id: TG_EVENTS_GROUP_ID,
+					text: text.replaceAll("**", "*") + `\nError: ${response.status} ${response.statusText}`,
+					link_preview_options: { is_disabled: true }
+				})
+			});
+		}
+		const discordResponse = await fetch(DISCORD_WEBHOOK_URL, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json"
@@ -182,6 +195,18 @@ const sendEventMessage = async (message) => {
 				flags: 4 // Disables links preview
 			})
 		});
+		if (!discordResponse.ok) {
+			await fetch(DISCORD_WEBHOOK_URL, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json"
+				},
+				body: JSON.stringify({
+					content: text + `\nError: ${discordResponse.status} ${discordResponse.statusText}`,
+					flags: 4 // Disables links preview
+				})
+			});
+		}
 	} catch (_) {/* ignore */}
 };
 
