@@ -175,6 +175,7 @@ const escapeMarkdown = (unsafe) =>
 
 const sendEventMessage = async (message) => {
 	try {
+		const text = Array.isArray(message) ? message.join("\n") : message;
 		await fetch(`${TG_BOT_API}/bot${TG_BOT_TOKEN}/sendMessage`, {
 			method: "POST",
 			headers: {
@@ -182,7 +183,7 @@ const sendEventMessage = async (message) => {
 			},
 			body: JSON.stringify({
 				chat_id: TG_EVENTS_GROUP_ID,
-				text: Array.isArray(message) ? message.join("\n") : message,
+				text: text.replaceAll("**", "*"),
 				parse_mode: "MarkdownV2",
 				link_preview_options: { is_disabled: true }
 			})
@@ -193,7 +194,10 @@ const sendEventMessage = async (message) => {
 				"Content-Type": "application/json"
 			},
 			body: JSON.stringify({
-				content: Array.isArray(message) ? message.join("\n") : message,
+				content: text
+					.replaceAll("\\#", "#")
+					.replaceAll("\\[", "[")
+					.replaceAll("\\]", "]"),
 				flags: 4 // Disables links preview
 			})
 		});
