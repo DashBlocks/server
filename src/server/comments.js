@@ -44,6 +44,7 @@ app.patch("/comments/settings", verifyAuth, securityCheck, async (req, res) => {
 			if (!user || String(user.id) !== String(req.user.userId) || user.banned || user.role !== "dashteam")
 				throw Object.assign(new Error("Only Dash Team can do this, what did you expect?"), { status: 403 });
 			index.commentsEnabled = req.body.enabled;
+			user.lastActive = new Date().toISOString();
 			return { status: 200, body: { ok: true, enabled: index.commentsEnabled } };
 		});
 		res.status(result.status).json(result.body);
@@ -139,6 +140,7 @@ app.post(route, verifyAuth, securityCheck, validateTargetId, async (req, res) =>
 			comments.push(comment);
 			item.nextCommentId = id + 1;
 			user.lastCommentAt = now;
+			user.lastActive = comment.createdAt;
 			const recipient = parent ? getUserIndexData(index, parent.authorId) : target.owner;
 			const page = { id: item.id, name: item.name || item.username };
 			if (recipient && String(recipient.id) !== String(user.id)) {
@@ -157,7 +159,7 @@ app.post(route, verifyAuth, securityCheck, validateTargetId, async (req, res) =>
 		const subject = { type, id: page.id, name: page.name, username: page.name };
 		const author = { type: "user", id: body.comment.author.id, username: body.comment.author.username };
 		sendEventMessage([
-			`*#${type.toUpperCase()}_COMMENTED*`,
+			`**\\#${type.toUpperCase()}\\_COMMENTED**`,
 			`${type}: ${eventFmt`${subject}`}`,
 			eventFmt`comment author: ${author}`,
 			`content: ${escapeMarkdown(body.comment.content)}`
@@ -187,6 +189,7 @@ app.delete(route + "/:commentId", verifyAuth, securityCheck, validateTargetId, a
 			if (user.role !== "dashteam" && String(entry.authorId) !== String(user.id) &&
 				!(scope === "projects" && String(target.owner.id) === String(user.id))) throw fail(403, "FORBIDDEN");
 			target.item.nextCommentId ||= (comments.at(-1)?.id || 0) + 1;
+			user.lastActive = new Date().toISOString();
 			const removed = new Set([commentId]);
 			for (const row of comments) {
 				if (removed.has(row.replyTo?.id) || removed.has(row.threadId)) removed.add(row.id);

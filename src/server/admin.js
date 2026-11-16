@@ -10,6 +10,7 @@ import {
 	adminAccountUpdateLimiter,
 	securityCheck,
 	verifyAuth,
+	escapeMarkdown,
 	sendEventMessage,
 	eventFmt
 } from "./util/helpers.js";
@@ -84,14 +85,15 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 			if (updatePassword) {
 				storedUser.password = await bcrypt.hash(password, 12);
 			}
+			index.users[req.user.username.toLowerCase()].lastActive = new Date().toISOString();
 			await storage.updateUserJson(target.id, storedUser);
 			await storage.updateIndex(index);
 			res.json({ ok: true });
 			sendEventMessage([
-				"*#ADMIN #ACCOUNT_UPDATED*",
+				"**\\#ADMIN \\#ACCOUNT\\_UPDATED**",
 				eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 				eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`,
-				`fields: *${[updateUsername && "username", updateEmail && "email", updatePassword && "password"].filter(Boolean).join(", ")}*`
+				`fields: **${escapeMarkdown([updateUsername && "username", updateEmail && "email", updatePassword && "password"].filter(Boolean).join(", "))}**`
 			]);
 		} catch (_) {
 			res.status(500).json({ ok: false, error: "Failed to update user account" });
@@ -137,19 +139,20 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 	}
 
 	try {
+		index.users[req.user.username.toLowerCase()].lastActive = new Date().toISOString();
 		await storage.updateIndex(index);
 		res.json({ ok: true });
 
 		const eventMessage = [
-			"*#ADMIN #ADMIN_ACTION*",
+			"**\\#ADMIN \\#ADMIN\\_ACTION**",
 			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-			`action: *${action}*`,
+			`action: **${escapeMarkdown(action)}**`,
 			eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`
 		];
 		if (action === "promote") {
-			eventMessage.push(`role: *${role}*`);
+			eventMessage.push(`role: **${escapeMarkdown(role)}**`);
 			if (role === "dash-supporter" && endDate) {
-				eventMessage.push(`ends: *${new Date(endDate).toISOString()}*`);
+				eventMessage.push(`ends: **${escapeMarkdown(new Date(endDate).toISOString())}**`);
 			}
 		}
 
@@ -199,10 +202,11 @@ app.post("/admin/delete-account", verifyAuth, securityCheck, async (req, res) =>
 	delete index.users[userKey];
 
 	try {
+		index.users[req.user.username.toLowerCase()].lastActive = new Date().toISOString();
 		await storage.updateIndex(index);
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
 		sendEventMessage([
-			"*#ADMIN #ACCOUNT_DELETED*",
+			"**\\#ADMIN \\#ACCOUNT\\_DELETED**",
 			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 			eventFmt`target: ${{ type: "user", id: userIndexData.id, username }}`
 		]);

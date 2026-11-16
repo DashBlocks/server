@@ -357,9 +357,9 @@ app.post(
 
 			res.json({ ok: true, avatarId });
 			sendEventMessage([
-				"*#USER_AVATAR_UPDATED*",
+				"**\\#USER\\_AVATAR\\_UPDATED**",
 				eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-				`avatar: *${avatarId}*`
+				`avatar: **${avatarId}**`
 			]);
 		} catch (error) {
 			if (error?.message === "Invalid image file" || error?.message === "Format not supported") {
@@ -411,13 +411,13 @@ app.post(
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
 		if (isDashTeam && req.user.userId !== user.id) {
 			sendEventMessage([
-				"*#ADMIN #USER_DESCRIPTION_UPDATED*",
+				"**\\#ADMIN \\#USER\\_DESCRIPTION\\_UPDATED**",
 				eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 				eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`
 			]);
 		} else {
 			sendEventMessage([
-				"*#USER_DESCRIPTION_UPDATED*",
+				"**\\#USER\\_DESCRIPTION\\_UPDATED**",
 				eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`
 			]);
 		}
@@ -586,9 +586,9 @@ app.post(
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
 		sendEventMessage([
-			"*#USER_LINK_ADDED*",
+			"**\\#USER\\_LINK\\_ADDED**",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`link: *${escapeMarkdown(label)}* ([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29").replaceAll("[", "%5B").replaceAll("]", "%5D")}))`
+			`link: **${escapeMarkdown(label)}** ([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29")}))`
 		]);
 	}
 );
@@ -621,10 +621,10 @@ app.post(
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
 		sendEventMessage([
-			"*#USER_LINK_UPDATED*",
+			"**\\#USER\\_LINK\\_UPDATED**",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
 			`idx: ${linkIndex + 1}`,
-			`link: *${escapeMarkdown(label)}* ([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29").replaceAll("[", "%5B").replaceAll("]", "%5D")}))`
+			`link: **${escapeMarkdown(label)}** ([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29")}))`
 		]);
 	}
 );
@@ -653,7 +653,7 @@ app.post(
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
 		sendEventMessage([
-			"*#USER_LINK_REMOVED*",
+			"**\\#USER\\_LINK\\_REMOVED**",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
 			`idx: ${linkIndex + 1}`
 		]);

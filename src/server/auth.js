@@ -273,7 +273,7 @@ app.post("/auth/register", registerLimiter, securityCheck, async (req, res) => {
 			}
 		});
 		sendEventMessage([
-			"*#NEW_ACCOUNT*",
+			"**\\#NEW\\_ACCOUNT**",
 			eventFmt`user: ${{ type: "user", id: userId, username }}`
 		]);
 	} catch (error) {
@@ -506,7 +506,7 @@ app.post("/auth/reset-password", passwordResetLimiter, securityCheck, async (req
 		clearTokenCookies(res);
 		res.json({ ok: true, message: "Password reset. Log in with your new password" });
 		sendEventMessage([
-			"*#PASSWORD_RESET*",
+			"**\\#PASSWORD\\_RESET**",
 			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`
 		]);
 	} catch (_) {
@@ -593,7 +593,7 @@ app.post("/auth/change-password", verifyAuth, securityCheck, changePasswordLimit
 
 		res.json({ ok: true, message: "Password changed. Log in now" });
 		sendEventMessage([
-			"*#PASSWORD_CHANGED*",
+			"**\\#PASSWORD\\_CHANGED**",
 			eventFmt`user: ${{ type: "user", id: req.user.userId, username: req.user.username }}`
 		]);
 	} catch (error) {
@@ -630,7 +630,7 @@ app.post("/auth/delete-account", verifyAuth, securityCheck, deleteAccountLimiter
 
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
 		sendEventMessage([
-			"*#ACCOUNT_DELETED*",
+			"**\\#ACCOUNT\\_DELETED**",
 			eventFmt`user: ${{ type: "user", id: userIndexData.id, username: userIndexData.username }}`
 		]);
 	} catch (error) {

@@ -140,7 +140,7 @@ app.post("/studios", verifyAuth, securityCheck, studioCreationLimiter, studioCre
 		}
 	});
 	sendEventMessage([
-		"*#STUDIO_CREATED*",
+		"**\\#STUDIO\\_CREATED**",
 		eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`,
 		eventFmt`owner: ${{ type: "user", id: studio.ownerId, username: studio.ownerUsername }}`
 	]);
@@ -162,7 +162,7 @@ app.delete("/studios/:id", verifyAuth, securityCheck, validateId, async (req, re
 
 	res.json({ ok: true });
 	sendEventMessage([
-		"*#STUDIO_DELETED*",
+		"**\\#STUDIO\\_DELETED**",
 		eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`,
 		eventFmt`owner: ${{ type: "user", id: studio.ownerId, username: studio.ownerUsername }}`
 	]);
@@ -244,7 +244,7 @@ app.patch("/studios/:id", verifyAuth, securityCheck, validateId, async (req, res
 	});
 	if (name !== undefined || description !== undefined) {
 		sendEventMessage([
-			"*#STUDIO_EDITED*",
+			"**\\#STUDIO\\_EDITED**",
 			eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`,
 			eventFmt`owner: ${{ type: "user", id: studio.ownerId, username: studio.ownerUsername }}`
 		]);
@@ -354,10 +354,10 @@ app.post(
 		await storage.updateIndex(index);
 		res.json({ ok: true, thumbnailId: studio.id });
 		sendEventMessage([
-			"*#STUDIO_THUMBNAIL_UPDATED*",
+			"**\\#STUDIO\\_THUMBNAIL\\_UPDATED**",
 			eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`,
 			eventFmt`owner: ${{ type: "user", id: studio.ownerId, username: studio.ownerUsername }}`,
-			`thumbnail: *${studio.id}*`
+			`thumbnail: **${studio.id}**`
 		]);
 	}
 );

@@ -121,7 +121,7 @@ app.post(
 		const projects = formatFeaturedProjects(index);
 		res.json({ ok: true, projects });
 		sendEventMessage([
-			"*#FEATURED_PROJECT*",
+			"**\\#FEATURED\\_PROJECT**",
 			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 			eventFmt`project: ${{ type: "project", id: projectData.id, name: projectData.name }}`,
 			eventFmt`author: ${{ type: "user", id: index.users[authorUsername].id, username: index.users[authorUsername].username }}`
@@ -165,7 +165,7 @@ app.delete(
 		const projects = formatFeaturedProjects(index);
 		res.json({ ok: true, projects });
 		sendEventMessage([
-			"*#UNFEATURED_PROJECT*",
+			"**\\#UNFEATURED\\_PROJECT**",
 			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 			eventFmt`project: ${{ type: "project", id: featuredProject.id, name: featuredProject.name }}`,
 			eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
@@ -206,7 +206,7 @@ app.post("/featured/studios/:id", verifyAuth, securityCheck, validateId, async (
 	await storage.updateIndex(index);
 	res.json({ ok: true, studios: formatFeaturedStudios(index) });
 	sendEventMessage([
-		"*#FEATURED_STUDIO*",
+		"**\\#FEATURED\\_STUDIO**",
 		eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 		eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`
 	]);
@@ -233,7 +233,7 @@ app.delete("/featured/studios/:id", verifyAuth, securityCheck, validateId, async
 	await storage.updateIndex(index);
 	res.json({ ok: true, studios: formatFeaturedStudios(index) });
 	sendEventMessage([
-		"*#UNFEATURED_STUDIO*",
+		"**\\#UNFEATURED\\_STUDIO**",
 		eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
 		eventFmt`studio: ${{ type: "studio", id: studioId, name: index.studios?.[String(studioId)]?.name || "Untitled Studio" }}`
 	]);

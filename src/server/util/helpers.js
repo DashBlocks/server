@@ -156,9 +156,22 @@ const escapeMarkdown = (unsafe) =>
 		.replaceAll("\\", "\\\\")
 		.replaceAll("_", "\\_")
 		.replaceAll("*", "\\*")
-		.replaceAll("`", "\\`")
 		.replaceAll("[", "\\[")
-		.replaceAll("]", "\\]");
+		.replaceAll("]", "\\]")
+		.replaceAll("(", "\\(")
+		.replaceAll(")", "\\)")
+		.replaceAll("~", "\\~")
+		.replaceAll("`", "\\`")
+		.replaceAll(">", "\\>")
+		.replaceAll("#", "\\#")
+		.replaceAll("+", "\\+")
+		.replaceAll("-", "\\-")
+		.replaceAll("=", "\\=")
+		.replaceAll("|", "\\|")
+		.replaceAll("{", "\\{")
+		.replaceAll("}", "\\}")
+		.replaceAll(".", "\\.")
+		.replaceAll("!", "\\!");
 
 const sendEventMessage = async (message) => {
 	try {
@@ -170,7 +183,7 @@ const sendEventMessage = async (message) => {
 			body: JSON.stringify({
 				chat_id: TG_EVENTS_GROUP_ID,
 				text: Array.isArray(message) ? message.join("\n") : message,
-				parse_mode: "Markdown",
+				parse_mode: "MarkdownV2",
 				link_preview_options: { is_disabled: true }
 			})
 		});
@@ -194,13 +207,13 @@ const eventFmt = (strings, ...exps) => {
 		if (i > 0) {
 			switch (exps[i - 1]?.type) {
 			case "user":
-				result += `[${escapeMarkdown(exps[i - 1].username)}](https://dashblocks.org/user#${exps[i - 1].id}) (id ${exps[i - 1].id})`;
+				result += `**[${escapeMarkdown(exps[i - 1].username)}](https://dashblocks.org/user#${exps[i - 1].id})** (id ${exps[i - 1].id})`;
 				break;
 			case "project":
-				result += `[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/#${exps[i - 1].id}) (id ${exps[i - 1].id})`;
+				result += `**[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/#${exps[i - 1].id})** (id ${exps[i - 1].id})`;
 				break;
 			case "studio":
-				result += `[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/studio#${exps[i - 1].id}) (id ${exps[i - 1].id})`;
+				result += `**[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/studio#${exps[i - 1].id})** (id ${exps[i - 1].id})`;
 				break;
 			default:
 				result += escapeMarkdown(exps[i - 1]);
