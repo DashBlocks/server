@@ -111,7 +111,7 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 	} else if (action === "unban-ip") {
 		index.bannedIps = index.bannedIps.filter((ip) => ip !== target.ip);
 	} else if (action === "promote" && role) {
-		if (!ROLES.includes(role) || role === "dashteam")
+		if (!ROLES.includes(role))
 			return res.status(400).json({ ok: false, error: "Invalid role (allowed: dasher, dasher+, dash-supporter)" });
 		if (target.role === "dashteam")
 			return res.status(400).json({ ok: false, error: "You can't demote Dash Team" });
