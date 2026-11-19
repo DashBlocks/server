@@ -5,8 +5,7 @@ import {
 	generateUserObject,
 	securityCheck,
 	verifyAuth,
-	sendEventMessage,
-	eventFmt
+	sendEventMessage
 } from "./util/helpers.js";
 import * as storage from "./storage.js";
 
@@ -120,12 +119,18 @@ app.post(
 
 		const projects = formatFeaturedProjects(index);
 		res.json({ ok: true, projects });
-		sendEventMessage([
-			"**\\#FEATURED\\_PROJECT**",
-			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-			eventFmt`project: ${{ type: "project", id: projectData.id, name: projectData.name }}`,
-			eventFmt`author: ${{ type: "user", id: index.users[authorUsername].id, username: index.users[authorUsername].username }}`
-		]);
+		sendEventMessage({
+			tags: ["FEATURED_PROJECT"],
+			infoList: [
+				["admin", { type: "user", id: req.user.userId, username: req.user.username }],
+				["project", { type: "project", id: projectData.id, name: projectData.name }],
+				["author", {
+					type: "user",
+					id: index.users[authorUsername].id,
+					username: index.users[authorUsername].username
+				}]
+			]
+		});
 	}
 );
 
@@ -164,12 +169,14 @@ app.delete(
 
 		const projects = formatFeaturedProjects(index);
 		res.json({ ok: true, projects });
-		sendEventMessage([
-			"**\\#UNFEATURED\\_PROJECT**",
-			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-			eventFmt`project: ${{ type: "project", id: featuredProject.id, name: featuredProject.name }}`,
-			eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
-		]);
+		sendEventMessage({
+			tags: ["UNFEATURED_PROJECT"],
+			infoList: [
+				["admin", { type: "user", id: req.user.userId, username: req.user.username }],
+				["project", { type: "project", id: featuredProject.id, name: featuredProject.name }],
+				["author", { type: "user", id: authorProfile.id, username: authorProfile.username }]
+			]
+		});
 	}
 );
 
@@ -205,11 +212,13 @@ app.post("/featured/studios/:id", verifyAuth, securityCheck, validateId, async (
 	index.featuredStudios.unshift({ id: studio.id, featuredAt: new Date().toISOString() });
 	await storage.updateIndex(index);
 	res.json({ ok: true, studios: formatFeaturedStudios(index) });
-	sendEventMessage([
-		"**\\#FEATURED\\_STUDIO**",
-		eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-		eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`
-	]);
+	sendEventMessage({
+		tags: ["FEATURED_STUDIO"],
+		infoList: [
+			["admin", { type: "user", id: req.user.userId, username: req.user.username }],
+			["studio", { type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }]
+		]
+	});
 });
 
 app.delete("/featured/studios/:id", verifyAuth, securityCheck, validateId, async (req, res) => {
@@ -232,11 +241,17 @@ app.delete("/featured/studios/:id", verifyAuth, securityCheck, validateId, async
 	);
 	await storage.updateIndex(index);
 	res.json({ ok: true, studios: formatFeaturedStudios(index) });
-	sendEventMessage([
-		"**\\#UNFEATURED\\_STUDIO**",
-		eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-		eventFmt`studio: ${{ type: "studio", id: studioId, name: index.studios?.[String(studioId)]?.name || "Untitled Studio" }}`
-	]);
+	sendEventMessage({
+		tags: ["UNFEATURED_STUDIO"],
+		infoList: [
+			["admin", { type: "user", id: req.user.userId, username: req.user.username }],
+			["studio", {
+				type: "studio",
+				id: studioId,
+				name: index.studios?.[String(studioId)]?.name || "Untitled Studio"
+			}]
+		]
+	});
 });
 
 app.get("/featured/studios", securityCheck, (req, res) => {

@@ -14,8 +14,7 @@ import {
 	studioProjectAdditionLimiter,
 	studioProjectAdditionTimeout,
 	thumbnailUploadTimeout,
-	sendEventMessage,
-	eventFmt
+	sendEventMessage
 } from "./util/helpers.js";
 import { formatStudioThumbnailImage } from "./util/image-processing.js";
 import * as storage from "./storage.js";
@@ -139,11 +138,13 @@ app.post("/studios", verifyAuth, securityCheck, studioCreationLimiter, studioCre
 			updatedAt: studio.updatedAt || null
 		}
 	});
-	sendEventMessage([
-		"**\\#STUDIO\\_CREATED**",
-		eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`,
-		eventFmt`owner: ${{ type: "user", id: studio.ownerId, username: studio.ownerUsername }}`
-	]);
+	sendEventMessage({
+		tags: ["STUDIO_CREATED"],
+		infoList: [
+			["studio", { type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }],
+			["owner", { type: "user", id: studio.ownerId, username: studio.ownerUsername }]
+		]
+	});
 });
 
 app.delete("/studios/:id", verifyAuth, securityCheck, validateId, async (req, res) => {
@@ -161,11 +162,13 @@ app.delete("/studios/:id", verifyAuth, securityCheck, validateId, async (req, re
 	await storage.updateIndex(index);
 
 	res.json({ ok: true });
-	sendEventMessage([
-		"**\\#STUDIO\\_DELETED**",
-		eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`,
-		eventFmt`owner: ${{ type: "user", id: studio.ownerId, username: studio.ownerUsername }}`
-	]);
+	sendEventMessage({
+		tags: ["STUDIO_DELETED"],
+		infoList: [
+			["studio", { type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }],
+			["owner", { type: "user", id: studio.ownerId, username: studio.ownerUsername }]
+		]
+	});
 });
 
 app.get("/studios/:id", securityCheck, validateId, (req, res) => {
@@ -243,11 +246,13 @@ app.patch("/studios/:id", verifyAuth, securityCheck, validateId, async (req, res
 		}
 	});
 	if (name !== undefined || description !== undefined) {
-		sendEventMessage([
-			"**\\#STUDIO\\_EDITED**",
-			eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`,
-			eventFmt`owner: ${{ type: "user", id: studio.ownerId, username: studio.ownerUsername }}`
-		]);
+		sendEventMessage({
+			tags: ["STUDIO_EDITED"],
+			infoList: [
+				["studio", { type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }],
+				["owner", { type: "user", id: studio.ownerId, username: studio.ownerUsername }]
+			]
+		});
 	}
 });
 
@@ -353,12 +358,13 @@ app.post(
 		user.lastActive = studio.updatedAt;
 		await storage.updateIndex(index);
 		res.json({ ok: true, thumbnailId: studio.id });
-		sendEventMessage([
-			"**\\#STUDIO\\_THUMBNAIL\\_UPDATED**",
-			eventFmt`studio: ${{ type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }}`,
-			eventFmt`owner: ${{ type: "user", id: studio.ownerId, username: studio.ownerUsername }}`,
-			`thumbnail: **${studio.id}**`
-		]);
+		sendEventMessage({
+			tags: ["STUDIO_THUMBNAIL_UPDATED"],
+			infoList: [
+				["studio", { type: "studio", id: studio.id, name: studio.name || "Untitled Studio" }],
+				["owner", { type: "user", id: studio.ownerId, username: studio.ownerUsername }]
+			]
+		});
 	}
 );
 

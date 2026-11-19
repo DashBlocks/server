@@ -151,89 +151,85 @@ const getUserIndexData = (index, target) => {
 	return index.users[normalizedTarget.toLowerCase()];
 };
 
+const escapeHTML = (unsafe) =>
+	String(unsafe).replace(/[&<>"'`]/g, (match) => {
+		const map = {
+			"&": "&amp;",
+			"<": "&lt;",
+			">": "&gt;",
+			"\"": "&quot;",
+			"'": "&#x27;",
+			"`": "&#x60;"
+		};
+		return map[match];
+	});
 const escapeMarkdown = (unsafe) =>
-	String(unsafe ?? "").replace(/([\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E])/g, "\\$1");
+	String(unsafe).replace(/([\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E])/g, "\\$1");
 
-const sendEventMessage = async (message) => {
+const sendEventMessage = async (msgObj) => {
 	try {
-		const text = Array.isArray(message) ? message.join("\n") : message;
-		const response = await fetch(`${TG_BOT_API}/bot${TG_BOT_TOKEN}/sendMessage`, {
+		let telegramMsgText = `<b>${msgObj.tags.map((tag) => `#${tag}`).join(" ")}</b>`;
+		let discordMsgText = `**${msgObj.tags.map((tag) => `\\#${tag.replaceAll("_", "\\_")}`).join(" ")}**`;
+
+		for (let info of msgObj.infoList) {
+			telegramMsgText += `\n${info[0]}:`;
+			discordMsgText += `\n${info[0]}:`;
+
+			switch (info[1].type) {
+			case "user":
+				telegramMsgText += ` <b><a href="https://dashblocks.org/user#${info[1].id}">${info[1].username}</a></b> (id ${info[1].id})`;
+				discordMsgText += ` **[${escapeMarkdown(info[1].username)}](https://dashblocks.org/user#${info[1].id})** (id ${info[1].id})`;
+				break;
+			case "project":
+				telegramMsgText += ` <b><a href="https://dashblocks.org/#${info[1].id}">${escapeHTML(info[1].name)}</a></b> (id ${info[1].id})`;
+				discordMsgText += ` **[${escapeMarkdown(info[1].name)}](https://dashblocks.org/#${info[1].id})** (id ${info[1].id})`;
+				break;
+			case "studio":
+				telegramMsgText += ` <b><a href="https://dashblocks.org/studio#${info[1].id}">${escapeHTML(info[1].name)}</a></b> (id ${info[1].id})`;
+				discordMsgText += ` **[${escapeMarkdown(info[1].name)}](https://dashblocks.org/studio#${info[1].id})** (id ${info[1].id})`;
+				break;
+			case "comment":
+				telegramMsgText += ` <blockquote expandable>${escapeHTML(info[1].content)}</blockquote>`;
+				discordMsgText += `\n> ${escapeMarkdown(info[1].content).replaceAll("\n", "\n> ")}`;
+				break
+			case "date":
+				telegramMsgText += ` <b><tg-time unix="${Math.floor(info[1].date.getTime() / 1000)}" format="dT">${info[1].date.toISOString()}</tg-time></b>`;
+				discordMsgText += ` **<t:${Math.floor(info[1].date.getTime() / 1000)}:f>**`;
+				break
+			case "link":
+				telegramMsgText += ` <b>${escapeHTML(info[1].label)}</b> (<a href="${encodeURI(info[1].link)}">link...</a>)`;
+				discordMsgText += ` **${escapeMarkdown(info[1].label)}** ([link...](${encodeURI(info[1].link).replaceAll("(", "%28").replaceAll(")", "%29")}))`;
+				break;
+			case "text":
+				telegramMsgText += ` <b>${escapeHTML(info[1].text)}</b>`;
+				discordMsgText += ` **${escapeMarkdown(info[1].text)}**`;
+				break;
+			}
+		}
+
+		await fetch(`${TG_BOT_API}/bot${TG_BOT_TOKEN}/sendMessage`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json"
 			},
 			body: JSON.stringify({
 				chat_id: TG_EVENTS_GROUP_ID,
-				text: text.replaceAll("**", "*"),
-				parse_mode: "MarkdownV2",
+				text: telegramMsgText,
+				parse_mode: "HTML",
 				link_preview_options: { is_disabled: true }
 			})
 		});
-		if (!response.ok) {
-			await fetch(`${TG_BOT_API}/bot${TG_BOT_TOKEN}/sendMessage`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify({
-					chat_id: TG_EVENTS_GROUP_ID,
-					text: text.replaceAll("**", "*") + `\nError: ${response.status} ${response.statusText}`,
-					link_preview_options: { is_disabled: true }
-				})
-			});
-		}
-		const discordResponse = await fetch(DISCORD_WEBHOOK_URL, {
+		await fetch(DISCORD_WEBHOOK_URL, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json"
 			},
 			body: JSON.stringify({
-				content: text
-					.replaceAll("\\#", "#")
-					.replaceAll("\\[", "[")
-					.replaceAll("\\]", "]")
-					.replaceAll("\\:", ":")
-					.replaceAll("\\(", "(")
-					.replaceAll("\\)", ")"),
+				content: discordMsgText,
 				flags: 4 // Disables links preview
 			})
 		});
-		if (!discordResponse.ok) {
-			await fetch(DISCORD_WEBHOOK_URL, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json"
-				},
-				body: JSON.stringify({
-					content: text + `\nError: ${discordResponse.status} ${discordResponse.statusText}`,
-					flags: 4 // Disables links preview
-				})
-			});
-		}
 	} catch (_) {/* ignore */}
-};
-
-const eventFmt = (strings, ...exps) => {
-	let result = "";
-	for (let i = 0; i < strings.length; i++) {
-		result += escapeMarkdown(strings[i]);
-		if (i > 0) {
-			switch (exps[i - 1]?.type) {
-			case "user":
-				result += `**[${escapeMarkdown(exps[i - 1].username)}](https://dashblocks.org/user#${exps[i - 1].id})** \\(id ${exps[i - 1].id}\\)`;
-				break;
-			case "project":
-				result += `**[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/#${exps[i - 1].id})** \\(id ${exps[i - 1].id}\\)`;
-				break;
-			case "studio":
-				result += `**[${escapeMarkdown(exps[i - 1].name)}](https://dashblocks.org/studio#${exps[i - 1].id})** \\(id ${exps[i - 1].id}\\)`;
-				break;
-			default:
-				result += escapeMarkdown(exps[i - 1]);
-			}
-		}
-	}
-	return result;
 };
 
 const verifyAuth = (req, res, next) => {
@@ -415,7 +411,6 @@ export {
 	getUserIndexData,
 	escapeMarkdown,
 	sendEventMessage,
-	eventFmt,
 	verifyAuth,
 	securityCheck,
 	registerLimiter,

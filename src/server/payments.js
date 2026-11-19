@@ -2,11 +2,9 @@ import app from "../app.js";
 import * as vars from "./vars.js";
 import {
 	getUserIndexData,
-	escapeMarkdown,
 	securityCheck,
 	verifyAuth,
-	sendEventMessage,
-	eventFmt
+	sendEventMessage
 } from "./util/helpers.js";
 import * as storage from "./storage.js";
 
@@ -139,19 +137,23 @@ app.post("/payments/lava", async (req, res) => {
 		await storage.updateIndex(index);
 
 		res.status(200).json({ ok: true, message: "yay" });
-		sendEventMessage([
-			"**\\#SUBSCRIPTION**",
-			"status\\: **purchased**",
-			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`days\\: **${daysToGive}**`,
-			`ends\\: **${escapeMarkdown(endDate.toISOString())}**`
-		]);
+		sendEventMessage({
+			tags: ["SUBSCRIPTION"],
+			infoList: [
+				["status", { type: "text", text: "purchased" }],
+				["user", { type: "user", id: user.id, username: user.username }],
+				["days", { type: "text", text: daysToGive }],
+				["ends", { type: "date", date: endDate }]
+			]
+		});
 	} catch (error) {
-		sendEventMessage([
-			"**\\#SUBSCRIPTION**",
-			"status\\: **failed**",
-			`error\\: ${escapeMarkdown(error?.message ? error.message : error)}`
-		]);
+		sendEventMessage({
+			tags: ["SUBSCRIPTION"],
+			infoList: [
+				["status", { type: "text", text: "failed" }],
+				["error", { type: "text", text: error?.message ? error.message : error }],
+			]
+		});
 		res.status(500).json({ ok: false, error: "Something went wrong :(" });
 	}
 });

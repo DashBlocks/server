@@ -12,9 +12,7 @@ import {
 	verifyAuth,
 	uploadLimiter,
 	avatarUploadTimeout,
-	escapeMarkdown,
-	sendEventMessage,
-	eventFmt
+	sendEventMessage
 } from "./util/helpers.js";
 import { formatAvatarImage } from "./util/image-processing.js";
 import * as storage from "./storage.js";
@@ -356,11 +354,12 @@ app.post(
 			await storage.updateIndex(index);
 
 			res.json({ ok: true, avatarId });
-			sendEventMessage([
-				"**\\#USER\\_AVATAR\\_UPDATED**",
-				eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-				`avatar\\: **${avatarId}**`
-			]);
+			sendEventMessage({
+				tags: ["USER_AVATAR_UPDATED"],
+				infoList: [
+					["user", { type: "user", id: user.id, username: user.username }]
+				]
+			});
 		} catch (error) {
 			if (error?.message === "Invalid image file" || error?.message === "Format not supported") {
 				return res.status(400).json({ ok: false, error: error.message });
@@ -410,16 +409,20 @@ app.post(
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
 		if (isDashTeam && req.user.userId !== user.id) {
-			sendEventMessage([
-				"**\\#ADMIN \\#USER\\_DESCRIPTION\\_UPDATED**",
-				eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-				eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`
-			]);
+			sendEventMessage({
+				tags: ["ADMIN", "USER_DESCRIPTION_UPDATED"],
+				infoList: [
+					["admin", { type: "user", id: req.user.userId, username: req.user.username }],
+					["user", { type: "user", id: user.id, username: user.username }]
+				]
+			});
 		} else {
-			sendEventMessage([
-				"**\\#USER\\_DESCRIPTION\\_UPDATED**",
-				eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`
-			]);
+			sendEventMessage({
+				tags: ["USER_DESCRIPTION_UPDATED"],
+				infoList: [
+					["user", { type: "user", id: user.id, username: user.username }]
+				]
+			});
 		}
 	}
 );
@@ -585,11 +588,13 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
-		sendEventMessage([
-			"**\\#USER\\_LINK\\_ADDED**",
-			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`link\\: **${escapeMarkdown(label)}** \\([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29")})\\)`
-		]);
+		sendEventMessage({
+			tags: ["USER_LINK_ADDED"],
+			infoList: [
+				["user", { type: "user", id: user.id, username: user.username }],
+				["link", { type: "link", label, link }]
+			]
+		});
 	}
 );
 
@@ -620,12 +625,14 @@ app.post(
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
-		sendEventMessage([
-			"**\\#USER\\_LINK\\_UPDATED**",
-			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`idx\\: ${linkIndex + 1}`,
-			`link\\: **${escapeMarkdown(label)}** \\([link...](${encodeURI(link).replaceAll("(", "%28").replaceAll(")", "%29")})\\)`
-		]);
+		sendEventMessage({
+			tags: ["USER_LINK_UPDATED"],
+			infoList: [
+				["user", { type: "user", id: user.id, username: user.username }],
+				["idx", { type: "text", text: linkIndex + 1 }],
+				["link", { type: "link", label, link }]
+			]
+		});
 	}
 );
 
@@ -646,16 +653,21 @@ app.post(
 		if (!user.links || !user.links[linkIndex])
 			return res.status(400).json({ ok: false, error: "Link not found" });
 
+		const { label, link } = user.links[linkIndex];
+
 		user.links.splice(linkIndex, 1);
 		user.lastActive = new Date().toISOString();
 
 		await storage.updateIndex(index);
 
 		res.json({ ok: true, user: generateUserObject(user, req.usersIndex) });
-		sendEventMessage([
-			"**\\#USER\\_LINK\\_REMOVED**",
-			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`,
-			`idx\\: ${linkIndex + 1}`
-		]);
+		sendEventMessage({
+			tags: ["USER_LINK_REMOVED"],
+			infoList: [
+				["user", { type: "user", id: user.id, username: user.username }],
+				["idx", { type: "text", text: linkIndex + 1 }],
+				["link", { type: "link", label, link }]
+			]
+		});
 	}
 );

@@ -10,9 +10,7 @@ import {
 	adminAccountUpdateLimiter,
 	securityCheck,
 	verifyAuth,
-	escapeMarkdown,
-	sendEventMessage,
-	eventFmt
+	sendEventMessage
 } from "./util/helpers.js";
 import * as storage from "./storage.js";
 
@@ -89,12 +87,21 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 			await storage.updateUserJson(target.id, storedUser);
 			await storage.updateIndex(index);
 			res.json({ ok: true });
-			sendEventMessage([
-				"**\\#ADMIN \\#ACCOUNT\\_UPDATED**",
-				eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-				eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`,
-				`fields\\: **${escapeMarkdown([updateUsername && "username", updateEmail && "email", updatePassword && "password"].filter(Boolean).join(", "))}**`
-			]);
+			sendEventMessage({
+				tags: ["ADMIN", "ACCOUNT_UPDATED"],
+				infoList: [
+					["admin", { type: "user", id: req.user.userId, username: req.user.username }],
+					["target", { type: "user", id: target.id, username: target.username }],
+					["fields", {
+						type: "text",
+						text: [
+							updateUsername && "username",
+							updateEmail && "email",
+							updatePassword && "password"
+						].filter(Boolean).join(", ")
+					}]
+				]
+			});
 		} catch (_) {
 			res.status(500).json({ ok: false, error: "Failed to update user account" });
 		}
@@ -143,20 +150,22 @@ app.post("/admin/manage-user", adminAccountUpdateLimiter, verifyAuth, securityCh
 		await storage.updateIndex(index);
 		res.json({ ok: true });
 
-		const eventMessage = [
-			"**\\#ADMIN \\#ADMIN\\_ACTION**",
-			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-			`action\\: **${escapeMarkdown(action)}**`,
-			eventFmt`target: ${{ type: "user", id: target.id, username: target.username }}`
+		const eventInfoList = [
+			["admin", { type: "user", id: req.user.userId, username: req.user.username }],
+			["action", { type: "text", text: action }]
+			["target", { type: "user", id: target.id, username: target.username }]
 		];
 		if (action === "promote") {
-			eventMessage.push(`role\\: **${escapeMarkdown(role)}**`);
+			eventInfoList.push(["role", { type: "text", text: role }]);
 			if (role === "dash-supporter" && endDate) {
-				eventMessage.push(`ends\\: **${escapeMarkdown(new Date(endDate).toISOString())}**`);
+				eventInfoList.push(["ends", { type: "date", date: new Date(endDate) }]);
 			}
 		}
 
-		sendEventMessage(eventMessage);
+		sendEventMessage({
+			tags: ["ADMIN", "ADMIN_ACTION"],
+			infoList: eventInfoList
+		});
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to update user index" });
 	}
@@ -205,11 +214,13 @@ app.post("/admin/delete-account", verifyAuth, securityCheck, async (req, res) =>
 		index.users[req.user.username.toLowerCase()].lastActive = new Date().toISOString();
 		await storage.updateIndex(index);
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
-		sendEventMessage([
-			"**\\#ADMIN \\#ACCOUNT\\_DELETED**",
-			eventFmt`admin: ${{ type: "user", id: req.user.userId, username: req.user.username }}`,
-			eventFmt`target: ${{ type: "user", id: userIndexData.id, username }}`
-		]);
+		sendEventMessage({
+			tags: ["ADMIN", "ACCOUNT_DELETED"],
+			infoList: [
+				["admin", { type: "user", id: req.user.userId, username: req.user.username }],
+				["target", { type: "user", id: userIndexData.id, username }]
+			]
+		});
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to delete account" });
 	}

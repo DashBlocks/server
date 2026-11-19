@@ -13,8 +13,7 @@ import {
 	updateLimiter,
 	projectUploadTimeout,
 	thumbnailUploadTimeout,
-	sendEventMessage,
-	eventFmt
+	sendEventMessage
 } from "./util/helpers.js";
 import { formatThumbnailImage } from "./util/image-processing.js";
 import * as storage from "./storage.js";
@@ -293,23 +292,31 @@ app.post(
 			});
 		}
 
-		const eventMessage = [
-			parentProject
-				? "**\\#FORK \\#PROJECT\\_CREATED**"
-				: "**\\#PROJECT\\_CREATED**",
-			eventFmt`project: ${{ type: "project", id: projectId, name: projectName }}`,
-			eventFmt`author: ${{ type: "user", id: user.id, username: user.username }}`
+		const eventInfoList = [
+			["project", { type: "project", id: projectId, name: projectName }],
+			["author", { type: "user", id: user.id, username: user.username }]
 		];
 		if (parentProject) {
-			eventMessage.push(
-				eventFmt`parent project: ${{ type: "project", id: parentProject.id, name: parentProject.name }}`,
-				eventFmt`parent author: ${{ type: "user", id: parentAuthor.id, username: parentAuthor.username }}`
+			eventInfoList.push(
+				["parent project", {
+					type: "project",
+					id: parentProject.id,
+					name: parentProject.name
+				}],
+				["parent author", {
+					type: "user",
+					id: parentAuthor.id,
+					username: parentAuthor.username
+				}]
 			);
 		}
 
 		res.json({ ok: true, projectId });
 
-		sendEventMessage(eventMessage);
+		sendEventMessage({
+			tags: parentProject ? ["FORK", "PROJECT_CREATED"] : ["PROJECT_CREATED"],
+			infoList: eventInfoList
+		});
 	}
 );
 
@@ -542,18 +549,22 @@ app.patch(
 			}
 		});
 		if (isDashTeam && userProfile.id !== authorProfile.id) {
-			sendEventMessage([
-				"**\\#ADMIN \\#PROJECT\\_METADATA\\_EDITED**",
-				eventFmt`admin: ${{ type: "user", id: userProfile.id, username: userProfile.username }}`,
-				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
-				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
-			]);
+			sendEventMessage({
+				tags: ["#ADMIN", "PROJECT_METADATA_EDITED"],
+				infoList: [
+					["admin", { type: "user", id: userProfile.id, username: userProfile.username }],
+					["project", { type: "project", id: projectId, name: project.name }],
+					["author", { type: "user", id: authorProfile.id, username: authorProfile.username }]
+				]
+			});
 		} else {
-			sendEventMessage([
-				"**\\#PROJECT\\_METADATA\\_EDITED**",
-				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
-				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
-			]);
+			sendEventMessage({
+				tags: ["PROJECT_METADATA_EDITED"],
+				infoList: [
+					["project", { type: "project", id: projectId, name: project.name }],
+					["author", { type: "user", id: authorProfile.id, username: authorProfile.username }]
+				]
+			});
 		}
 	}
 );
@@ -630,18 +641,22 @@ app.put(
 
 		res.json({ ok: true });
 		if (isDashTeam && userProfile.id !== authorProfile.id) {
-			sendEventMessage([
-				"**\\#ADMIN \\#PROJECT\\_EDITED**",
-				eventFmt`admin: ${{ type: "user", id: userProfile.id, username: userProfile.username }}`,
-				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
-				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
-			]);
+			sendEventMessage({
+				tags: ["#ADMIN", "PROJECT_EDITED"],
+				infoList: [
+					["admin", { type: "user", id: userProfile.id, username: userProfile.username }],
+					["project", { type: "project", id: projectId, name: project.name }],
+					["author", { type: "user", id: authorProfile.id, username: authorProfile.username }]
+				]
+			});
 		} else {
-			sendEventMessage([
-				"**\\#PROJECT\\_EDITED**",
-				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
-				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
-			]);
+			sendEventMessage({
+				tags: ["PROJECT_EDITED"],
+				infoList: [
+					["project", { type: "project", id: projectId, name: project.name }],
+					["author", { type: "user", id: authorProfile.id, username: authorProfile.username }]
+				]
+			});
 		}
 	}
 );
@@ -729,18 +744,22 @@ app.delete(
 			})
 		});
 		if (isDashTeam && userProfile.id !== authorProfile.id) {
-			sendEventMessage([
-				"**\\#ADMIN \\#PROJECT\\_DELETED**",
-				eventFmt`admin: ${{ type: "user", id: userProfile.id, username: userProfile.username }}`,
-				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
-				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
-			]);
+			sendEventMessage({
+				tags: ["#ADMIN", "PROJECT_DELETED"],
+				infoList: [
+					["admin", { type: "user", id: userProfile.id, username: userProfile.username }],
+					["project", { type: "project", id: projectId, name: project.name }],
+					["author", { type: "user", id: authorProfile.id, username: authorProfile.username }]
+				]
+			});
 		} else {
-			sendEventMessage([
-				"**\\#PROJECT\\_DELETED**",
-				eventFmt`project: ${{ type: "project", id: projectId, name: project.name }}`,
-				eventFmt`author: ${{ type: "user", id: authorProfile.id, username: authorProfile.username }}`
-			]);
+			sendEventMessage({
+				tags: ["PROJECT_DELETED"],
+				infoList: [
+					["project", { type: "project", id: projectId, name: project.name }],
+					["author", { type: "user", id: authorProfile.id, username: authorProfile.username }]
+				]
+			});
 		}
 	}
 );

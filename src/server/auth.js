@@ -18,8 +18,7 @@ import {
 	passwordResetLimiter,
 	changeEmailLimiter,
 	deleteAccountLimiter,
-	sendEventMessage,
-	eventFmt
+	sendEventMessage
 } from "./util/helpers.js";
 import * as storage from "./storage.js";
 
@@ -272,10 +271,12 @@ app.post("/auth/register", registerLimiter, securityCheck, async (req, res) => {
 				subscription: newUserMetadata?.subscription || { status: "none", startDate: null, endDate: null }
 			}
 		});
-		sendEventMessage([
-			"**\\#NEW\\_ACCOUNT**",
-			eventFmt`user: ${{ type: "user", id: userId, username }}`
-		]);
+		sendEventMessage({
+			tags: ["NEW_ACCOUNT"],
+			infoList: [
+				["user", { type: "user", id: userId, username }]
+			]
+		});
 	} catch (error) {
 		res.status(500).json({ ok: false, error: error.message });
 	}
@@ -505,10 +506,12 @@ app.post("/auth/reset-password", passwordResetLimiter, securityCheck, async (req
 		clearStoredVerificationCode(email);
 		clearTokenCookies(res);
 		res.json({ ok: true, message: "Password reset. Log in with your new password" });
-		sendEventMessage([
-			"**\\#PASSWORD\\_RESET**",
-			eventFmt`user: ${{ type: "user", id: user.id, username: user.username }}`
-		]);
+		sendEventMessage({
+			tags: ["PASSWORD_RESET"],
+			infoList: [
+				["user", { type: "user", id: user.id, username: user.username }]
+			]
+		});
 	} catch (_) {
 		res.status(500).json({ ok: false, error: "Failed to reset password" });
 	}
@@ -592,10 +595,12 @@ app.post("/auth/change-password", verifyAuth, securityCheck, changePasswordLimit
 		clearTokenCookies(res);
 
 		res.json({ ok: true, message: "Password changed. Log in now" });
-		sendEventMessage([
-			"**\\#PASSWORD\\_CHANGED**",
-			eventFmt`user: ${{ type: "user", id: req.user.userId, username: req.user.username }}`
-		]);
+		sendEventMessage({
+			tags: ["PASSWORD_CHANGED"],
+			infoList: [
+				["user", { type: "user", id: req.user.userId, username: req.user.username }]
+			]
+		});
 	} catch (error) {
 		res.status(500).json({ ok: false, error: error.message });
 	}
@@ -629,10 +634,12 @@ app.post("/auth/delete-account", verifyAuth, securityCheck, deleteAccountLimiter
 		clearTokenCookies(res);
 
 		res.status(200).json({ ok: true, message: "Goodbye :(" });
-		sendEventMessage([
-			"**\\#ACCOUNT\\_DELETED**",
-			eventFmt`user: ${{ type: "user", id: userIndexData.id, username: userIndexData.username }}`
-		]);
+		sendEventMessage({
+			tags: ["ACCOUNT_DELETED"],
+			infoList: [
+				["user", { type: "user", id: userIndexData.id, username: userIndexData.username }]
+			]
+		});
 	} catch (error) {
 		res.status(500).json({ ok: false, error: error.message });
 	}

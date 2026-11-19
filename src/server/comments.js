@@ -4,9 +4,7 @@ import {
 	securityCheck,
 	verifyAuth,
 	getUserIndexData,
-	escapeMarkdown,
-	sendEventMessage,
-	eventFmt
+	sendEventMessage
 } from "./util/helpers.js";
 import * as storage from "./storage.js";
 
@@ -34,7 +32,7 @@ app.get("/comments/settings", securityCheck, (req, res) => {
 
 app.patch("/comments/settings", verifyAuth, securityCheck, async (req, res) => {
 	if (req.userRole !== "dashteam")
-		return res.status(403).json({ ok: false, error: "Only Dash Team can do this," });
+		return res.status(403).json({ ok: false, error: "Only Dash Team can do this!" });
 	if (typeof req.body?.enabled !== "boolean")
 		return res.status(400).json({ ok: false, error: "enabled must be a boolean" });
 
@@ -156,14 +154,18 @@ app.post(route, verifyAuth, securityCheck, validateTargetId, async (req, res) =>
 		});
 		const { page, ...body } = result;
 		const type = { projects: "project", users: "user", studios: "studio" }[scope];
-		const subject = { type, id: page.id, name: page.name, username: page.name };
-		const author = { type: "user", id: body.comment.author.id, username: body.comment.author.username };
-		sendEventMessage([
-			`**\\#${type.toUpperCase()}\\_COMMENTED**`,
-			`${type}\\: ${eventFmt`${subject}`}`,
-			eventFmt`comment author: ${author}`,
-			`content\\: ${escapeMarkdown(body.comment.content)}`
-		]);
+		sendEventMessage({
+			tags: [`${type.toUpperCase()}_COMMENTED`],
+			infoList: [
+				[type, { type, id: page.id, name: page.name, username: page.name }],
+				["comment author", {
+					type: "user",
+					id: body.comment.author.id,
+					username: body.comment.author.username
+				}],
+				["content", { type: "comment", content: body.comment.content }]
+			]
+		});
 		res.status(201).json(body);
 	} catch (error) {
 		if (error.retryAfter) res.setHeader("Retry-After", error.retryAfter);
