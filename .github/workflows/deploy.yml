@@ -41,4 +41,3 @@ jobs:
             'bash "$HOME/DashBlocksServer/build_image.sh" && systemctl --user restart dash_server.service'
 
           echo "Deployment completed successfully."
-          REMOTE
