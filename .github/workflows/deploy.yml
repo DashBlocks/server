@@ -16,32 +16,29 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy over SSH
+      - name: Configure SSH
         env:
-          SERVER_HOST: ${{ secrets.SERVER_HOST }}
-          SERVER_USER: ${{ secrets.SERVER_USER }}
-          SERVER_SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
-          set -eu
-
           install -m 700 -d ~/.ssh
-          printf '%s\n' "$SERVER_SSH_KEY" > ~/.ssh/deploy_key
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          printf '%s\n' "$SERVER_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-          ssh \
+      - name: Deploy
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_PORT: ${{ secrets.SERVER_PORT }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+        run: |
+          ssh -p "$SERVER_PORT" \
             -i ~/.ssh/deploy_key \
             -o IdentitiesOnly=yes \
             -o StrictHostKeyChecking=yes \
-            "dash@$SERVER_HOST" 'bash -se' <<'REMOTE'
-          set -eu
-
-          bash ~/DashBlocksServer/build_image.sh
-
-          systemctl --user daemon-reload
-          systemctl --user restart dash_server.service
-          systemctl --user is-active --quiet dash_server.service
+            "$SERVER_USER@$SERVER_IP" \
+            'bash "$HOME/DashBlocksServer/build_image.sh" && systemctl --user restart dash_server.service'
 
           echo "Deployment completed successfully."
           REMOTE
